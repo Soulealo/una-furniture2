@@ -24,7 +24,11 @@ const DEFAULT_PAYMENT_SETTINGS = {
 };
 
 function json(data, status = 200) {
-    return new Response(JSON.stringify(data), {
+    const body = data && typeof data === 'object' && typeof data.success === 'boolean'
+        ? data
+        : { success: true, data };
+
+    return new Response(JSON.stringify(body), {
         status,
         headers: jsonHeaders
     });
@@ -250,6 +254,49 @@ function toProductResponse(row) {
     };
 }
 
+async function getProductImages(env, productIds) {
+    const uniqueIds = [...new Set(productIds.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0))];
+    if (!uniqueIds.length) return new Map();
+
+    const placeholders = uniqueIds.map(() => '?').join(', ');
+    const { results } = await env.DB.prepare(
+        `SELECT productId, url FROM product_images WHERE productId IN (${placeholders}) ORDER BY productId, position, id`
+    ).bind(...uniqueIds).all();
+    const imagesByProduct = new Map();
+
+    (results || []).forEach((row) => {
+        const key = String(row.productId);
+        if (!imagesByProduct.has(key)) imagesByProduct.set(key, []);
+        imagesByProduct.get(key).push(row.url);
+    });
+
+    return imagesByProduct;
+}
+
+async function attachProductImages(env, rows) {
+    const productRows = Array.isArray(rows) ? rows : [];
+    const imagesByProduct = await getProductImages(env, productRows.map((row) => row.id));
+
+    return productRows.map((row) => {
+        const relationalImages = imagesByProduct.get(String(row.id)) || [];
+        return toProductResponse({
+            ...row,
+            imageUrls: relationalImages.length ? JSON.stringify(relationalImages) : row.imageUrls,
+            imageUrl: relationalImages[0] || row.imageUrl
+        });
+    });
+}
+
+async function syncProductImages(env, productId, images) {
+    await env.DB.prepare('DELETE FROM product_images WHERE productId = ?').bind(productId).run();
+
+    for (const [index, image] of images.entries()) {
+        await env.DB.prepare(
+            'INSERT INTO product_images (productId, url, position, createdAt) VALUES (?, ?, ?, ?)'
+        ).bind(productId, image, index, new Date().toISOString()).run();
+    }
+}
+
 function toUserResponse(row) {
     return {
         id: String(row.id),
@@ -311,6 +358,11 @@ async function loginAdmin(request, env) {
 
     if (!passwordOk) return fail('Invalid admin username or password.', 401);
 
+    if (!settings.passwordHash) {
+        await env.DB.prepare('UPDATE admin_settings SET passwordHash = ?, updatedAt = ? WHERE id = 1')
+            .bind(await hashPassword(password), new Date().toISOString()).run();
+    }
+
     const token = await createToken(env, {
         username: settings.username,
         email: settings.email || '',
@@ -348,7 +400,8 @@ async function updateAdminProfile(request, env) {
     const username = String(body.username || '').trim().toLowerCase();
     const email = String(body.email || '').trim().toLowerCase();
 
-    if (!username || !email) return fail('Username and email are required.', 400);
+    if (!username) return fail('Username is required.', 400);
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail('Valid admin email is required.', 400);
 
     const updatedAt = new Date().toISOString();
     await ensureAdminSettings(env);
@@ -369,7 +422,7 @@ async function changeAdminPassword(request, env) {
     const settings = await ensureAdminSettings(env);
 
     if (!currentPassword || !newPassword) return fail('Current and new password are required.', 400);
-    if (newPassword.length < 6) return fail('New password must be at least 6 characters.', 400);
+    if (newPassword.length < 4) return fail('New password must be at least 4 characters.', 400);
 
     const passwordOk = settings.passwordHash
         ? await comparePassword(currentPassword, settings.passwordHash)
@@ -485,8 +538,9 @@ async function listProducts(env) {
     const { results } = await env.DB.prepare(
         'SELECT id, name, price, description, category, imageUrl, imageUrls, sizes, stock, createdAt FROM products ORDER BY datetime(createdAt) DESC, id DESC'
     ).all();
+    const products = await attachProductImages(env, results || []);
 
-    return json((results || []).map(toProductResponse));
+    return json(products);
 }
 
 async function getProduct(env, id) {
@@ -495,7 +549,8 @@ async function getProduct(env, id) {
     ).bind(id).first();
 
     if (!row) return fail('Product not found.', 404);
-    return json(toProductResponse(row));
+    const [product] = await attachProductImages(env, [row]);
+    return json(product);
 }
 
 async function createProduct(request, env) {
@@ -521,8 +576,10 @@ async function createProduct(request, env) {
     const result = product.id === null
         ? await statement.bind(product.name, Math.round(product.price), product.description, product.category, imageUrl, imageUrls, product.sizes, Math.round(product.stock), createdAt).run()
         : await statement.bind(product.id, product.name, Math.round(product.price), product.description, product.category, imageUrl, imageUrls, product.sizes, Math.round(product.stock), createdAt).run();
+    const productId = product.id || result.meta.last_row_id;
 
-    return getProduct(env, product.id || result.meta.last_row_id);
+    await syncProductImages(env, productId, product.images);
+    return getProduct(env, productId);
 }
 
 async function updateProduct(request, env, id) {
@@ -548,10 +605,13 @@ async function updateProduct(request, env, id) {
     ).run();
 
     if (!result.meta.changes) return fail('Product not found.', 404);
+
+    await syncProductImages(env, id, product.images);
     return getProduct(env, id);
 }
 
 async function deleteProduct(env, id) {
+    await env.DB.prepare('DELETE FROM product_images WHERE productId = ?').bind(id).run();
     const result = await env.DB.prepare('DELETE FROM products WHERE id = ?').bind(id).run();
 
     if (!result.meta.changes) return fail('Product not found.', 404);
@@ -599,6 +659,10 @@ async function updateCategory(request, env, id) {
 
     const old = await env.DB.prepare('SELECT * FROM categories WHERE id = ? OR name = ?').bind(id, id).first();
     if (!old) return fail('Category not found.', 404);
+
+    const duplicate = await env.DB.prepare('SELECT id FROM categories WHERE lower(name) = lower(?) AND id <> ?')
+        .bind(name, old.id).first();
+    if (duplicate) return fail('Category already exists.', 409);
 
     await env.DB.prepare('UPDATE categories SET name = ?, updatedAt = ? WHERE id = ?').bind(name, new Date().toISOString(), old.id).run();
     await env.DB.prepare('UPDATE products SET category = ? WHERE category = ?').bind(name, old.name).run();
@@ -672,8 +736,38 @@ function dateCode(date = new Date()) {
 }
 
 function generateOrderCode() {
-    const suffix = String(Math.floor(1000 + Math.random() * 9000));
+    const suffix = String(Math.floor(100000 + Math.random() * 900000));
     return `UNA-${dateCode()}-${suffix}`;
+}
+
+async function insertOrderWithUniqueCode(env, orderValues) {
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+        const orderCode = generateOrderCode();
+        const existing = await env.DB.prepare('SELECT id FROM orders WHERE orderCode = ?').bind(orderCode).first();
+        if (existing) continue;
+
+        try {
+            const result = await env.DB.prepare(
+                'INSERT INTO orders (orderCode, userId, items, totalAmount, paymentMethod, transactionCode, status, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            ).bind(
+                orderCode,
+                orderValues.userId,
+                orderValues.items,
+                orderValues.totalAmount,
+                orderValues.paymentMethod,
+                orderCode,
+                orderValues.status,
+                orderValues.createdAt,
+                orderValues.updatedAt
+            ).run();
+
+            return { result, orderCode };
+        } catch (error) {
+            if (!String(error?.message || '').toLowerCase().includes('unique')) throw error;
+        }
+    }
+
+    throw new Error('Unable to generate a unique order code.');
 }
 
 async function createOrder(request, env) {
@@ -684,35 +778,61 @@ async function createOrder(request, env) {
     const body = await readJson(request);
     const items = Array.isArray(body.items) ? body.items : [];
     const paymentMethod = String(body.paymentMethod || 'bank_transfer');
+    const allowedPaymentMethods = new Set(['bank_transfer', 'facebook_chat']);
 
     if (!items.length) return fail('Order items are required.', 400);
+    if (!allowedPaymentMethods.has(paymentMethod)) return fail('Invalid payment method.', 400);
 
     const cleanItems = [];
     for (const item of items) {
-        const productId = String(item.productId || item.id || '').trim();
-        const quantity = Math.max(1, Number(item.quantity) || 1);
+        const productId = Number(item.productId || item.id);
+        const quantity = Number(item.quantity);
         if (!productId) return fail('Every order item must include a product ID.', 400);
+        if (!Number.isInteger(productId) || productId <= 0) return fail('Every product ID must be a positive integer.', 400);
+        if (!Number.isInteger(quantity) || quantity <= 0) return fail('Every order quantity must be a positive integer.', 400);
 
-        const product = await env.DB.prepare('SELECT id, name, price, category, imageUrl, imageUrls FROM products WHERE id = ?').bind(productId).first();
+        const product = await env.DB.prepare('SELECT id, name, price, category, imageUrl, imageUrls, stock FROM products WHERE id = ?').bind(productId).first();
+        if (!product) return fail(`Product ${productId} is no longer available.`, 409);
+        if (Number(product.stock) > 0 && quantity > Number(product.stock)) return fail(`Not enough stock for ${product.name}.`, 409);
+
         const productImages = product ? toProductResponse(product).images : [];
         cleanItems.push({
-            productId,
+            productId: String(product.id),
             productCode: String(item.productCode || '').trim(),
-            name: product?.name || String(item.name || '').trim(),
-            price: Number(product?.price || item.price || 0),
+            name: product.name,
+            price: Number(product.price || 0),
             quantity,
             image: productImages[0] || String(item.image || '').trim()
         });
     }
 
     const totalAmount = cleanItems.reduce((sum, item) => sum + (Number(item.price) || 0) * item.quantity, 0);
-    const orderCode = generateOrderCode();
-    const transactionCode = orderCode;
     const createdAt = new Date().toISOString();
 
-    const result = await env.DB.prepare(
-        'INSERT INTO orders (orderCode, userId, items, totalAmount, paymentMethod, transactionCode, status, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-    ).bind(orderCode, session.userId, JSON.stringify(cleanItems), totalAmount, paymentMethod, transactionCode, 'pending', createdAt, createdAt).run();
+    const { result } = await insertOrderWithUniqueCode(env, {
+        userId: session.userId,
+        items: JSON.stringify(cleanItems),
+        totalAmount,
+        paymentMethod,
+        status: 'pending',
+        createdAt,
+        updatedAt: createdAt
+    });
+
+    for (const item of cleanItems) {
+        await env.DB.prepare(
+            'INSERT INTO order_items (orderId, productId, productCode, productName, productPrice, quantity, imageUrl, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        ).bind(
+            result.meta.last_row_id,
+            Number(item.productId),
+            item.productCode,
+            item.name,
+            Math.round(item.price),
+            item.quantity,
+            item.image,
+            createdAt
+        ).run();
+    }
 
     const order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(result.meta.last_row_id).first();
     return json(toOrderResponse(order), 201);

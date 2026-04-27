@@ -24,12 +24,18 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeAdmin();
 });
 
-function initializeAdmin() {
+async function initializeAdmin() {
     setupEventListeners();
 
     if (tokenIsAdmin()) {
-        showDashboard();
-        return;
+        try {
+            await loadAdminProfile();
+            showDashboard();
+            return;
+        } catch (error) {
+            console.log('Stored admin session is invalid:', error);
+            removeToken();
+        }
     }
 
     showLoginScreen();
@@ -219,7 +225,7 @@ async function requestJson(url, options = {}) {
         throw error;
     }
 
-    return data;
+    return data?.success === true && Object.prototype.hasOwnProperty.call(data, 'data') ? data.data : data;
 }
 
 async function handleAdminLogin(e) {
@@ -506,14 +512,14 @@ async function renderProductCategoryOptions(selectedCategoryId = '') {
 
     categories.forEach(category => {
         const option = document.createElement('option');
-        option.value = category.id;
+        option.value = category.name;
         option.textContent = category.name;
-        option.selected = selectedCategoryId ? category.id === selectedCategoryId : category.name === 'Uncategorized';
+        option.selected = selectedCategoryId ? category.name === selectedCategoryId : category.name === 'Uncategorized';
         select.appendChild(option);
     });
 
     if (!select.value && categories[0]) {
-        select.value = categories[0].id;
+        select.value = categories[0].name;
     }
 }
 
@@ -542,7 +548,7 @@ async function handleProductFormSubmit(e) {
         return;
     }
 
-    if (!name || !description || !Number.isFinite(price) || !categoryId || !Number.isFinite(stock)) {
+    if (!name || !Number.isFinite(price) || !categoryId || !Number.isFinite(stock)) {
         alert('Бүх талбарыг бөглөнө үү!');
         return;
     }
@@ -908,8 +914,13 @@ async function handleAdminProfileSubmit(e) {
     const username = document.getElementById('adminProfileUsername').value.trim().toLowerCase();
     const email = document.getElementById('adminProfileEmail').value.trim().toLowerCase();
 
-    if (!username || !email) {
-        showAdminMessage('adminProfileMessage', 'Username and email are required.', 'error');
+    if (!username) {
+        showAdminMessage('adminProfileMessage', 'Username is required.', 'error');
+        return;
+    }
+
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        showAdminMessage('adminProfileMessage', 'Valid email is required.', 'error');
         return;
     }
 
@@ -942,8 +953,8 @@ async function handleAdminPasswordSubmit(e) {
         return;
     }
 
-    if (newPassword.length < 6) {
-        showAdminMessage('adminPasswordMessage', 'New password must be at least 6 characters.', 'error');
+    if (newPassword.length < 4) {
+        showAdminMessage('adminPasswordMessage', 'New password must be at least 4 characters.', 'error');
         return;
     }
 

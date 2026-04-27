@@ -41,7 +41,7 @@ async function requestJson(url, options = {}) {
         throw new Error(data?.message || 'Сервертэй холбогдох үед алдаа гарлаа.');
     }
 
-    return data;
+    return data?.success === true && Object.prototype.hasOwnProperty.call(data, 'data') ? data.data : data;
 }
 
 function getSafeProductImage(image) {
@@ -94,9 +94,11 @@ async function fetchProducts() {
 }
 
 function normalizeCategory(category) {
+    const name = category?.name || 'Uncategorized';
+
     return {
-        id: String(category?.id || category?._id || ''),
-        name: category?.name || 'Uncategorized',
+        id: name,
+        name,
         createdAt: category?.createdAt
     };
 }
@@ -617,7 +619,7 @@ async function requestAuthJson(url, options = {}) {
         throw new Error(data?.message || 'Сервертэй холбогдох үед алдаа гарлаа.');
     }
 
-    return data;
+    return data?.success === true && Object.prototype.hasOwnProperty.call(data, 'data') ? data.data : data;
 }
 
 function showToast(message) {

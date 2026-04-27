@@ -8,8 +8,8 @@
     "dev": "wrangler dev",
     "start": "wrangler dev",
     "deploy": "wrangler deploy",
-    "db:migrate:local": "wrangler d1 migrations apply una-furniture-db --local",
-    "db:migrate:remote": "wrangler d1 migrations apply una-furniture-db --remote"
+    "db:migrate:local": "wrangler d1 migrations apply DB --local",
+    "db:migrate:remote": "wrangler d1 migrations apply DB --remote"
   },
   "dependencies": {},
   "devDependencies": {
