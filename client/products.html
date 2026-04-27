@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+
+<html lang="mn">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Бүтээгдэхүүн - UNA Home &amp; Furniture</title>
+<link href="data:," rel="icon"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&amp;family=Montserrat:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+<link href="styles.css" rel="stylesheet"/>
+</head>
+<body>
+
+<nav class="navbar">
+<div class="nav-container">
+<a class="nav-logo" href="index.html">
+<div class="logo-arch"></div>
+<span>UNA Home &amp; Furniture</span>
+</a>
+<div class="hamburger">
+<span></span><span></span><span></span>
+</div>
+<ul class="nav-menu">
+<li><a class="nav-link" href="index.html">Нүүр</a></li>
+
+<li><a class="nav-link active" href="products.html">Бүтээгдэхүүн</a></li>
+<li><a class="nav-link" href="index.html#services">Үйлчилгээ</a></li>
+<li><a class="nav-link" href="index.html#about">Бидний тухай</a></li>
+<li><a class="nav-link" href="index.html#contact">Холбоо барих</a></li>
+</ul>
+<div class="nav-right">
+<i class="fas fa-user"></i>
+<a class="login-btn" href="login.html">Нэвтрэх</a>
+</div>
+</div>
+</nav>
+
+<section class="products-hero">
+<div class="hero-overlay"></div>
+<div class="hero-content">
+<h1 class="hero-title">Манай Бүтээгдэхүүн</h1>
+<p class="hero-subtitle">Хятадаас шууд нийлүүлсэн чанартай тавилга</p>
+</div>
+</section>
+
+<section class="products">
+<div class="container">
+<h2 class="section-title">Тавилга болон интерьер цуглуулга</h2>
+<p class="section-subtitle">Орчин үеийн загвартай, өндөр чанарын тавилгын шилдэг сонголтууд</p>
+<div class="products-controls">
+<div class="category-filter-group">
+<span class="products-control-label">Ангилал</span>
+<div class="category-filter-buttons"></div>
+</div>
+<div class="sort-filter-group">
+<label class="products-control-label" for="productSort">Эрэмбэлэх</label>
+<select id="productSort" class="product-sort-select">
+<option value="default">Үндсэн</option>
+<option value="price-asc">Үнэ: багаас их</option>
+<option value="price-desc">Үнэ: ихээс бага</option>
+<option value="name-asc">Нэр A-Z</option>
+<option value="name-desc">Нэр Z-A</option>
+</select>
+</div>
+</div>
+<p id="productsResultCount" class="products-result-count"></p>
+
+<div class="products-grid"></div>
+</div>
+</section>
+<footer class="footer">
+<div class="container">
+<p>© 2026 UNA Home &amp; Furniture. Бүх эрх хуулиар хамгаалагдсан. | Таны гэрт тохирох ганц, төгс сонголт</p>
+<div class="social-links">
+<a href="#"><i class="fab fa-facebook"></i></a>
+<a href="#"><i class="fab fa-instagram"></i></a>
+<a href="#"><i class="fab fa-linkedin"></i></a>
+</div>
+</div>
+</footer>
+<script src="script.js"></script>
+</body>
+</html>

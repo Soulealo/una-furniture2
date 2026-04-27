@@ -1,21 +1,17 @@
 # UNA Home & Furniture
 
-UNA Home & Furniture нь Node.js, Express, MongoDB, Mongoose backend-тэй тавилга, интерьер бүтээгдэхүүний веб сайт юм. Frontend-ийн `API_BASE = "/api"` хэвээр ажиллана.
+UNA Home & Furniture now runs on a Cloudflare Worker with Cloudflare D1. The legacy Node backend and local upload service have been removed.
 
-## Ашигласан технологи
+## Stack
 
 - HTML
 - CSS
 - JavaScript
-- Node.js
-- Express.js
-- MongoDB
-- Mongoose
-- Multer
-- bcrypt
-- JWT
+- Cloudflare Workers
+- Cloudflare D1
+- Wrangler
 
-## Файлын бүтэц
+## Project Structure
 
 ```text
 .
@@ -32,156 +28,93 @@ UNA Home & Furniture нь Node.js, Express, MongoDB, Mongoose backend-тэй т�
 │   ├── script.js
 │   ├── admin.js
 │   └── images/
-├── server/
-│   ├── server.js
-│   ├── seed.js
-│   ├── models/
-│   │   ├── Order.js
-│   │   ├── Product.js
-│   │   ├── Settings.js
-│   │   └── User.js
-│   ├── routes/
-│   │   ├── authRoutes.js
-│   │   ├── accountRoutes.js
-│   │   ├── adminRoutes.js
-│   │   ├── orderRoutes.js
-│   │   ├── productRoutes.js
-│   │   ├── settingsRoutes.js
-│   │   └── upload.js
-│   ├── middleware/
-│   │   └── authMiddleware.js
-│   ├── controllers/
-│   │   └── uploadController.js
-│   └── uploads/
-├── .env.example
+├── worker/
+│   └── index.js
+├── migrations/
+│   └── 0001_create_products.sql
+├── wrangler.toml
 ├── package.json
 └── README.md
 ```
 
-## Орчны тохиргоо
+## D1 Schema
 
-`.env.example` файлыг `.env` болгож хуулна.
-
-```bash
-cp .env.example .env
+```sql
+CREATE TABLE products (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT,
+    price INTEGER,
+    description TEXT,
+    category TEXT,
+    imageUrl TEXT,
+    createdAt TEXT
+);
 ```
 
-`.env`:
+## API
 
 ```text
-PORT=3000
-MONGO_URI=mongodb://127.0.0.1:27017/una_home
-JWT_SECRET=una_home_change_me
-DEFAULT_ADMIN_EMAIL=admin@unahome.mn
-DEFAULT_ADMIN_PASSWORD=1234
-DEFAULT_ADMIN_FULLNAME=UNA Admin
+GET /products
+POST /products
+DELETE /products/:id
 ```
 
-## Ажиллуулах
+The Worker also supports `GET /products/:id`, `PUT /products/:id`, and `GET /categories` so the existing frontend product screens can keep working while using the D1 `products` table.
+
+## Local Development
+
+Install dependencies:
 
 ```bash
 npm install
-npm run dev
-npm start
 ```
 
-Seed product болон admin user үүсгэх:
+Apply the D1 migration locally:
 
 ```bash
-npm run seed
+npm run db:migrate:local
 ```
 
-Admin login:
+Run the Worker locally:
 
-```text
-username: admin
-password: 1234
-role: admin
+```bash
+npm run dev
 ```
 
-## API endpoints
+Wrangler serves the static frontend from `client/` and the Worker API on the same localhost origin.
 
-```text
-POST /api/login
-POST /api/register
-GET /api/account
-PUT /api/account
-POST /api/change-password
-GET /api/settings/payment
-GET /api/products
-GET /api/products/:id
-POST /api/products
-PUT /api/products/:id
-DELETE /api/products/:id
-POST /api/upload
-POST /api/orders
-GET /api/orders/my
-GET /api/admin/users
-GET /api/admin/me
-PUT /api/admin/me
-PUT /api/admin/change-password
-GET /api/admin/orders
-GET /api/admin/orders/:id
-PUT /api/admin/orders/:id/status
-PUT /api/admin/settings/payment
+## Production D1 Setup
+
+Create a real D1 database:
+
+```bash
+npx wrangler d1 create una-furniture-db
 ```
 
-`GET /api/account`, `PUT /api/account`, `POST /api/change-password`, `POST /api/orders`, `GET /api/orders/my` endpoint-ууд login JWT token шаарддаг.
+Copy the generated `database_id` into `wrangler.toml`, then apply the migration remotely:
 
-`POST /api/products`, `PUT /api/products/:id`, `DELETE /api/products/:id`, `POST /api/upload`, `/api/admin/*` endpoint-ууд admin JWT token шаарддаг.
+```bash
+npm run db:migrate:remote
+```
+
+Deploy:
+
+```bash
+npm run deploy
+```
 
 ## Product JSON
 
-Backend frontend-д MongoDB `_id`-г `id` гэж буцаана.
-
 ```json
 {
-  "id": "mongo_object_id",
-  "productCode": "SOFA-001",
-  "name": "Бүтээгдэхүүний нэр",
-  "description": "Товч тайлбар",
+  "id": "1",
+  "name": "Modern sofa",
+  "description": "Comfortable living room sofa",
   "price": 1000000,
-  "category": "Буйдан",
-  "images": ["/uploads/image-name.webp"],
-  "details": "Нэмэлт мэдээлэл"
+  "category": "Sofa",
+  "imageUrl": "https://example.com/product.jpg",
+  "createdAt": "2026-04-27T00:00:00.000Z"
 }
 ```
 
-## Account ба Cart
-
-- Login token browser-ийн `localStorage` дотор `unaToken` нэрээр хадгалагдана.
-- Cart data `localStorage` дотор `unaCart` нэрээр хадгалагдана.
-- Login хийсэн үед navbar дээр тухайн хэрэглэгчийн `username`, `Сагс`, `Гарах` харагдана. Admin хэрэглэгчийн хувьд `Admin`, `Сагс`, `Гарах` харагдана.
-- Login хийгээгүй үед `account.html` эсвэл `cart.html` руу ороход `login.html` руу буцна.
-- `cart.html` дээр Facebook chat эсвэл банкны шилжүүлгийн төлбөрийн сонголтоор `POST /api/orders` endpoint руу cart item-ууд илгээгдэнэ.
-- Банкны шилжүүлэг сонговол `UNA-YYYYMMDD-XXXX` хэлбэрийн гүйлгээний код үүснэ.
-
-## Admin
-
-- `Бүтээгдэхүүн` хэсэгт Product ID / Бүтээгдэхүүний код (`productCode`) оруулна.
-- `Төлбөрийн тохиргоо` хэсэгт банкны нэр, дансны дугаар, данс эзэмшигч, Facebook chat link хадгална.
-- `Account Center` хэсэгт бүртгэлтэй хэрэглэгчдийн username, fullname, email, phone, address, role, createdAt харагдана.
-- `Орж ирсэн захиалгууд` хэсэгт orderCode, хэрэглэгч, төлбөрийн төрөл, transactionCode, status харагдаж, paid/confirmed/cancelled болгож шинэчилнэ.
-- `Admin Account` хэсэгт админ username/email болон нууц үгээ шинэчилнэ.
-
-Category:
-
-- Буйдан
-- Ширээ
-- Сандал
-- Гэрэлтүүлэг
-- Чимэглэл
-- Зураг
-
-## Зураг upload
-
-Админ самбар дээр бүтээгдэхүүн нэмэх эсвэл засах үед олон зураг upload хийж болно.
-
-Дэмжих формат:
-
-- JPG
-- JPEG
-- PNG
-- WEBP
-
-Upload хийсэн зургууд `server/uploads/` дотор хадгалагдаж, `/uploads/...` path хэлбэрээр MongoDB product document-ийн `images` array-д бичигдэнэ.
+Images remain URL-based through `imageUrl`. Use Cloudinary or any public image URL.

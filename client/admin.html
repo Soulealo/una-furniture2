@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Админ Самбар - UNA Home & Furniture</title>
+    <link rel="icon" href="data:,">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="admin-styles.css">
+</head>
+<body>
+    
+    <div id="loginScreen" class="login-screen active">
+        <div class="login-container-admin">
+            <div class="login-header-admin">
+                <div class="admin-logo">
+                    <div class="logo-arch-admin"></div>
+                </div>
+                <h1>UNA Home & Furniture</h1>
+                <p>Админ Самбар</p>
+            </div>
+            
+            <form id="adminLoginForm" class="admin-login-form">
+                <h2>Нэвтрэх</h2>
+                
+                <div class="form-group-admin">
+                    <label for="adminUsername">Хэрэглэгчийн нэр</label>
+                    <div class="input-wrapper-admin">
+                        <i class="fas fa-user"></i>
+                        <input type="text" id="adminUsername" placeholder="admin" required>
+                    </div>
+                </div>
+
+                <div class="form-group-admin">
+                    <label for="adminPassword">Нууц үг</label>
+                    <div class="input-wrapper-admin">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="adminPassword" placeholder="••••••" required>
+                    </div>
+                </div>
+
+                <div id="loginError" class="login-error-admin"></div>
+
+                <button type="submit" class="admin-btn-submit">Нэвтрэх</button>
+            </form>
+
+            <div class="back-to-home-admin">
+                <a href="index.html"><i class="fas fa-arrow-left"></i> Нүүр хуудас руу буцах</a>
+            </div>
+        </div>
+    </div>
+
+    
+    <div id="dashboardScreen" class="dashboard-screen">
+        
+        <nav class="admin-navbar">
+            <div class="admin-nav-container">
+                <a href="index.html" class="admin-nav-logo">
+                    <div class="logo-arch"></div>
+                    <span>UNA Home & Furniture</span>
+                </a>
+                <div class="admin-nav-right">
+                    <span class="admin-username">Админ</span>
+                    <button id="logoutBtn" class="admin-logout-btn">
+                        <i class="fas fa-sign-out-alt"></i> Гарах
+                    </button>
+                </div>
+            </div>
+        </nav>
+
+        
+        <aside class="admin-sidebar">
+            <div class="sidebar-menu">
+                <a href="#" class="sidebar-link active" data-menu="dashboard">
+                    <i class="fas fa-home"></i>
+                    <span>Самбар</span>
+                </a>
+                <a href="#" class="sidebar-link" data-menu="products">
+                    <i class="fas fa-box"></i>
+                    <span>Бүтээгдэхүүн</span>
+                </a>
+                <a href="#" class="sidebar-link" data-menu="categories">
+                    <i class="fas fa-tags"></i>
+                    <span>Manage Categories</span>
+                </a>
+                <a href="#" class="sidebar-link" data-menu="orders">
+                    <i class="fas fa-receipt"></i>
+                    <span>Орж ирсэн захиалгууд</span>
+                </a>
+                <a href="#" class="sidebar-link" data-menu="accounts">
+                    <i class="fas fa-users"></i>
+                    <span>Account Center</span>
+                </a>
+                <a href="#" class="sidebar-link" data-menu="paymentSettings">
+                    <i class="fas fa-credit-card"></i>
+                    <span>Төлбөрийн тохиргоо</span>
+                </a>
+                <a href="#" class="sidebar-link" data-menu="adminAccount">
+                    <i class="fas fa-user-shield"></i>
+                    <span>Admin Account</span>
+                </a>
+            </div>
+        </aside>
+
+        
+        <main class="admin-main">
+            
+            <div class="admin-header">
+                <h1 id="pageTitle">Админ Самбар</h1>
+            </div>
+
+            
+            <div id="dashboardView" class="admin-view active">
+                <div class="dashboard-grid">
+                    <div class="stat-card-admin">
+                        <div class="stat-icon">
+                            <i class="fas fa-box"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>Нийт Бүтээгдэхүүн</h3>
+                            <p class="stat-number" id="totalProducts">0</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card-admin">
+                        <div class="stat-icon">
+                            <i class="fas fa-receipt"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>Нийт Захиалга</h3>
+                            <p class="stat-number" id="totalOrders">0</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card-admin">
+                        <div class="stat-icon">
+                            <i class="fas fa-users"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>Нийт Хэрэглэгч</h3>
+                            <p class="stat-number" id="totalUsers">0</p>
+                        </div>
+                    </div>
+
+                    <div class="quick-actions">
+                        <h3>Хурдан үйлдэл</h3>
+                        <button class="quick-action-btn" data-action="addProduct">
+                            <i class="fas fa-plus"></i> Шинэ бүтээгдэхүүн нэмэх
+                        </button>
+                        <button class="quick-action-btn" data-action="viewProducts">
+                            <i class="fas fa-list"></i> Бүтээгдэхүүний жагсаалт
+                        </button>
+                        <button class="quick-action-btn" data-action="viewOrders">
+                            <i class="fas fa-receipt"></i> Захиалгууд харах
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            
+            <div id="productsView" class="admin-view">
+                <div class="products-header-admin">
+                    <button id="addProductBtn" class="admin-btn-primary">
+                        <i class="fas fa-plus"></i> Шинэ бүтээгдэхүүн нэмэх
+                    </button>
+                </div>
+
+                <div class="products-table-container">
+                    <table id="productsTable" class="products-table-admin">
+                        <thead>
+                            <tr>
+                                <th>Зураг</th>
+                                <th>Нэр</th>
+                                <th>Тайлбар</th>
+                                <th>Ангилал</th>
+                                <th>Хэмжээ</th>
+                                <th>Үлдэгдэл</th>
+                                <th>Үнэ</th>
+                                <th>Үйлдэл</th>
+                            </tr>
+                        </thead>
+                        <tbody id="productsTableBody">
+                        </tbody>
+                    </table>
+                    <div id="emptyState" class="empty-state-admin">
+                        <i class="fas fa-inbox"></i>
+                        <p>Бүтээгдэхүүн байхгүй</p>
+                        <button class="admin-btn-secondary" onclick="document.getElementById('addProductBtn').click()">
+                            Анхны бүтээгдэхүүн нэмэх
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="categoriesView" class="admin-view">
+                <div class="settings-card-admin category-manager-card">
+                    <h2>Manage Categories</h2>
+                    <p>Product form болон user filter дээр харагдах ангиллууд.</p>
+                    <form id="categoryForm" class="category-form-admin">
+                        <div class="form-group-admin">
+                            <label for="categoryNameInput">Category name</label>
+                            <input type="text" id="categoryNameInput" placeholder="Жишээ: Унтлагын өрөө" required>
+                        </div>
+                        <button type="submit" class="admin-btn-primary">
+                            <i class="fas fa-plus"></i> Add
+                        </button>
+                    </form>
+                </div>
+
+                <div class="products-table-container">
+                    <table class="products-table-admin categories-table-admin">
+                        <thead>
+                            <tr>
+                                <th>Нэр</th>
+                                <th>Үүссэн огноо</th>
+                                <th>Үйлдэл</th>
+                            </tr>
+                        </thead>
+                        <tbody id="categoriesTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="ordersView" class="admin-view">
+                <div class="products-table-container">
+                    <table class="products-table-admin">
+                        <thead>
+                            <tr>
+                                <th>Order code</th>
+                                <th>Username</th>
+                                <th>Нэр</th>
+                                <th>Утас</th>
+                                <th>Нийт</th>
+                                <th>Төлбөр</th>
+                                <th>Гүйлгээний код</th>
+                                <th>Төлөв</th>
+                                <th>Огноо</th>
+                                <th>Үйлдэл</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ordersTableBody"></tbody>
+                    </table>
+                    <div id="ordersEmptyState" class="empty-state-admin">
+                        <i class="fas fa-receipt"></i>
+                        <p>Захиалга байхгүй</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="accountsView" class="admin-view">
+                <div class="products-table-container">
+                    <table class="products-table-admin">
+                        <thead>
+                            <tr>
+                                <th>Username</th>
+                                <th>Нэр</th>
+                                <th>И-мэйл</th>
+                                <th>Утас</th>
+                                <th>Хаяг</th>
+                                <th>Role</th>
+                                <th>Бүртгүүлсэн</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usersTableBody"></tbody>
+                    </table>
+                    <div id="usersEmptyState" class="empty-state-admin">
+                        <i class="fas fa-users"></i>
+                        <p>Хэрэглэгч байхгүй</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="paymentSettingsView" class="admin-view">
+                <form id="paymentSettingsForm" class="settings-form-admin">
+                    <div class="settings-card-admin">
+                        <h2>Төлбөрийн тохиргоо</h2>
+                        <p>Cart checkout болон банкны шилжүүлэг дээр харагдах мэдээлэл.</p>
+                        <div class="form-group-admin">
+                            <label for="bankName">Банкны нэр</label>
+                            <input type="text" id="bankName" placeholder="Жишээ: Хаан Банк">
+                        </div>
+                        <div class="form-group-admin">
+                            <label for="accountNumber">Дансны дугаар</label>
+                            <input type="text" id="accountNumber" placeholder="Жишээ: 5000000000">
+                        </div>
+                        <div class="form-group-admin">
+                            <label for="accountHolder">Данс эзэмшигч</label>
+                            <input type="text" id="accountHolder" placeholder="UNA Home & Furniture">
+                        </div>
+                        <div class="form-group-admin">
+                            <label for="facebookChatUrl">Facebook chat link</label>
+                            <input type="url" id="facebookChatUrl" placeholder="https://www.facebook.com/messages/t/...">
+                        </div>
+                        <button type="submit" class="admin-btn-primary">Тохиргоо хадгалах</button>
+                    </div>
+                </form>
+            </div>
+
+            <div id="adminAccountView" class="admin-view">
+                <div class="admin-account-grid">
+                    <form id="adminProfileForm" class="settings-card-admin">
+                        <h2>Admin Account</h2>
+                        <p>Админ username болон email шинэчлэх.</p>
+                        <div id="adminProfileMessage" class="admin-message"></div>
+                        <div class="form-group-admin">
+                            <label for="adminProfileUsername">Username</label>
+                            <input type="text" id="adminProfileUsername" required>
+                        </div>
+                        <div class="form-group-admin">
+                            <label for="adminProfileEmail">Email</label>
+                            <input type="email" id="adminProfileEmail" required>
+                        </div>
+                        <button type="submit" class="admin-btn-primary">Мэдээлэл хадгалах</button>
+                    </form>
+
+                    <form id="adminPasswordForm" class="settings-card-admin">
+                        <h2>Нууц үг солих</h2>
+                        <p>Нууц үгээ солихын тулд одоогийн нууц үгээ баталгаажуулна.</p>
+                        <div id="adminPasswordMessage" class="admin-message"></div>
+                        <div class="form-group-admin">
+                            <label for="adminCurrentPassword">Одоогийн нууц үг</label>
+                            <input type="password" id="adminCurrentPassword" required>
+                        </div>
+                        <div class="form-group-admin">
+                            <label for="adminNewPassword">Шинэ нууц үг</label>
+                            <input type="password" id="adminNewPassword" minlength="6" required>
+                        </div>
+                        <div class="form-group-admin">
+                            <label for="adminConfirmPassword">Шинэ нууц үг давтах</label>
+                            <input type="password" id="adminConfirmPassword" minlength="6" required>
+                        </div>
+                        <button type="submit" class="admin-btn-primary">Нууц үг солих</button>
+                    </form>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    
+    <div id="productModal" class="admin-modal">
+        <div class="modal-content-admin">
+            <div class="modal-header-admin">
+                <h2 id="modalTitle">Шинэ бүтээгдэхүүн нэмэх</h2>
+                <button id="closeModalBtn" class="modal-close-btn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+
+            <form id="productForm" class="product-form-admin">
+                <div class="form-group-admin">
+                    <label for="productName">Бүтээгдэхүүний нэр *</label>
+                    <input type="text" id="productName" placeholder="Жишээ: Орчин үеийн буйдан" required>
+                </div>
+
+                <div class="form-group-admin">
+                    <label for="productDescription">Тайлбар *</label>
+                    <textarea id="productDescription" placeholder="Бүтээгдэхүүний дэлгэрэнгүй тайлбар" rows="3" required></textarea>
+                </div>
+
+                <div class="form-group-admin">
+                    <label for="productSizes">Хэмжээ</label>
+                    <input type="text" id="productSizes" placeholder="Жишээ: 220x90x75 см, S/M/L">
+                </div>
+
+                <div class="form-group-admin">
+                    <label for="productPrice">Үнэ (₮) *</label>
+                    <input type="number" id="productPrice" placeholder="Жишээ: 16500000" min="0" required>
+                </div>
+
+                <div class="form-group-admin">
+                    <label for="productCategory">Ангилал *</label>
+                    <select id="productCategory" required>
+                        <option value="">Ангилал уншиж байна...</option>
+                    </select>
+                </div>
+
+                <div class="form-group-admin">
+                    <label for="productStock">Үлдэгдэл *</label>
+                    <input type="number" id="productStock" placeholder="Жишээ: 12" min="0" value="0" required>
+                </div>
+
+                <div class="form-group-admin">
+                    <label for="productImages">Image URLs</label>
+                    <textarea id="productImages" placeholder="https://example.com/product-1.jpg&#10;https://example.com/product-2.jpg" rows="4"></textarea>
+                    <small class="form-help-admin">Нэг мөрөнд нэг зурагны URL оруулна. Хоосон бол placeholder зураг харагдана.</small>
+                </div>
+
+                <div id="imagePreview" class="image-preview-admin"></div>
+
+                <div class="form-actions-admin">
+                    <button type="submit" id="saveProductBtn" class="admin-btn-primary">Хадгалах</button>
+                    <button type="button" id="cancelFormBtn" class="admin-btn-secondary">Цуцлах</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="orderModal" class="admin-modal">
+        <div class="modal-content-admin order-modal-content">
+            <div class="modal-header-admin">
+                <h2 id="orderModalTitle">Захиалгын дэлгэрэнгүй</h2>
+                <button id="closeOrderModalBtn" class="modal-close-btn">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="orderDetailContent" class="order-detail-content"></div>
+        </div>
+    </div>
+
+    <script src="admin.js"></script>
+</body>
+</html>
