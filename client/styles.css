@@ -100,12 +100,26 @@ h1, h2, h3 {
     cursor: pointer;
 }
 
-.logo-arch {
-    width: 25px;
-    height: 25px;
-    border: 2px solid var(--accent-gold);
-    border-bottom: none;
-    border-radius: 15px 15px 0 0;
+.site-logo-img {
+    display: block;
+    width: auto;
+    max-width: 156px;
+    max-height: 50px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.logo-fallback {
+    display: none;
+    color: inherit;
+    font-family: 'Cormorant Garamond', serif;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    line-height: 1;
+}
+
+.logo-fallback-visible {
+    display: inline-block;
 }
 
 .nav-menu {
@@ -232,9 +246,17 @@ h1, h2, h3 {
 .hero-content {
     position: relative;
     z-index: 2;
+    display: flex;
+    width: min(100% - 32px, 1120px);
+    flex-direction: column;
+    align-items: center;
     text-align: center;
     color: var(--white);
     animation: fadeInUp 1s ease;
+}
+
+.hero-copy {
+    max-width: 100%;
 }
 
 .hero-title {
@@ -249,25 +271,29 @@ h1, h2, h3 {
     font-size: 1.3rem;
     font-weight: 300;
     letter-spacing: 2px;
-    margin-bottom: 50px;
+    margin-bottom: 0;
     text-transform: uppercase;
+}
+
+.hero-actions {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+    margin-top: 36px;
 }
 
 .hero-button {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 200px;
-    height: 200px;
+    width: 170px;
+    height: 170px;
     border: 2px solid var(--accent-gold);
     border-radius: 50%;
     color: var(--accent-gold);
     text-decoration: none;
     font-size: 0.95rem;
     font-weight: 600;
-    position: absolute;
-    bottom: 60px;
-    right: 60px;
     transition: all var(--transition);
     letter-spacing: 1px;
 }
@@ -545,6 +571,21 @@ h1, h2, h3 {
     color: var(--white);
     text-align: center;
     padding: 30px 20px;
+}
+
+.footer-brand {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 14px;
+}
+
+.footer-logo-img {
+    display: block;
+    width: auto;
+    max-width: 170px;
+    max-height: 46px;
+    object-fit: contain;
 }
 
 .footer p {
@@ -1152,26 +1193,20 @@ body.modal-open {
 }
 
 .login-logo {
-    width: 80px;
-    height: 80px;
+    width: min(100%, 260px);
+    min-height: 104px;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 30px;
+    margin-bottom: 24px;
 }
 
-.logo-arch-large {
-    width: 60px;
-    height: 60px;
-    border: 3px solid var(--accent-gold);
-    border-bottom: none;
-    border-radius: 35px 35px 0 0;
-}
-
-.login-branding h1 {
-    font-size: 2.5rem;
-    margin-bottom: 10px;
-    letter-spacing: 1px;
+.brand-logo-img {
+    display: block;
+    width: auto;
+    max-width: min(100%, 260px);
+    max-height: 132px;
+    object-fit: contain;
 }
 
 .login-branding p {
@@ -1503,14 +1538,16 @@ body.modal-open {
     .hero-subtitle {
         font-size: 1rem;
         padding: 0 16px;
-        margin-bottom: 34px;
+        margin-bottom: 0;
+    }
+
+    .hero-actions {
+        margin-top: 30px;
     }
 
     .hero-button {
         width: 150px;
         height: 150px;
-        bottom: 30px;
-        right: 30px;
         font-size: 0.8rem;
     }
 
@@ -1574,10 +1611,6 @@ body.modal-open {
 
     .login-form-wrapper {
         padding: 40px 30px;
-    }
-
-    .login-branding h1 {
-        font-size: 1.8rem;
     }
 
     .login-benefits {
@@ -1670,9 +1703,9 @@ body.modal-open {
         gap: 8px;
     }
 
-    .logo-arch {
-        width: 20px;
-        height: 20px;
+    .site-logo-img {
+        max-width: 128px;
+        max-height: 44px;
         flex-shrink: 0;
     }
 
@@ -1692,17 +1725,15 @@ body.modal-open {
     .hero-subtitle {
         font-size: 0.85rem;
         letter-spacing: 1px;
+        margin-bottom: 0;
     }
 
     .hero-button {
-        width: calc(100% - 32px);
+        width: min(100%, 280px);
         height: auto;
         min-height: 48px;
         border-radius: 4px;
         font-size: 0.7rem;
-        bottom: 24px;
-        right: 16px;
-        left: 16px;
     }
 
     .section-title {
@@ -1846,18 +1877,12 @@ body.modal-open {
 }
 
 .signup-logo {
-    width: 80px;
-    height: 80px;
+    width: min(100%, 260px);
+    min-height: 104px;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin-bottom: 30px;
-}
-
-.signup-branding h1 {
-    font-size: 2.5rem;
-    margin-bottom: 10px;
-    letter-spacing: 1px;
+    margin-bottom: 24px;
 }
 
 .signup-branding p {
@@ -2631,10 +2656,6 @@ body.modal-open {
         max-height: 100%;
     }
 
-    .signup-branding h1 {
-        font-size: 1.8rem;
-    }
-
     .signup-benefits {
         gap: 15px;
     }
@@ -2708,18 +2729,14 @@ body.modal-open {
     }
 
     .signup-logo {
-        width: 60px;
-        height: 60px;
+        width: min(100%, 220px);
+        min-height: 84px;
         margin-bottom: 20px;
     }
 
-    .logo-arch-large {
-        width: 45px;
-        height: 45px;
-    }
-
-    .signup-branding h1 {
-        font-size: 1.5rem;
+    .brand-logo-img {
+        max-width: min(100%, 220px);
+        max-height: 104px;
     }
 
     .signup-branding p {
@@ -2897,9 +2914,9 @@ body.modal-open {
         gap: 8px;
     }
 
-    .logo-arch {
-        width: 20px;
-        height: 20px;
+    .site-logo-img {
+        max-width: 118px;
+        max-height: 40px;
         flex-shrink: 0;
     }
 
@@ -2934,16 +2951,18 @@ body.modal-open {
     .hero-subtitle {
         font-size: 0.85rem;
         letter-spacing: 1px;
-        margin-bottom: 28px;
+        margin-bottom: 0;
         overflow-wrap: anywhere;
     }
 
+    .hero-actions {
+        margin-top: 24px;
+    }
+
     .hero-button {
-        left: 16px;
-        right: 16px;
-        bottom: 24px;
         width: auto;
         height: auto;
+        min-width: min(100%, 280px);
         min-height: 48px;
         border-radius: 4px;
     }
