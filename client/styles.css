@@ -216,17 +216,22 @@ h1, h2, h3 {
     position: relative;
     margin-top: 70px;
     overflow: hidden;
+    isolation: isolate;
 }
 
 .hero-video {
     position: absolute;
     inset: 0;
-    z-index: 0;
+    z-index: -1;
     width: 100%;
     height: 100%;
     object-fit: cover;
     object-position: center;
     pointer-events: none;
+}
+
+.hero-video.is-autoplay-blocked {
+    display: none;
 }
 
 video::-webkit-media-controls {
@@ -267,14 +272,14 @@ video::-webkit-media-controls-start-playback-button {
     font-size: 6rem;
     font-weight: 700;
     margin-bottom: 15px;
-    letter-spacing: 2px;
+    letter-spacing: 0;
     text-transform: uppercase;
 }
 
 .hero-subtitle {
     font-size: 1.3rem;
     font-weight: 300;
-    letter-spacing: 2px;
+    letter-spacing: 0;
     margin-bottom: 0;
     text-transform: uppercase;
 }
@@ -1723,12 +1728,12 @@ body.modal-open {
     }
 
     .hero-title {
-        font-size: 2.15rem;
+        font-size: 2rem;
     }
 
     .hero-subtitle {
         font-size: 0.85rem;
-        letter-spacing: 1px;
+        letter-spacing: 0;
         margin-bottom: 0;
     }
 
@@ -2947,14 +2952,14 @@ body.modal-open {
     }
 
     .hero-title {
-        font-size: 2.15rem;
+        font-size: 2rem;
         line-height: 1.05;
         overflow-wrap: anywhere;
     }
 
     .hero-subtitle {
         font-size: 0.85rem;
-        letter-spacing: 1px;
+        letter-spacing: 0;
         margin-bottom: 0;
         overflow-wrap: anywhere;
     }

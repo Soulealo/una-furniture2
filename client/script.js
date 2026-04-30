@@ -1205,11 +1205,16 @@ function setupHeroVideoAutoplay() {
 
     if (video) {
         video.muted = true;
+        video.controls = false;
+        video.preload = 'auto';
+        video.removeAttribute('controls');
         video.setAttribute('muted', '');
         video.setAttribute('playsinline', '');
         video.setAttribute('webkit-playsinline', '');
+        video.setAttribute('preload', 'auto');
         video.play().catch(() => {
             console.log("Autoplay blocked, retrying...");
+            video.classList.add('is-autoplay-blocked');
         });
     }
 }
