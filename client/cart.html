@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Сагс - UNA Home & Furniture</title>
+    <link rel="icon" href="data:,">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body data-protected-page="true" data-page="cart">
+    <nav class="navbar">
+        <div class="nav-container">
+            <a href="index.html" class="nav-logo">
+                <img class="site-logo-img" src="assets/logo/new-logo.png" alt="UNA Furniture Logo" onerror="this.hidden=true;this.nextElementSibling.classList.add('logo-fallback-visible');">
+                <span class="logo-fallback">UNA Home & Furniture</span>
+            </a>
+
+            <div class="hamburger">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+
+            <ul class="nav-menu">
+                <li><a href="index.html" class="nav-link">Нүүр</a></li>
+                <li><a href="products.html" class="nav-link">Бүтээгдэхүүн</a></li>
+                <li><a href="index.html#services" class="nav-link">Үйлчилгээ</a></li>
+                <li><a href="index.html#about" class="nav-link">Бидний тухай</a></li>
+                <li><a href="index.html#contact" class="nav-link">Холбоо барих</a></li>
+            </ul>
+
+            <div class="nav-right">
+                <i class="fas fa-user"></i>
+                <a href="login.html" class="login-btn">Нэвтрэх</a>
+            </div>
+        </div>
+    </nav>
+
+    <section class="cart-hero">
+        <div class="hero-overlay"></div>
+        <div class="hero-content">
+            <h1 class="hero-title">Сагс</h1>
+            <p class="hero-subtitle">Сонгосон тавилга болон интерьер бүтээгдэхүүн</p>
+        </div>
+    </section>
+
+    <section class="cart-section">
+        <div class="container">
+            <div class="cart-layout">
+                <div class="cart-items-panel">
+                    <div class="cart-header-row">
+                        <span class="account-kicker">Таны сонголт</span>
+                        <h2>Сагсанд байгаа бүтээгдэхүүн</h2>
+                    </div>
+                    <div id="cartEmpty" class="cart-empty hidden">
+                        <i class="fas fa-shopping-cart"></i>
+                        <p>Таны сагс хоосон байна</p>
+                        <a href="products.html" class="account-primary-btn">Бүтээгдэхүүн үзэх</a>
+                    </div>
+                    <div id="cartItems" class="cart-items"></div>
+                </div>
+
+                <aside id="cartSummary" class="cart-summary">
+                    <span class="account-kicker">Төлбөрийн дүн</span>
+                    <h3>Захиалгын нийт</h3>
+                    <div class="summary-row">
+                        <span>Бүтээгдэхүүн</span>
+                        <strong id="cartItemCount">0</strong>
+                    </div>
+                    <div class="summary-row total">
+                        <span>Нийт үнэ</span>
+                        <strong id="cartTotal">₮0</strong>
+                    </div>
+                    <div class="payment-options">
+                        <button id="checkoutFacebookBtn" class="checkout-btn secondary" type="button">
+                            <i class="fab fa-facebook-messenger"></i>
+                            Facebook chat-аар захиалах
+                        </button>
+                        <button id="checkoutBankBtn" class="checkout-btn" type="button">
+                            <i class="fas fa-university"></i>
+                            Банкны дансаар төлөх
+                        </button>
+                    </div>
+                    <div id="bankPaymentResult" class="bank-payment-result hidden"></div>
+                </aside>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-brand">
+                <img class="footer-logo-img" src="assets/logo/new-logo.png" alt="UNA Furniture Logo" onerror="this.hidden=true;this.nextElementSibling.classList.add('logo-fallback-visible');">
+                <span class="logo-fallback">UNA Home & Furniture</span>
+            </div>
+            <p>© 2026 UNA Home & Furniture. Бүх эрх хуулиар хамгаалагдсан. | Таны гэрт тохирох ганц, төгс сонголт</p>
+            <div class="social-links">
+                <a href="#"><i class="fab fa-facebook"></i></a>
+                <a href="#"><i class="fab fa-instagram"></i></a>
+                <a href="#"><i class="fab fa-linkedin"></i></a>
+            </div>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
