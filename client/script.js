@@ -9,10 +9,12 @@ const DEMO_PRODUCT_NAMES = ['UNA Булан Буйдан', 'Модон Хоол�
 
 let selectedCategoryId = 'all';
 let selectedSort = 'default';
+let selectedSearchTerm = '';
 let productsCache = [];
 let productsLoaded = false;
 let categoriesCache = [];
 let categoriesLoaded = false;
+let authUserCache = null;
 
 function clearLegacyProductStorage() {
     ['products', 'unaProducts', 'demoProducts', 'productCache', 'sampleProducts'].forEach(key => {
@@ -206,6 +208,16 @@ function getFilteredAndSortedProducts(products) {
         visibleProducts = visibleProducts.filter(product => product.categoryId === selectedCategoryId);
     }
 
+    if (selectedSearchTerm) {
+        const normalizedSearch = selectedSearchTerm.toLowerCase();
+        visibleProducts = visibleProducts.filter(product => [
+            product.name,
+            product.description,
+            product.category,
+            product.sizes
+        ].some(value => String(value || '').toLowerCase().includes(normalizedSearch)));
+    }
+
     if (selectedSort === 'price-asc') {
         visibleProducts.sort((a, b) => Number(a.price) - Number(b.price));
     } else if (selectedSort === 'price-desc') {
@@ -269,7 +281,7 @@ async function renderProducts() {
     }
 
     if (visibleProducts.length === 0) {
-        productsGrid.innerHTML = '<p class="empty-products-message">Энэ ангилалд бүтээгдэхүүн байхгүй байна.</p>';
+        productsGrid.innerHTML = `<p class="empty-products-message">${selectedSearchTerm ? 'Энэ хайлтад бүтээгдэхүүн олдсонгүй.' : 'Энэ ангилалд бүтээгдэхүүн байхгүй байна.'}</p>`;
         return;
     }
 
@@ -280,6 +292,8 @@ async function renderProducts() {
 
 function setupProductControls() {
     const sortSelect = document.getElementById('productSort');
+
+    selectedSearchTerm = new URLSearchParams(window.location.search).get('q')?.trim() || '';
 
     if (!sortSelect) return;
 
@@ -570,8 +584,12 @@ function getTokenPayload() {
     }
 }
 
+function getCurrentAuthUser() {
+    return authUserCache || getTokenPayload();
+}
+
 function isLoggedIn() {
-    return Boolean(getToken());
+    return Boolean(getToken() || authUserCache);
 }
 
 function getCurrentPageName() {
@@ -583,23 +601,60 @@ function redirectToLogin(targetPage = getCurrentPageName()) {
     window.location.href = `login.html?redirect=${encodeURIComponent(targetPage)}`;
 }
 
+async function refreshAuthSession() {
+    const token = getToken();
+    const headers = { Accept: 'application/json' };
+
+    if (token) {
+        headers.Authorization = `Bearer ${token}`;
+    }
+
+    try {
+        const response = await fetch(`${API_BASE}/auth/me`, {
+            headers,
+            credentials: 'same-origin'
+        });
+        const responseText = await response.text();
+        let data = null;
+
+        try {
+            data = responseText ? JSON.parse(responseText) : null;
+        } catch (error) {
+            data = null;
+        }
+
+        if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
+                authUserCache = null;
+                if (token) removeToken();
+            }
+
+            return null;
+        }
+
+        authUserCache = data?.success === true && Object.prototype.hasOwnProperty.call(data, 'data') ? data.data : data;
+        return authUserCache;
+    } catch (error) {
+        return null;
+    }
+}
+
 async function requestAuthJson(url, options = {}) {
     const token = getToken();
 
-    if (!token) {
-        redirectToLogin();
-        throw new Error('Нэвтрэх шаардлагатай.');
-    }
-
     const headers = {
         Accept: 'application/json',
-        ...(options.headers || {}),
-        Authorization: `Bearer ${token}`
+        ...(options.headers || {})
     };
+
+    if (token) {
+        headers.Authorization = `Bearer ${token}`;
+    }
 
     const response = await fetch(url, {
         ...options,
-        headers
+        headers,
+        credentials: 'same-origin'
     });
     const responseText = await response.text();
     let data = null;
@@ -613,6 +668,7 @@ async function requestAuthJson(url, options = {}) {
     if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
             removeToken();
+            authUserCache = null;
             redirectToLogin();
         }
 
@@ -711,19 +767,22 @@ function changeCartQuantity(productId, delta) {
 }
 
 function updateAuthNavigation() {
-    const payload = getTokenPayload();
+    const payload = getCurrentAuthUser();
     const isAdmin = payload?.role === 'admin';
-    const displayName = isAdmin ? 'Admin' : (payload?.username || payload?.fullname || 'Account');
+    const displayName = isAdmin ? 'Admin' : (payload?.name || payload?.fullname || payload?.username || payload?.email || 'Account');
 
     document.querySelectorAll('.nav-right').forEach(navRight => {
         if (isLoggedIn()) {
             navRight.innerHTML = `
-                <a class="nav-account-link" href="account.html"><i class="fas fa-user"></i><span>${escapeHtml(displayName)}</span></a>
-                <a class="nav-cart-link" href="cart.html"><i class="fas fa-shopping-cart"></i><span>Сагс</span><strong data-cart-count>${getCartCount()}</strong></a>
-                <button class="nav-logout-btn logout-btn" type="button"><i class="fas fa-sign-out-alt"></i><span>Гарах</span></button>
+                <a class="nav-account-link nav-icon-link" href="account.html" aria-label="Аккаунт"><i class="fas fa-user"></i><span>${escapeHtml(displayName)}</span></a>
+                <a class="nav-cart-link nav-icon-link" href="cart.html" aria-label="Сагс"><i class="fas fa-shopping-cart"></i><span>Сагс</span><strong data-cart-count>${getCartCount()}</strong></a>
+                <button class="nav-logout-btn nav-icon-link logout-btn" type="button" aria-label="Гарах"><i class="fas fa-sign-out-alt"></i><span>Гарах</span></button>
             `;
         } else {
-            navRight.innerHTML = '<i class="fas fa-user"></i><a href="login.html" class="login-btn">Нэвтрэх</a>';
+            navRight.innerHTML = `
+                <a class="nav-account-link nav-icon-link" href="login.html" aria-label="Нэвтрэх"><i class="fas fa-user"></i><span>Нэвтрэх</span></a>
+                <a class="nav-cart-link nav-icon-link" href="cart.html" aria-label="Сагс"><i class="fas fa-shopping-cart"></i><span>Сагс</span><strong data-cart-count>${getCartCount()}</strong></a>
+            `;
         }
     });
 
@@ -738,7 +797,11 @@ function updateAuthNavigation() {
     updateCartCount();
 }
 
-function setupProtectedPage() {
+async function setupProtectedPage() {
+    if (document.body.dataset.protectedPage === 'true' && !isLoggedIn()) {
+        await refreshAuthSession();
+    }
+
     if (document.body.dataset.protectedPage === 'true' && !isLoggedIn()) {
         redirectToLogin(getCurrentPageName());
         return true;
@@ -747,8 +810,22 @@ function setupProtectedPage() {
     return false;
 }
 
-function logoutUser() {
+async function logoutUser() {
+    const token = getToken();
+
+    try {
+        await fetch(`${API_BASE}/auth/logout`, {
+            method: 'POST',
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+            credentials: 'same-origin',
+            keepalive: true
+        });
+    } catch (error) {
+        // Local logout still clears client state even if the server is unreachable.
+    }
+
     removeToken();
+    authUserCache = null;
     updateAuthNavigation();
     window.location.href = 'index.html';
 }
@@ -784,15 +861,24 @@ function setupLoginForm() {
 }
 
 function renderAccount(user) {
-    document.getElementById('accountFullname').textContent = user.fullname || '-';
+    const displayName = user.fullname || user.name || user.username || user.email || '-';
+    const avatarElement = document.querySelector('.account-avatar');
+
+    if (avatarElement) {
+        avatarElement.innerHTML = user.avatar
+            ? `<img src="${escapeHtml(user.avatar)}" alt="${escapeHtml(displayName)}" referrerpolicy="no-referrer">`
+            : '<i class="fas fa-user"></i>';
+    }
+
+    document.getElementById('accountFullname').textContent = displayName;
     document.getElementById('accountUsername').textContent = user.username || '-';
-    document.getElementById('accountName').textContent = user.fullname || '-';
+    document.getElementById('accountName').textContent = displayName;
     document.getElementById('accountEmail').textContent = user.email || '-';
     document.getElementById('accountPhone').textContent = user.phone || '-';
     document.getElementById('accountAddress').textContent = user.address || '-';
     document.getElementById('accountCreatedAt').textContent = formatDate(user.createdAt);
     document.getElementById('accountRole').textContent = user.role || '-';
-    document.getElementById('editFullname').value = user.fullname || '';
+    document.getElementById('editFullname').value = user.fullname || user.name || '';
     document.getElementById('editPhone').value = user.phone || '';
     document.getElementById('editAddress').value = user.address || '';
 }
@@ -1141,8 +1227,16 @@ function setupNavigation() {
     document.querySelectorAll('.hamburger').forEach(hamburger => {
         hamburger.addEventListener('click', () => {
             const navMenu = hamburger.closest('.nav-container')?.querySelector('.nav-menu');
-            navMenu?.classList.toggle('active');
-            hamburger.classList.toggle('active');
+            const navbar = hamburger.closest('.navbar');
+            const isActive = navMenu?.classList.toggle('active') || false;
+            hamburger.classList.toggle('active', isActive);
+            navbar?.classList.toggle('nav-menu-open', isActive);
+        });
+
+        hamburger.addEventListener('keydown', (e) => {
+            if (e.key !== 'Enter' && e.key !== ' ') return;
+            e.preventDefault();
+            hamburger.click();
         });
     });
 
@@ -1150,6 +1244,7 @@ function setupNavigation() {
         link.addEventListener('click', () => {
             document.querySelectorAll('.nav-menu.active').forEach(menu => menu.classList.remove('active'));
             document.querySelectorAll('.hamburger.active').forEach(hamburger => hamburger.classList.remove('active'));
+            document.querySelectorAll('.navbar.nav-menu-open').forEach(navbar => navbar.classList.remove('nav-menu-open'));
         });
     });
 
@@ -1158,6 +1253,40 @@ function setupNavigation() {
             e.preventDefault();
             logoutUser();
         }
+    });
+}
+
+function setupNavbarScrollState() {
+    const navbar = document.querySelector('.navbar');
+
+    if (!navbar || !document.body.classList.contains('home-page')) return;
+
+    const updateNavbarState = () => {
+        navbar.classList.toggle('navbar-scrolled', window.scrollY > 18);
+    };
+
+    updateNavbarState();
+    window.addEventListener('scroll', updateNavbarState, { passive: true });
+}
+
+function setupNavSearch() {
+    const currentSearchTerm = new URLSearchParams(window.location.search).get('q')?.trim() || '';
+
+    document.querySelectorAll('.nav-search').forEach(form => {
+        const input = form.querySelector('input[type="search"]');
+
+        if (input && document.querySelector('.products-grid')) {
+            input.value = currentSearchTerm;
+        }
+
+        form.addEventListener('submit', (e) => {
+            const query = input?.value.trim() || '';
+
+            if (!query) {
+                e.preventDefault();
+                window.location.href = 'products.html';
+            }
+        });
     });
 }
 
@@ -1222,9 +1351,12 @@ function setupHeroVideoAutoplay() {
 document.addEventListener('DOMContentLoaded', async () => {
     clearLegacyProductStorage();
 
-    if (setupProtectedPage()) return;
+    await refreshAuthSession();
+    if (await setupProtectedPage()) return;
 
     setupNavigation();
+    setupNavbarScrollState();
+    setupNavSearch();
     setupStaticActions();
     setupHeroVideoAutoplay();
     setupPasswordToggles();

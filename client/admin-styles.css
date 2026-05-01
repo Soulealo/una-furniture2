@@ -1,16 +1,23 @@
 
 
 :root {
-    --primary-dark: #2a2420;
-    --primary-brown: #3d3530;
-    --accent-gold: #c9a961;
-    --accent-light-gold: #d4b896;
-    --cream: #f5f1ed;
+    --bg: #f4f1e5;
+    --text: #2f2c2b;
+    --primary: #4b1700;
+    --secondary: #8b7d66;
+    --muted: #bdb298;
+    --primary-dark: var(--primary);
+    --primary-brown: #3a1200;
+    --accent-gold: var(--primary);
+    --accent-light-gold: var(--secondary);
+    --cream: var(--bg);
     --white: #ffffff;
-    --text-dark: #1a1612;
-    --text-light: #7a7370;
-    --border-color: #e8e4e0;
-    --transition: 0.3s ease;
+    --text-dark: var(--text);
+    --text-light: var(--secondary);
+    --border-color: #e8e1d2;
+    --shadow-soft: 0 8px 20px rgba(0, 0, 0, 0.05);
+    --shadow-hover: 0 12px 25px rgba(0, 0, 0, 0.08);
+    --transition: 0.25s ease;
     --error-color: #e74c3c;
     --success-color: #27ae60;
 }
@@ -26,9 +33,9 @@ html {
 }
 
 body {
-    font-family: 'Montserrat', sans-serif;
-    color: var(--text-dark);
-    background-color: var(--cream);
+    font-family: 'Inter', 'Helvetica Neue', sans-serif;
+    color: var(--text);
+    background: var(--bg);
     line-height: 1.6;
     overflow-x: hidden;
 }
@@ -90,7 +97,7 @@ img {
 }
 
 .login-modal-header h1 {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: inherit;
     font-size: 2rem;
     color: var(--text-dark);
     letter-spacing: 1px;
@@ -123,7 +130,7 @@ img {
     padding: 12px 16px;
     border: 2px solid var(--border-color);
     border-radius: 6px;
-    font-family: 'Montserrat', sans-serif;
+    font-family: inherit;
     font-size: 0.95rem;
     color: var(--text-dark);
     transition: all var(--transition);
@@ -176,7 +183,7 @@ img {
     padding: 12px 24px;
     border: none;
     border-radius: 6px;
-    font-family: 'Montserrat', sans-serif;
+    font-family: inherit;
     font-size: 0.95rem;
     font-weight: 600;
     cursor: pointer;
@@ -282,7 +289,7 @@ img {
 }
 
 .sidebar-header h2 {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: inherit;
     font-size: 1.5rem;
     letter-spacing: 1px;
     color: var(--accent-gold);
@@ -346,7 +353,7 @@ img {
 }
 
 .admin-header h1 {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: inherit;
     font-size: 2.5rem;
     color: var(--text-dark);
     letter-spacing: 1px;
@@ -443,7 +450,7 @@ img {
 }
 
 .products-header h2 {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: inherit;
     font-size: 2rem;
     color: var(--text-dark);
 }
@@ -461,7 +468,7 @@ img {
 }
 
 .form-card h3 {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: inherit;
     font-size: 1.8rem;
     color: var(--text-dark);
     margin-bottom: 25px;
@@ -863,7 +870,7 @@ tbody tr:last-child td {
     gap: 12px;
     color: var(--white);
     text-decoration: none;
-    font-family: 'Cormorant Garamond', serif;
+    font-family: inherit;
     font-size: 1.3rem;
     font-weight: 700;
 }
@@ -1168,6 +1175,10 @@ tbody tr:last-child td {
     align-items: start;
 }
 
+.create-admin-card {
+    grid-column: 1 / -1;
+}
+
 .settings-card-admin,
 .order-detail-content {
     background-color: var(--white);
@@ -1180,7 +1191,7 @@ tbody tr:last-child td {
 }
 
 .settings-card-admin h2 {
-    font-family: 'Cormorant Garamond', serif;
+    font-family: inherit;
     font-size: 2rem;
     margin-bottom: 8px;
 }
@@ -1468,5 +1479,185 @@ tbody tr:last-child td {
         width: 100%;
         height: auto;
         aspect-ratio: 4 / 3;
+    }
+}
+
+/* Premium admin theme refinements */
+button,
+input,
+textarea,
+select {
+    font-family: inherit;
+}
+
+.login-modal-header h1,
+.admin-header h1,
+.settings-card-admin h2,
+.form-card h3,
+.admin-nav-logo {
+    font-family: inherit;
+    font-weight: 700;
+    letter-spacing: 1px;
+}
+
+.login-screen.active {
+    background: var(--bg);
+}
+
+.dashboard-screen.active,
+.admin-main {
+    background: var(--bg);
+}
+
+.login-container-admin,
+.login-modal-content,
+.stat-card-admin,
+.quick-actions,
+.products-table-container,
+.settings-card-admin,
+.order-detail-content,
+.modal-content-admin {
+    border: 1px solid #eee;
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: var(--shadow-soft);
+}
+
+.stat-card-admin,
+.quick-actions,
+.settings-card-admin,
+.products-table-container {
+    transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.stat-card-admin:hover,
+.quick-actions:hover,
+.settings-card-admin:hover,
+.products-table-container:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-hover);
+}
+
+.admin-navbar {
+    background: #fff;
+    color: var(--text);
+    border-bottom: 1px solid rgba(189, 178, 152, 0.28);
+    box-shadow: 0 4px 24px rgba(47, 44, 43, 0.08);
+}
+
+.admin-nav-logo {
+    color: var(--text);
+    font-size: 1.05rem;
+}
+
+.admin-sidebar {
+    background: var(--primary);
+}
+
+.sidebar-link {
+    color: rgba(255, 255, 255, 0.84);
+    border-radius: 8px;
+}
+
+.sidebar-link:hover,
+.sidebar-link.active {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+}
+
+.admin-logout-btn,
+.admin-btn-secondary {
+    border: 1px solid var(--secondary);
+    border-radius: 8px;
+    background: transparent;
+    color: var(--secondary);
+}
+
+.admin-logout-btn:hover,
+.admin-btn-secondary:hover {
+    border-color: var(--primary);
+    background: rgba(75, 23, 0, 0.05);
+    color: var(--primary);
+}
+
+.admin-btn-submit,
+.admin-btn-primary,
+.edit-btn {
+    border: 1px solid var(--primary);
+    border-radius: 8px;
+    background: var(--primary);
+    color: #fff;
+    box-shadow: none;
+}
+
+.admin-btn-submit:hover,
+.admin-btn-primary:hover,
+.edit-btn:hover,
+.quick-action-btn:hover {
+    background: #3a1200;
+    border-color: #3a1200;
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 10px 18px rgba(75, 23, 0, 0.16);
+}
+
+.quick-action-btn {
+    border: 1px solid rgba(139, 125, 102, 0.28);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--text);
+}
+
+.form-group input,
+.form-group textarea,
+.input-wrapper-admin input,
+.form-group-admin input,
+.form-group-admin textarea,
+.form-group-admin select {
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: #fff;
+    color: var(--text);
+}
+
+.form-group input:focus,
+.form-group textarea:focus,
+.input-wrapper-admin input:focus,
+.form-group-admin input:focus,
+.form-group-admin textarea:focus,
+.form-group-admin select:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(75, 23, 0, 0.1);
+}
+
+.input-wrapper-admin i,
+.stat-number,
+.empty-state-admin i,
+.product-cell-price {
+    color: var(--primary);
+}
+
+.products-table-admin th {
+    background: var(--primary);
+    color: #fff;
+}
+
+.admin-category-badge,
+.admin-code-badge,
+.order-status-badge.chat_pending {
+    border-color: rgba(139, 125, 102, 0.35);
+    background: rgba(189, 178, 152, 0.18);
+    color: var(--primary);
+}
+
+.login-hint-admin,
+.modal-close-btn,
+.order-status-badge {
+    background: var(--bg);
+}
+
+@media (max-width: 768px) {
+    .admin-sidebar {
+        background: var(--primary);
     }
 }

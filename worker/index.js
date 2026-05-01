@@ -23,14 +23,35 @@ const DEFAULT_PAYMENT_SETTINGS = {
     facebookChatUrl: ''
 };
 
-function json(data, status = 200) {
+const GOOGLE_REDIRECT_URI = 'https://una-furniture.jntsnnrv.workers.dev/auth/google/callback';
+const AUTH_COOKIE_NAME = 'una_auth_token';
+const GOOGLE_STATE_COOKIE_NAME = 'una_google_oauth_state';
+const SESSION_MAX_AGE_SECONDS = 60 * 60 * 12;
+const GOOGLE_CLIENT_ID_SUFFIX = '.apps.googleusercontent.com';
+const ADMIN_ACCESS_ROLES = new Set(['admin', 'manager']);
+
+function responseHeaders(extraHeaders = {}) {
+    const headers = new Headers(jsonHeaders);
+
+    Object.entries(extraHeaders).forEach(([key, value]) => {
+        if (Array.isArray(value)) {
+            value.forEach((item) => headers.append(key, item));
+        } else if (value !== undefined && value !== null) {
+            headers.set(key, value);
+        }
+    });
+
+    return headers;
+}
+
+function json(data, status = 200, extraHeaders = {}) {
     const body = data && typeof data === 'object' && typeof data.success === 'boolean'
         ? data
         : { success: true, data };
 
     return new Response(JSON.stringify(body), {
         status,
-        headers: jsonHeaders
+        headers: responseHeaders(extraHeaders)
     });
 }
 
@@ -75,6 +96,65 @@ async function hmac(value, secret) {
     return base64UrlEncode(new Uint8Array(signature));
 }
 
+function getJwtSecret(env) {
+    return env.JWT_SECRET || env.ADMIN_SESSION_SECRET || 'change-this-session-secret';
+}
+
+function parseCookies(request) {
+    const cookieHeader = request.headers.get('cookie') || '';
+    const cookies = new Map();
+
+    cookieHeader.split(';').forEach((cookie) => {
+        const [name, ...valueParts] = cookie.trim().split('=');
+        if (!name) return;
+        try {
+            cookies.set(name, decodeURIComponent(valueParts.join('=')));
+        } catch (error) {
+            cookies.set(name, valueParts.join('='));
+        }
+    });
+
+    return cookies;
+}
+
+function getCookie(request, name) {
+    return parseCookies(request).get(name) || '';
+}
+
+function serializeCookie(request, name, value, options = {}) {
+    const url = new URL(request.url);
+    const parts = [
+        `${name}=${encodeURIComponent(value)}`,
+        `Path=${options.path || '/'}`,
+        `SameSite=${options.sameSite || 'Lax'}`
+    ];
+
+    if (options.maxAge !== undefined) parts.push(`Max-Age=${options.maxAge}`);
+    if (options.httpOnly !== false) parts.push('HttpOnly');
+    if (url.protocol === 'https:') parts.push('Secure');
+
+    return parts.join('; ');
+}
+
+function clearCookie(request, name) {
+    return serializeCookie(request, name, '', { maxAge: 0 });
+}
+
+function redirect(location, extraHeaders = {}) {
+    const headers = new Headers();
+    headers.set('location', location);
+
+    Object.entries(extraHeaders).forEach(([key, value]) => {
+        if (Array.isArray(value)) {
+            value.forEach((item) => headers.append(key, item));
+        } else if (value !== undefined && value !== null) {
+            headers.set(key, value);
+        }
+    });
+
+    return new Response(null, { status: 302, headers });
+}
+
 async function sha256(value) {
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
     return base64UrlEncode(new Uint8Array(digest));
@@ -102,22 +182,27 @@ async function createToken(env, claims) {
     const header = base64UrlEncode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
     const payload = base64UrlEncode(JSON.stringify({
         ...claims,
-        exp: Math.floor(Date.now() / 1000) + (60 * 60 * 12)
+        exp: Math.floor(Date.now() / 1000) + SESSION_MAX_AGE_SECONDS
     }));
-    const signature = await hmac(`${header}.${payload}`, env.ADMIN_SESSION_SECRET || 'change-this-session-secret');
+    const signature = await hmac(`${header}.${payload}`, getJwtSecret(env));
 
     return `${header}.${payload}.${signature}`;
 }
 
 async function verifyToken(request, env) {
     const header = request.headers.get('authorization') || '';
-    const token = header.startsWith('Bearer ') ? header.slice(7).trim() : '';
+    const cookieToken = getCookie(request, AUTH_COOKIE_NAME);
+    const token = header.startsWith('Bearer ') ? header.slice(7).trim() : cookieToken;
     const [tokenHeader, payload, signature] = token.split('.');
 
     if (!tokenHeader || !payload || !signature) return null;
 
-    const expectedSignature = await hmac(`${tokenHeader}.${payload}`, env.ADMIN_SESSION_SECRET || 'change-this-session-secret');
-    if (signature !== expectedSignature) return null;
+    const secrets = [...new Set([
+        getJwtSecret(env),
+        env.ADMIN_SESSION_SECRET || 'change-this-session-secret'
+    ])];
+    const verified = await Promise.all(secrets.map((secret) => hmac(`${tokenHeader}.${payload}`, secret)));
+    if (!verified.includes(signature)) return null;
 
     try {
         const session = JSON.parse(base64UrlDecode(payload));
@@ -142,7 +227,16 @@ async function requireAdmin(request, env) {
     const { session, error } = await requireAuth(request, env);
 
     if (error) return { error };
-    if (session.role !== 'admin') return { error: fail('Admin login required.', 403) };
+    if (!ADMIN_ACCESS_ROLES.has(session.role)) return { error: fail('Admin login required.', 403) };
+
+    return { session };
+}
+
+async function requireAdminCreator(request, env) {
+    const { session, error } = await requireAdmin(request, env);
+
+    if (error) return { error };
+    if (session.role !== 'admin') return { error: fail('Only admins can create admin accounts.', 403) };
 
     return { session };
 }
@@ -298,11 +392,16 @@ async function syncProductImages(env, productId, images) {
 }
 
 function toUserResponse(row) {
+    const displayName = row.name || row.fullname || row.username || '';
+
     return {
         id: String(row.id),
+        googleId: row.googleId || '',
+        name: displayName,
         username: row.username || '',
-        fullname: row.fullname || '',
+        fullname: row.fullname || displayName,
         email: row.email || '',
+        avatar: row.avatar || '',
         phone: row.phone || '',
         address: row.address || '',
         role: row.role || 'user',
@@ -343,57 +442,179 @@ async function ensureAdminSettings(env) {
     return row;
 }
 
+function normalizeLogin(value) {
+    return String(value || '').trim().toLowerCase();
+}
+
+function isValidEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function isValidUsername(value) {
+    return /^[a-z0-9._-]{3,64}$/i.test(value);
+}
+
+function cleanAdminAccountInput(body = {}) {
+    const rawIdentity = String(body.usernameEmail || body.usernameOrEmail || body.username || body.email || '').trim();
+    const rawEmail = String(body.email || '').trim();
+    const username = normalizeLogin(rawIdentity);
+    const explicitEmail = rawEmail && normalizeLogin(rawEmail) !== username ? normalizeLogin(rawEmail) : '';
+    const email = explicitEmail || (isValidEmail(username) ? username : '');
+
+    return {
+        name: String(body.name || body.fullname || '').trim(),
+        username,
+        email,
+        password: String(body.password || ''),
+        confirmPassword: String(body.confirmPassword || body.passwordConfirm || ''),
+        role: normalizeLogin(body.role || 'admin')
+    };
+}
+
+async function findAdminUserByLogin(env, login) {
+    return env.DB.prepare(
+        `SELECT * FROM users
+         WHERE role IN ('admin', 'manager')
+           AND (LOWER(username) = ? OR LOWER(COALESCE(email, '')) = ?)
+         LIMIT 1`
+    ).bind(login, login).first();
+}
+
+async function findDuplicateAdminIdentity(env, username, email = '', ignoreUserId = null, options = {}) {
+    const settings = await ensureAdminSettings(env);
+    const candidates = [username, email].filter(Boolean);
+    const rootUsername = normalizeLogin(settings.username);
+    const rootEmail = normalizeLogin(settings.email);
+
+    if (!options.ignoreAdminSettings && candidates.some((value) => value === rootUsername || (rootEmail && value === rootEmail))) {
+        return { source: 'admin_settings' };
+    }
+
+    const clauses = ['LOWER(username) = ?'];
+    const values = [username];
+
+    if (email) {
+        clauses.push('LOWER(COALESCE(email, \'\')) = ?');
+        values.push(email);
+    }
+
+    let sql = `SELECT id FROM users WHERE (${clauses.join(' OR ')})`;
+
+    if (ignoreUserId) {
+        sql += ' AND id != ?';
+        values.push(ignoreUserId);
+    }
+
+    return env.DB.prepare(sql).bind(...values).first();
+}
+
+function validateAdminAccountInput(input) {
+    if (!input.name) return 'Admin name is required.';
+    if (!input.username) return 'Username or email is required.';
+    if (input.username.includes('@') && !isValidEmail(input.username)) return 'Valid email is required.';
+    if (!input.username.includes('@') && !isValidUsername(input.username)) {
+        return 'Username must be 3-64 characters and use only letters, numbers, dots, underscores, or hyphens.';
+    }
+    if (input.email && !isValidEmail(input.email)) return 'Valid email is required.';
+    if (!input.password || !input.confirmPassword) return 'Password and confirmation are required.';
+    if (input.password !== input.confirmPassword) return 'Password and confirm password must match.';
+    if (input.password.length < 6) return 'Password must be at least 6 characters.';
+    if (!ADMIN_ACCESS_ROLES.has(input.role)) return 'Role must be admin or manager.';
+    return '';
+}
+
+function toAdminUserPayload(user) {
+    return {
+        userId: String(user.id),
+        name: user.name || user.fullname || '',
+        username: user.username || '',
+        email: user.email || '',
+        role: user.role || 'manager'
+    };
+}
+
 async function loginAdmin(request, env) {
     const body = await readJson(request);
-    const username = String(body.username || body.email || '').trim();
+    const username = normalizeLogin(body.username || body.email);
     const password = String(body.password || '');
     const settings = await ensureAdminSettings(env);
 
     if (!username || !password) return fail('Username and password are required.', 400);
-    if (username !== settings.username) return fail('Invalid admin username or password.', 401);
 
-    const passwordOk = settings.passwordHash
-        ? await comparePassword(password, settings.passwordHash)
-        : password === (env.ADMIN_PASSWORD || '1234');
+    const settingsUsername = normalizeLogin(settings.username);
+    const settingsEmail = normalizeLogin(settings.email);
 
-    if (!passwordOk) return fail('Invalid admin username or password.', 401);
+    if (username === settingsUsername || (settingsEmail && username === settingsEmail)) {
+        const passwordOk = settings.passwordHash
+            ? await comparePassword(password, settings.passwordHash)
+            : password === (env.ADMIN_PASSWORD || '1234');
 
-    if (!settings.passwordHash) {
-        await env.DB.prepare('UPDATE admin_settings SET passwordHash = ?, updatedAt = ? WHERE id = 1')
-            .bind(await hashPassword(password), new Date().toISOString()).run();
-    }
+        if (!passwordOk) return fail('Invalid admin username or password.', 401);
 
-    const token = await createToken(env, {
-        username: settings.username,
-        email: settings.email || '',
-        role: 'admin'
-    });
+        if (!settings.passwordHash) {
+            await env.DB.prepare('UPDATE admin_settings SET passwordHash = ?, updatedAt = ? WHERE id = 1')
+                .bind(await hashPassword(password), new Date().toISOString()).run();
+        }
 
-    return json({
-        token,
-        user: {
+        const token = await createToken(env, {
             username: settings.username,
             email: settings.email || '',
             role: 'admin'
-        }
+        });
+
+        return json({
+            token,
+            user: {
+                username: settings.username,
+                email: settings.email || '',
+                role: 'admin'
+            }
+        });
+    }
+
+    const adminUser = await findAdminUserByLogin(env, username);
+
+    if (!adminUser?.passwordHash) return fail('Invalid admin username or password.', 401);
+
+    const passwordOk = await comparePassword(password, adminUser.passwordHash);
+    if (!passwordOk) return fail('Invalid admin username or password.', 401);
+
+    const token = await createToken(env, toAdminUserPayload(adminUser));
+
+    return json({
+        token,
+        user: toUserResponse(adminUser)
     });
 }
 
 async function getAdminSession(request, env) {
     const { session, error } = await requireAdmin(request, env);
     if (error) return error;
-    return json({ username: session.username, email: session.email || '', role: session.role });
+    return json({
+        id: session.userId || '',
+        name: session.name || '',
+        username: session.username,
+        email: session.email || '',
+        role: session.role
+    });
 }
 
 async function getAdminProfile(request, env) {
-    const { error } = await requireAdmin(request, env);
+    const { session, error } = await requireAdmin(request, env);
     if (error) return error;
+
+    if (session.userId) {
+        const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(session.userId).first();
+        if (!user || !ADMIN_ACCESS_ROLES.has(user.role)) return fail('Admin account not found.', 404);
+        return json(toUserResponse(user));
+    }
+
     const settings = await ensureAdminSettings(env);
-    return json({ username: settings.username, email: settings.email || '', role: 'admin' });
+    return json({ name: '', username: settings.username, email: settings.email || '', role: 'admin' });
 }
 
 async function updateAdminProfile(request, env) {
-    const { error } = await requireAdmin(request, env);
+    const { session, error } = await requireAdmin(request, env);
     if (error) return error;
 
     const body = await readJson(request);
@@ -404,6 +625,22 @@ async function updateAdminProfile(request, env) {
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail('Valid admin email is required.', 400);
 
     const updatedAt = new Date().toISOString();
+
+    if (session.userId) {
+        const duplicate = await findDuplicateAdminIdentity(env, username, email, session.userId);
+        if (duplicate) return fail('Username or email already exists.', 409);
+
+        await env.DB.prepare('UPDATE users SET username = ?, email = ?, updatedAt = ? WHERE id = ?')
+            .bind(username, email || null, updatedAt, session.userId).run();
+
+        const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(session.userId).first();
+        const token = await createToken(env, toAdminUserPayload(user));
+        return json({ user: toUserResponse(user), token });
+    }
+
+    const duplicate = await findDuplicateAdminIdentity(env, username, email, null, { ignoreAdminSettings: true });
+    if (duplicate) return fail('Username or email already exists.', 409);
+
     await ensureAdminSettings(env);
     await env.DB.prepare('UPDATE admin_settings SET username = ?, email = ?, updatedAt = ? WHERE id = 1')
         .bind(username, email, updatedAt).run();
@@ -413,16 +650,30 @@ async function updateAdminProfile(request, env) {
 }
 
 async function changeAdminPassword(request, env) {
-    const { error } = await requireAdmin(request, env);
+    const { session, error } = await requireAdmin(request, env);
     if (error) return error;
 
     const body = await readJson(request);
     const currentPassword = String(body.currentPassword || '');
     const newPassword = String(body.newPassword || '');
-    const settings = await ensureAdminSettings(env);
 
     if (!currentPassword || !newPassword) return fail('Current and new password are required.', 400);
-    if (newPassword.length < 4) return fail('New password must be at least 4 characters.', 400);
+    if (newPassword.length < 6) return fail('New password must be at least 6 characters.', 400);
+
+    if (session.userId) {
+        const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(session.userId).first();
+        if (!user || !ADMIN_ACCESS_ROLES.has(user.role)) return fail('Admin account not found.', 404);
+
+        const passwordOk = user.passwordHash && await comparePassword(currentPassword, user.passwordHash);
+        if (!passwordOk) return fail('Current password is incorrect.', 401);
+
+        await env.DB.prepare('UPDATE users SET passwordHash = ?, updatedAt = ? WHERE id = ?')
+            .bind(await hashPassword(newPassword), new Date().toISOString(), session.userId).run();
+
+        return json({ message: 'Admin password changed.' });
+    }
+
+    const settings = await ensureAdminSettings(env);
 
     const passwordOk = settings.passwordHash
         ? await comparePassword(currentPassword, settings.passwordHash)
@@ -435,6 +686,276 @@ async function changeAdminPassword(request, env) {
         .bind(passwordHash, new Date().toISOString()).run();
 
     return json({ message: 'Admin password changed.' });
+}
+
+async function createAdminAccount(request, env) {
+    const { error } = await requireAdminCreator(request, env);
+    if (error) return error;
+
+    const input = cleanAdminAccountInput(await readJson(request));
+    const validationError = validateAdminAccountInput(input);
+
+    if (validationError) return fail(validationError, 400);
+
+    const duplicate = await findDuplicateAdminIdentity(env, input.username, input.email);
+    if (duplicate) return fail('Username or email already exists.', 409);
+
+    const now = new Date().toISOString();
+    const passwordHash = await hashPassword(input.password);
+    const result = await env.DB.prepare(
+        `INSERT INTO users
+            (name, fullname, username, email, avatar, passwordHash, phone, address, role, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(
+        input.name,
+        input.name,
+        input.username,
+        input.email || null,
+        '',
+        passwordHash,
+        '',
+        '',
+        input.role,
+        now,
+        now
+    ).run();
+
+    const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(result.meta.last_row_id).first();
+
+    return json({
+        message: 'Admin account created.',
+        user: toUserResponse(user)
+    }, 201);
+}
+
+function isValidGoogleClientId(clientId) {
+    return clientId.endsWith(GOOGLE_CLIENT_ID_SUFFIX) && !clientId.startsWith('GOCSPX-');
+}
+
+function getGoogleOAuthConfig(env) {
+    const clientId = String(env.GOOGLE_CLIENT_ID || '').trim();
+    const clientSecret = String(env.GOOGLE_CLIENT_SECRET || '').trim();
+    const jwtSecret = String(env.JWT_SECRET || '').trim();
+    let redirectUri = '';
+
+    try {
+        const redirectUrl = new URL(GOOGLE_REDIRECT_URI);
+        if (
+            redirectUrl.toString() !== GOOGLE_REDIRECT_URI
+            || redirectUrl.protocol !== 'https:'
+            || redirectUrl.pathname !== '/auth/google/callback'
+        ) {
+            console.error('[Google OAuth] Redirect URI is not configured correctly.');
+            return null;
+        }
+
+        redirectUri = redirectUrl.toString();
+    } catch (error) {
+        console.error('[Google OAuth] Redirect URI is invalid.');
+        return null;
+    }
+
+    if (!clientId || !clientSecret || !jwtSecret) {
+        console.error('[Google OAuth] Missing GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, or JWT_SECRET.');
+        return null;
+    }
+
+    if (!isValidGoogleClientId(clientId)) {
+        console.error('[Google OAuth] GOOGLE_CLIENT_ID must be the OAuth client ID ending in .apps.googleusercontent.com.');
+        return null;
+    }
+
+    return {
+        clientId,
+        clientSecret,
+        redirectUri
+    };
+}
+
+function usernameFromEmail(email) {
+    return email.split('@')[0].replace(/[^a-z0-9_]/gi, '').toLowerCase() || `user${Date.now()}`;
+}
+
+async function createUserSessionToken(env, user, role = user.role || 'user') {
+    return createToken(env, {
+        userId: String(user.id),
+        username: user.username || usernameFromEmail(user.email || ''),
+        fullname: user.fullname || user.name || '',
+        name: user.name || user.fullname || '',
+        email: user.email || '',
+        avatar: user.avatar || '',
+        role
+    });
+}
+
+async function exchangeGoogleCode(code, config) {
+    const response = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            Accept: 'application/json'
+        },
+        body: new URLSearchParams({
+            code,
+            client_id: config.clientId,
+            client_secret: config.clientSecret,
+            redirect_uri: config.redirectUri,
+            grant_type: 'authorization_code'
+        })
+    });
+
+    if (!response.ok) {
+        console.error('[Google OAuth] Token exchange failed', response.status);
+        return null;
+    }
+
+    return response.json();
+}
+
+async function fetchGoogleProfile(accessToken) {
+    const response = await fetch('https://openidconnect.googleapis.com/v1/userinfo', {
+        headers: {
+            Accept: 'application/json',
+            Authorization: `Bearer ${accessToken}`
+        }
+    });
+
+    if (!response.ok) {
+        console.error('[Google OAuth] Profile request failed', response.status);
+        return null;
+    }
+
+    return response.json();
+}
+
+async function findOrCreateGoogleUser(env, profile) {
+    const googleId = String(profile.sub || '').trim();
+    const email = String(profile.email || '').trim().toLowerCase();
+    const name = String(profile.name || profile.given_name || email.split('@')[0] || '').trim();
+    const avatar = String(profile.picture || '').trim();
+
+    if (!googleId || !email) return { error: fail('Google account did not provide a usable profile.', 400) };
+    if (profile.email_verified === false) return { error: fail('Google email must be verified before login.', 403) };
+
+    let user = await env.DB.prepare('SELECT * FROM users WHERE googleId = ?').bind(googleId).first();
+
+    if (!user) {
+        user = await env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
+
+        if (user?.googleId && user.googleId !== googleId) {
+            return { error: fail('This email is already linked to a different Google account.', 409) };
+        }
+    }
+
+    const now = new Date().toISOString();
+
+    if (user) {
+        await env.DB.prepare(
+            `UPDATE users
+             SET googleId = COALESCE(NULLIF(googleId, ''), ?),
+                 name = COALESCE(NULLIF(name, ''), ?),
+                 fullname = COALESCE(NULLIF(fullname, ''), ?),
+                 avatar = ?,
+                 updatedAt = ?
+             WHERE id = ?`
+        ).bind(googleId, name, name, avatar, now, user.id).run();
+
+        user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(user.id).first();
+        return { user: { ...user, role: 'user' } };
+    }
+
+    const result = await env.DB.prepare(
+        `INSERT INTO users
+            (googleId, name, username, fullname, email, avatar, passwordHash, phone, address, role, createdAt, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(
+        googleId,
+        name,
+        usernameFromEmail(email),
+        name,
+        email,
+        avatar,
+        '',
+        '',
+        '',
+        'user',
+        now,
+        now
+    ).run();
+
+    user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(result.meta.last_row_id).first();
+    return { user: { ...user, role: 'user' } };
+}
+
+async function startGoogleLogin(request, env) {
+    const config = getGoogleOAuthConfig(env);
+    if (!config) return fail('Google login is not configured.', 500);
+
+    const state = randomId(24);
+    const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
+    authUrl.searchParams.set('client_id', config.clientId);
+    authUrl.searchParams.set('redirect_uri', config.redirectUri);
+    authUrl.searchParams.set('response_type', 'code');
+    authUrl.searchParams.set('scope', 'openid email profile');
+    authUrl.searchParams.set('state', state);
+    authUrl.searchParams.set('prompt', 'select_account');
+
+    return redirect(authUrl.toString(), {
+        'Set-Cookie': serializeCookie(request, GOOGLE_STATE_COOKIE_NAME, state, { maxAge: 10 * 60 })
+    });
+}
+
+async function handleGoogleCallback(request, env) {
+    const config = getGoogleOAuthConfig(env);
+    if (!config) return fail('Google login is not configured.', 500);
+
+    const url = new URL(request.url);
+    const error = url.searchParams.get('error');
+    const code = url.searchParams.get('code');
+    const state = url.searchParams.get('state');
+    const expectedState = getCookie(request, GOOGLE_STATE_COOKIE_NAME);
+
+    if (error) return fail('Google login was cancelled.', 400);
+    if (!code || !state || !expectedState || state !== expectedState) {
+        return fail('Google login state is invalid or expired.', 400);
+    }
+
+    const tokenData = await exchangeGoogleCode(code, config);
+    if (!tokenData?.access_token) return fail('Google login could not be completed.', 502);
+
+    const profile = await fetchGoogleProfile(tokenData.access_token);
+    if (!profile) return fail('Google profile could not be loaded.', 502);
+
+    const { user, error: userError } = await findOrCreateGoogleUser(env, profile);
+    if (userError) return userError;
+
+    const token = await createUserSessionToken(env, user, 'user');
+
+    return redirect('/account.html', {
+        'Set-Cookie': [
+            serializeCookie(request, AUTH_COOKIE_NAME, token, { maxAge: SESSION_MAX_AGE_SECONDS }),
+            clearCookie(request, GOOGLE_STATE_COOKIE_NAME)
+        ]
+    });
+}
+
+async function authMe(request, env) {
+    const session = await verifyToken(request, env);
+    if (!session) return json(null);
+
+    const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(session.userId).first();
+    if (!user) return json(null);
+
+    return json(toUserResponse({ ...user, role: 'user' }));
+}
+
+function logoutAuth(request) {
+    return json({ message: 'Logged out.' }, 200, {
+        'Set-Cookie': [
+            clearCookie(request, AUTH_COOKIE_NAME),
+            clearCookie(request, GOOGLE_STATE_COOKIE_NAME)
+        ]
+    });
 }
 
 async function registerUser(request, env) {
@@ -454,8 +975,8 @@ async function registerUser(request, env) {
     const passwordHash = await hashPassword(password);
     const now = new Date().toISOString();
     const result = await env.DB.prepare(
-        'INSERT INTO users (username, fullname, email, passwordHash, phone, address, role, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-    ).bind(usernameBase, fullname, email, passwordHash, '', '', 'user', now, now).run();
+        'INSERT INTO users (username, fullname, name, email, avatar, passwordHash, phone, address, role, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+    ).bind(usernameBase, fullname, fullname, email, '', passwordHash, '', '', 'user', now, now).run();
 
     return json({ message: 'Registration successful.', user: { id: String(result.meta.last_row_id), username: usernameBase, fullname, email, role: 'user' } }, 201);
 }
@@ -472,13 +993,7 @@ async function loginUser(request, env) {
         return fail('Invalid email or password.', 401);
     }
 
-    const token = await createToken(env, {
-        userId: String(user.id),
-        username: user.username,
-        fullname: user.fullname,
-        email: user.email,
-        role: user.role || 'user'
-    });
+    const token = await createUserSessionToken(env, user, 'user');
 
     return json({ token, user: toUserResponse(user) });
 }
@@ -491,7 +1006,7 @@ async function currentUser(request, env) {
     const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(session.userId).first();
     if (!user) return fail('User not found.', 404);
 
-    return json(toUserResponse(user));
+    return json(toUserResponse({ ...user, role: 'user' }));
 }
 
 async function updateCurrentUser(request, env) {
@@ -506,8 +1021,8 @@ async function updateCurrentUser(request, env) {
 
     if (!fullname) return fail('Full name is required.', 400);
 
-    await env.DB.prepare('UPDATE users SET fullname = ?, phone = ?, address = ?, updatedAt = ? WHERE id = ?')
-        .bind(fullname, phone, address, new Date().toISOString(), session.userId).run();
+    await env.DB.prepare('UPDATE users SET fullname = ?, name = ?, phone = ?, address = ?, updatedAt = ? WHERE id = ?')
+        .bind(fullname, fullname, phone, address, new Date().toISOString(), session.userId).run();
 
     const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(session.userId).first();
     return json(toUserResponse(user));
@@ -925,6 +1440,10 @@ export default {
 
             if (pathname === '/register' && request.method === 'POST') return registerUser(request, env);
             if (pathname === '/login' && request.method === 'POST') return loginUser(request, env);
+            if (pathname === '/auth/google' && request.method === 'GET') return startGoogleLogin(request, env);
+            if (pathname === '/auth/google/callback' && request.method === 'GET') return handleGoogleCallback(request, env);
+            if (pathname === '/auth/me' && request.method === 'GET') return authMe(request, env);
+            if (pathname === '/auth/logout' && request.method === 'POST') return logoutAuth(request);
             if (pathname === '/account' && request.method === 'GET') return currentUser(request, env);
             if (pathname === '/account' && request.method === 'PUT') return updateCurrentUser(request, env);
             if (pathname === '/change-password' && request.method === 'POST') return changeUserPassword(request, env);
@@ -934,6 +1453,7 @@ export default {
             if (pathname === '/admin/me' && request.method === 'GET') return getAdminProfile(request, env);
             if (pathname === '/admin/me' && request.method === 'PUT') return updateAdminProfile(request, env);
             if (pathname === '/admin/change-password' && request.method === 'PUT') return changeAdminPassword(request, env);
+            if (pathname === '/api/admin/create' && request.method === 'POST') return createAdminAccount(request, env);
             if (pathname === '/admin/users' && request.method === 'GET') return listAdminUsers(request, env);
 
             if (pathname === '/settings/payment' && request.method === 'GET') return json(await getPaymentSettings(env));

@@ -8,7 +8,7 @@
 <link href="data:," rel="icon"/>
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&amp;family=Montserrat:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
 <link href="styles.css" rel="stylesheet"/>
 <style>
@@ -22,28 +22,29 @@
 
 .admin-btn {
     padding: 12px 24px;
-    background-color: var(--accent-gold);
-    color: var(--white);
-    border: none;
-    border-radius: 5px;
+    background-color: var(--primary);
+    color: #fff;
+    border: 1px solid var(--primary);
+    border-radius: 8px;
     font-size: 14px;
     font-weight: 600;
-    font-family: 'Montserrat', sans-serif;
+    font-family: 'Inter', 'Helvetica Neue', sans-serif;
     cursor: pointer;
     text-decoration: none;
     display: inline-flex;
     align-items: center;
     gap: 8px;
     transition: all var(--transition);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+    box-shadow: none;
     width: 100%;
     justify-content: center;
 }
 
 .admin-btn:hover {
-    background-color: var(--accent-light-gold);
+    background-color: #3a1200;
+    border-color: #3a1200;
     transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+    box-shadow: 0 10px 18px rgba(75, 23, 0, 0.16);
 }
 
 .admin-btn:active {
@@ -80,7 +81,6 @@
 
 <li><a class="nav-link" href="products.html">Бүтээгдэхүүн</a></li>
 <li><a class="nav-link" href="index.html#services">Үйлчилгээ</a></li>
-<li><a class="nav-link" href="index.html#about">Бидний тухай</a></li>
 <li><a class="nav-link" href="index.html#contact">Холбоо барих</a></li>
 </ul>
 <div class="nav-right">
@@ -98,20 +98,6 @@
 <span class="logo-fallback">UNA Home &amp; Furniture</span>
 </div>
 <p>Таны гэрт тохирох ганц, төгс сонголт</p>
-<div class="login-benefits">
-<div class="benefit-item">
-<i class="fas fa-check"></i>
-<span>Хятадаас шууд захиалга</span>
-</div>
-<div class="benefit-item">
-<i class="fas fa-check"></i>
-<span>7-14 хоногт хүргэлт</span>
-</div>
-<div class="benefit-item">
-<i class="fas fa-check"></i>
-<span>Хямд үнэ, найдвартай үйлчилгээ</span>
-</div>
-</div>
 </div>
 <div class="login-form-wrapper">
 <div class="login-form-container">
@@ -148,10 +134,10 @@
 </form>
 <div class="form-divider"><span>эсвэл</span></div>
 <div class="social-login">
-<button class="social-btn google-btn" type="button">
+<a class="social-btn google-login-btn" href="/auth/google">
 <i class="fab fa-google"></i>
-                            Google-ээр нэвтрэх
-                        </button>
+                            Continue with Google
+                        </a>
 </div>
 
 <div class="admin-button-container">

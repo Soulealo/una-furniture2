@@ -104,6 +104,24 @@ The configured D1 database is `unafurniture`:
 database_id = "24f83c24-0678-49f6-b7f4-d9487b6cf63c"
 ```
 
+## Google OAuth
+
+Google OAuth is handled by the Worker at `GET /auth/google` and `GET /auth/google/callback`. The frontend should only link to `/auth/google`; do not put the Google client ID in frontend code.
+
+Use this authorized redirect URI in Google Cloud:
+
+```text
+https://una-furniture.jntsnnrv.workers.dev/auth/google/callback
+```
+
+Store the credentials as Worker secrets:
+
+```bash
+npx wrangler secret put GOOGLE_CLIENT_ID
+npx wrangler secret put GOOGLE_CLIENT_SECRET
+npx wrangler secret put JWT_SECRET
+```
+
 Apply migrations and deploy:
 
 ```bash

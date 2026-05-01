@@ -7,11 +7,11 @@
     <link rel="icon" href="data:,">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
 </head>
-<body>
+<body class="home-page">
     
     <nav class="navbar">
         <div class="nav-container">
@@ -21,26 +21,34 @@
                 <span class="logo-fallback">UNA Home & Furniture</span>
             </a>
 
-            
-            <div class="hamburger">
-                <span></span>
-                <span></span>
-                <span></span>
-            </div>
-
-            
             <ul class="nav-menu">
                 <li><a href="index.html" class="nav-link active">Нүүр</a></li>
                 <li><a href="products.html" class="nav-link">Бүтээгдэхүүн</a></li>
-                <li><a href="index.html#services" class="nav-link">Үйлчилгээ</a></li>
-                <li><a href="index.html#about" class="nav-link">Бидний тухай</a></li>
+                <li><a href="#services" class="nav-link">Үйлчилгээ</a></li>
                 <li><a href="index.html#contact" class="nav-link">Холбоо барих</a></li>
             </ul>
 
+            <form class="nav-search" action="products.html" method="get" role="search">
+                <label class="sr-only" for="homeSearch">Бүтээгдэхүүн хайх</label>
+                <i class="fas fa-search" aria-hidden="true"></i>
+                <input id="homeSearch" type="search" name="q" placeholder="Хайх">
+            </form>
+
             
             <div class="nav-right">
-                <i class="fas fa-user"></i>
-                <a href="login.html" class="login-btn">Нэвтрэх</a>
+                <a class="nav-account-link nav-icon-link" href="login.html" aria-label="Нэвтрэх">
+                    <i class="fas fa-user"></i>
+                </a>
+                <a class="nav-cart-link nav-icon-link" href="cart.html" aria-label="Сагс">
+                    <i class="fas fa-shopping-cart"></i>
+                    <strong data-cart-count>0</strong>
+                </a>
+            </div>
+
+            <div class="hamburger" aria-label="Цэс нээх" role="button" tabindex="0">
+                <span></span>
+                <span></span>
+                <span></span>
             </div>
         </div>
     </nav>
@@ -53,13 +61,14 @@
         <div class="hero-overlay"></div>
         <div class="hero-content">
             <div class="hero-copy">
-                <h1 class="hero-title">UNA Home & Furniture</h1>
-                <p class="hero-subtitle">Таны гэрт тохирох ганц, төгс сонголт</p>
-            </div>
-            <div class="hero-actions">
-                <a href="products.html" class="hero-button">
-                    <span>Бүтээгдэхүүн үзэх</span>
-                </a>
+                <p class="hero-kicker">ТАВ ТУХ БА ХЭВ МАЯГ</p>
+                <h1 class="hero-title"><span class="hero-title-line">UNA</span><span class="hero-title-line hero-title-subline">Home &amp; Furniture</span></h1>
+                <p class="hero-subtitle">Гэр болон ахуйн орчинд тохирсон, чанартай тавилгын шийдлийг UNA Home &amp; Furniture танд санал болгож байна.</p>
+                <div class="hero-actions">
+                    <a href="products.html" class="hero-button">
+                        <span>БҮТЭЭГДЭХҮҮН ҮЗЭХ</span>
+                    </a>
+                </div>
             </div>
         </div>
     </section>
@@ -92,12 +101,6 @@
                 </div>
 
                 <div class="service-card">
-                    <i class="fas fa-building"></i>
-                    <h3>Байгууллагын интерьер</h3>
-                    <p>Брэндийн өнгө төрхийг илэрхийлэх оффис, үйлчилгээний талбайн шийдлийг боловсруулна.</p>
-                </div>
-
-                <div class="service-card">
                     <i class="fas fa-ruler-combined"></i>
                     <h3>Орон зайн төлөвлөлт</h3>
                     <p>Талбай бүрийг зөв ашиглаж, гоо зүй болон хэрэглээг уялдуулсан төлөвлөлт хийдэг.</p>
@@ -112,46 +115,6 @@
         </div>
     </section>
 
-    
-    <section id="about" class="about">
-        <div class="container">
-            <h2 class="section-title">UNA Home & Furniture-ийн тухай</h2>
-            
-            <div class="about-content">
-                <div class="about-text">
-                    <p>
-                        UNA Home & Furniture нь интерьер дизайныг зөвхөн үзэмж бус, өдөр бүр амьдрах тав тухтай орчин гэж хардаг.
-                        Бид чанартай тавилга, зөв төлөвлөлт, тансаг өнгө төрхийг нэгтгэн таны гэрт тохирох шийдлийг санал болгодог.
-                    </p>
-                    <p>
-                        Манай баг таны хэрэгцээ, төсөв, хэв маягт нийцсэн бүтээгдэхүүн болон зөвлөгөөг нэг дороос авахад тусална.
-                        Жижиг булангаас эхлээд бүтэн гэрийн шинэчлэл хүртэл бид нарийн деталь бүрийг анхаардаг.
-                    </p>
-                </div>
-
-                <div class="about-stats">
-                    <div class="stat-card">
-                        <h3>150+</h3>
-                        <p>Гүйцэтгэсэн төсөл</p>
-                    </div>
-                    <div class="stat-card">
-                        <h3>50+</h3>
-                        <p>Багийн гишүүд</p>
-                    </div>
-                    <div class="stat-card">
-                        <h3>15+</h3>
-                        <p>Жилийн туршлага</p>
-                    </div>
-                    <div class="stat-card">
-                        <h3>100%</h3>
-                        <p>Сэтгэл ханамж</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    
     <section id="contact" class="contact">
         <div class="container">
             <h2 class="section-title">Холбоо барих</h2>

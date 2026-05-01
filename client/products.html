@@ -8,11 +8,11 @@
 <link href="data:," rel="icon"/>
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&amp;family=Montserrat:wght@400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
 <link href="styles.css" rel="stylesheet"/>
 </head>
-<body>
+<body class="products-page">
 
 <nav class="navbar">
 <div class="nav-container">
@@ -20,37 +20,40 @@
 <img class="site-logo-img" src="assets/logo/new-logo.png" alt="UNA Furniture Logo" onerror="this.hidden=true;this.nextElementSibling.classList.add('logo-fallback-visible');">
 <span class="logo-fallback">UNA Home &amp; Furniture</span>
 </a>
-<div class="hamburger">
-<span></span><span></span><span></span>
-</div>
 <ul class="nav-menu">
 <li><a class="nav-link" href="index.html">Нүүр</a></li>
-
 <li><a class="nav-link active" href="products.html">Бүтээгдэхүүн</a></li>
 <li><a class="nav-link" href="index.html#services">Үйлчилгээ</a></li>
-<li><a class="nav-link" href="index.html#about">Бидний тухай</a></li>
 <li><a class="nav-link" href="index.html#contact">Холбоо барих</a></li>
 </ul>
+<form class="nav-search" action="products.html" method="get" role="search">
+<label class="sr-only" for="productsSearch">Бүтээгдэхүүн хайх</label>
+<i class="fas fa-search" aria-hidden="true"></i>
+<input id="productsSearch" type="search" name="q" placeholder="Хайх"/>
+</form>
 <div class="nav-right">
+<a class="nav-account-link nav-icon-link" href="login.html" aria-label="Нэвтрэх">
 <i class="fas fa-user"></i>
-<a class="login-btn" href="login.html">Нэвтрэх</a>
+</a>
+<a class="nav-cart-link nav-icon-link" href="cart.html" aria-label="Сагс">
+<i class="fas fa-shopping-cart"></i>
+<strong data-cart-count>0</strong>
+</a>
+</div>
+<div class="hamburger" aria-label="Цэс нээх" role="button" tabindex="0">
+<span></span><span></span><span></span>
 </div>
 </div>
 </nav>
 
-<section class="products-hero">
-<div class="hero-overlay"></div>
-<div class="hero-content">
-<h1 class="hero-title">Манай Бүтээгдэхүүн</h1>
-<p class="hero-subtitle">Хятадаас шууд нийлүүлсэн чанартай тавилга</p>
-</div>
-</section>
-
 <section class="products">
-<div class="container">
-<h2 class="section-title">Тавилга болон интерьер цуглуулга</h2>
+<div class="container products-container">
+<header class="products-header">
+<span class="products-kicker">UNA Home &amp; Furniture</span>
+<h1 class="section-title">Тавилга болон интерьер цуглуулга</h1>
 <p class="section-subtitle">Орчин үеийн загвартай, өндөр чанарын тавилгын шилдэг сонголтууд</p>
-<div class="products-controls">
+</header>
+<div id="categories" class="products-controls">
 <div class="category-filter-group">
 <span class="products-control-label">Ангилал</span>
 <div class="category-filter-buttons"></div>
@@ -65,8 +68,8 @@
 <option value="name-desc">Нэр Z-A</option>
 </select>
 </div>
+<p id="productsResultCount" class="products-result-count" aria-live="polite"></p>
 </div>
-<p id="productsResultCount" class="products-result-count"></p>
 
 <div class="products-grid"></div>
 </div>

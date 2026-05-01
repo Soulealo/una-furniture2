@@ -111,6 +111,11 @@ function setupEventListeners() {
         adminPasswordForm.addEventListener('submit', handleAdminPasswordSubmit);
     }
 
+    const createAdminForm = document.getElementById('createAdminForm');
+    if (createAdminForm) {
+        createAdminForm.addEventListener('submit', handleCreateAdminSubmit);
+    }
+
     const closeOrderModalBtn = document.getElementById('closeOrderModalBtn');
     if (closeOrderModalBtn) {
         closeOrderModalBtn.addEventListener('click', closeOrderModal);
@@ -187,7 +192,7 @@ function getTokenPayload() {
 
 function tokenIsAdmin() {
     const payload = getTokenPayload();
-    return payload?.role === 'admin' && Number(payload.exp) > Math.floor(Date.now() / 1000);
+    return ['admin', 'manager'].includes(payload?.role) && Number(payload.exp) > Math.floor(Date.now() / 1000);
 }
 
 async function requestJson(url, options = {}) {
@@ -904,8 +909,14 @@ async function loadAdminProfile() {
 
 async function loadAdminAccountSection() {
     const admin = await loadAdminProfile();
+    const createAdminForm = document.getElementById('createAdminForm');
+
     document.getElementById('adminProfileUsername').value = admin.username || '';
     document.getElementById('adminProfileEmail').value = admin.email || '';
+
+    if (createAdminForm) {
+        createAdminForm.hidden = admin.role !== 'admin';
+    }
 }
 
 async function handleAdminProfileSubmit(e) {
@@ -974,6 +985,72 @@ async function handleAdminPasswordSubmit(e) {
         showAdminMessage('adminPasswordMessage', 'Admin password changed.');
     } catch (error) {
         showAdminMessage('adminPasswordMessage', error.message, 'error');
+    }
+}
+
+async function handleCreateAdminSubmit(e) {
+    e.preventDefault();
+
+    const form = document.getElementById('createAdminForm');
+    const submitButton = form?.querySelector('button[type="submit"]');
+    const originalButtonText = submitButton?.textContent || '';
+    const name = document.getElementById('newAdminName').value.trim();
+    const usernameEmail = document.getElementById('newAdminUsernameEmail').value.trim().toLowerCase();
+    const password = document.getElementById('newAdminPassword').value;
+    const confirmPassword = document.getElementById('newAdminConfirmPassword').value;
+    const role = document.getElementById('newAdminRole').value;
+
+    if (!name || !usernameEmail || !password || !confirmPassword) {
+        showAdminMessage('createAdminMessage', 'All fields are required.', 'error');
+        return;
+    }
+
+    if (password !== confirmPassword) {
+        showAdminMessage('createAdminMessage', 'Password and confirm password must match.', 'error');
+        return;
+    }
+
+    if (password.length < 6) {
+        showAdminMessage('createAdminMessage', 'Password must be at least 6 characters.', 'error');
+        return;
+    }
+
+    if (!['admin', 'manager'].includes(role)) {
+        showAdminMessage('createAdminMessage', 'Role must be admin or manager.', 'error');
+        return;
+    }
+
+    if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.textContent = 'Бүртгэж байна...';
+    }
+
+    try {
+        const data = await requestJson(`${API_BASE}/api/admin/create`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ name, usernameEmail, password, confirmPassword, role })
+        });
+
+        form.reset();
+        document.getElementById('newAdminRole').value = 'admin';
+        usersCache = [];
+        showAdminMessage('createAdminMessage', `${data.user?.username || usernameEmail} account created.`);
+
+        if (document.getElementById('accountsView')?.classList.contains('active')) {
+            await loadUsersTable();
+        }
+
+        await updateDashboard();
+    } catch (error) {
+        showAdminMessage('createAdminMessage', error.message, 'error');
+    } finally {
+        if (submitButton) {
+            submitButton.disabled = false;
+            submitButton.textContent = originalButtonText;
+        }
     }
 }
 
