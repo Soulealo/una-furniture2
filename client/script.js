@@ -54,8 +54,23 @@ function getSafeProductImage(image) {
     if (imageValue.startsWith('images/') || imageValue.startsWith('./images/')) return imageValue;
     if (imageValue.startsWith('data:image/')) return imageValue;
     if (/^https?:\/\//i.test(imageValue)) return imageValue;
+    if (isSafeImagePath(imageValue)) {
+        const normalizedPath = imageValue.replace(/^\.?\//, '');
+        return normalizedPath.includes('/') ? normalizedPath : `images/${normalizedPath}`;
+    }
 
     return DEFAULT_PRODUCT_IMAGE;
+}
+
+function isSafeImagePath(image) {
+    const imageValue = String(image || '').trim();
+    return /^(?!https?:)(?!data:)(?!\/\/)(?!.*(?:^|\/)\.\.(?:\/|$))\.?\/?[\w./ -]+\.(png|jpe?g|webp|gif|avif)$/i.test(imageValue);
+}
+
+function logColorVariants(label, value) {
+    if (localStorage.getItem('unaDebugColorVariants') === 'true') {
+        console.debug(`[colorVariants] ${label}`, value);
+    }
 }
 
 function getProductMainImage(product) {
@@ -65,6 +80,16 @@ function getProductMainImage(product) {
 function normalizeProduct(product, index = 0) {
     const numericPrice = Number(product?.price);
     const numericStock = Number(product?.stock);
+    const savedColorVariants = normalizeColorVariants(product?.colorVariants);
+    const legacyColorVariants = savedColorVariants.length ? savedColorVariants : normalizeColorVariants(product?.colors);
+    const colors = normalizeOptionList(product?.colors ?? product?.colorsText);
+    const colorVariants = legacyColorVariants;
+
+    logColorVariants('frontend received product.colorVariants', {
+        id: product?.id,
+        colorVariants: product?.colorVariants,
+        normalized: colorVariants
+    });
 
     return {
         id: product?.id ? String(product.id) : String(index + 1),
@@ -76,7 +101,9 @@ function normalizeProduct(product, index = 0) {
         images: Array.isArray(product?.images)
             ? product.images.map(image => String(image || '').trim()).filter(Boolean)
             : String(product?.imageUrl || product?.image || '').trim() ? [String(product?.imageUrl || product?.image || '').trim()] : [],
-        sizes: product?.sizes || '',
+        colors,
+        colorVariants,
+        colorsText: formatOptionList(colors),
         stock: Number.isFinite(numericStock) ? numericStock : 0,
         createdAt: product?.createdAt
     };
@@ -161,6 +188,66 @@ function escapeHtml(value) {
     return div.innerHTML;
 }
 
+function normalizeOptionList(value) {
+    let source = value;
+
+    if (typeof value === 'string') {
+        const trimmedValue = value.trim();
+
+        if (trimmedValue.startsWith('[')) {
+            try {
+                const parsedValue = JSON.parse(trimmedValue);
+                source = Array.isArray(parsedValue) ? parsedValue : trimmedValue;
+            } catch (error) {
+                source = trimmedValue;
+            }
+        }
+    }
+
+    const values = Array.isArray(source)
+        ? source
+        : String(source || '').split(/\r?\n|,/);
+
+    return [...new Set(values.map(item => {
+        if (item && typeof item === 'object') {
+            return String(item.name || item.color || item.value || '').trim();
+        }
+
+        return String(item || '').trim();
+    }).filter(Boolean))];
+}
+
+function formatOptionList(value) {
+    return normalizeOptionList(value).join(', ');
+}
+
+function normalizeColorVariants(value) {
+    let source = value;
+
+    if (typeof value === 'string') {
+        const trimmedValue = value.trim();
+
+        if (!trimmedValue) return [];
+
+        try {
+            const parsedValue = JSON.parse(trimmedValue);
+            source = Array.isArray(parsedValue) ? parsedValue : [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    if (!Array.isArray(source)) return [];
+
+    return source
+        .map(variant => ({
+            name: String(variant?.name || '').trim(),
+            color: String(variant?.color || variant?.value || '').trim(),
+            image: String(variant?.image || variant?.imageUrl || '').trim()
+        }))
+        .filter(variant => variant.name || variant.color || variant.image);
+}
+
 function shortenText(text, maxLength = 110) {
     const cleanText = String(text ?? '').trim();
 
@@ -171,9 +258,30 @@ function shortenText(text, maxLength = 110) {
     return `${cleanText.slice(0, maxLength).trim()}...`;
 }
 
+function formatLongText(text) {
+    const cleanText = String(text ?? '').trim();
+
+    if (!cleanText) {
+        return '<p>Дэлгэрэнгүй мэдээлэл одоогоор байхгүй байна.</p>';
+    }
+
+    return cleanText
+        .split(/\n{2,}/)
+        .map(paragraph => `<p>${escapeHtml(paragraph).replace(/\n/g, '<br>')}</p>`)
+        .join('');
+}
+
+function getProductOptions(product) {
+    const colorVariants = normalizeColorVariants(product?.colorVariants);
+
+    return {
+        colorVariants: colorVariants.length ? colorVariants : normalizeColorVariants(product?.colors)
+    };
+}
+
 function createProductCard(product, useShortDescription = false) {
     const productCard = document.createElement('div');
-    const description = useShortDescription ? shortenText(product.description) : product.description;
+    const description = shortenText(product.description, useShortDescription ? 110 : 105);
 
     productCard.className = 'product-card';
     productCard.dataset.productId = String(product.id);
@@ -186,7 +294,6 @@ function createProductCard(product, useShortDescription = false) {
         </div>
         <div class="product-info">
             <span class="product-category">${escapeHtml(product.category)}</span>
-            <span class="product-code">${escapeHtml(product.sizes || 'Хэмжээ сонгох боломжтой')}</span>
             <h3 class="product-name">${escapeHtml(product.name)}</h3>
             <p class="product-description">${escapeHtml(description)}</p>
             <div class="product-footer">
@@ -214,7 +321,7 @@ function getFilteredAndSortedProducts(products) {
             product.name,
             product.description,
             product.category,
-            product.sizes
+            product.colorsText
         ].some(value => String(value || '').toLowerCase().includes(normalizedSearch)));
     }
 
@@ -329,21 +436,15 @@ function createProductDetailModal() {
                 </div>
                 <div class="product-detail-info">
                     <span id="detailProductCategory" class="product-detail-category"></span>
-                    <span id="detailProductCode" class="product-detail-code"></span>
                     <h2 id="detailProductName"></h2>
-                    <div class="product-detail-rating">
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star"></i>
-                        <i class="fas fa-star-half-alt"></i>
-                        <span>4.8</span>
-                    </div>
                     <p id="detailProductPrice" class="product-detail-price"></p>
-                    <p id="detailProductDescription" class="product-detail-description"></p>
-                    <div class="product-detail-extra">
-                        <h3>Үлдэгдэл</h3>
-                        <p id="detailProductExtra"></p>
+                    <div id="detailProductDescription" class="product-detail-description"></div>
+                    <div id="detailProductOptions" class="product-detail-options product-color-variants" hidden>
+                        <div class="product-option-group">
+                            <span>Өнгөний сонголт</span>
+                            <strong id="detailSelectedColorName" class="selected-color-name"></strong>
+                            <div id="detailColorVariants" class="detail-color-variants" role="listbox" aria-label="Өнгөний сонголт"></div>
+                        </div>
                     </div>
                     <div class="product-detail-purchase">
                         <div class="quantity-selector">
@@ -406,6 +507,96 @@ function renderDetailThumbnails(images) {
     });
 }
 
+function renderProductDetailOptions(product) {
+    const optionsContainer = document.getElementById('detailProductOptions');
+    const variantsContainer = document.getElementById('detailColorVariants');
+    const selectedName = document.getElementById('detailSelectedColorName');
+    const { colorVariants } = getProductOptions(product);
+
+    if (!optionsContainer || !variantsContainer) return;
+
+    optionsContainer.hidden = colorVariants.length === 0;
+    variantsContainer.innerHTML = '';
+
+    if (colorVariants.length === 0) {
+        if (selectedName) selectedName.textContent = '';
+        return;
+    }
+
+    colorVariants.forEach((variant, index) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `detail-color-variant${index === 0 ? ' active' : ''}`;
+        button.dataset.variantIndex = String(index);
+        button.setAttribute('role', 'option');
+        button.setAttribute('aria-selected', index === 0 ? 'true' : 'false');
+        button.innerHTML = `
+            <img src="${escapeHtml(getSafeProductImage(variant.image))}" alt="${escapeHtml(variant.name || variant.color || 'Өнгө')}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
+            <span>${escapeHtml(variant.name || variant.color || 'Өнгө')}</span>
+        `;
+        variantsContainer.appendChild(button);
+    });
+
+    setSelectedColorVariant(0);
+}
+
+function getDetailSelections() {
+    const modal = document.getElementById('productDetailModal');
+    const variants = normalizeColorVariants(JSON.parse(modal?.dataset.colorVariants || '[]'));
+    const selectedIndex = Number(modal?.dataset.selectedColorVariant || 0);
+    const variant = variants[selectedIndex];
+
+    if (!variant) return {};
+
+    return {
+        selectedColor: variant.name || variant.color || '',
+        selectedColorValue: variant.color || '',
+        selectedColorImage: variant.image || ''
+    };
+}
+
+function setSelectedColorVariant(index) {
+    const modal = document.getElementById('productDetailModal');
+    const selectedName = document.getElementById('detailSelectedColorName');
+    const variants = normalizeColorVariants(JSON.parse(modal?.dataset.colorVariants || '[]'));
+    const variant = variants[index];
+
+    if (!modal || !variant) return;
+
+    modal.dataset.selectedColorVariant = String(index);
+
+    document.querySelectorAll('.detail-color-variant').forEach((button) => {
+        const isActive = Number(button.dataset.variantIndex) === index;
+        button.classList.toggle('active', isActive);
+        button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+
+    if (selectedName) selectedName.textContent = variant.name || variant.color || '';
+
+    if (variant.image) {
+        const images = JSON.parse(modal.dataset.images || '[]');
+        const variantImage = getSafeProductImage(variant.image);
+        const existingIndex = images.findIndex(image => getSafeProductImage(image) === variantImage);
+
+        if (existingIndex >= 0) {
+            setDetailMainImage(existingIndex);
+        } else {
+            const image = document.getElementById('detailProductImage');
+            if (image) {
+                image.classList.remove('loaded');
+                image.src = variantImage;
+                image.onerror = () => {
+                    image.onerror = null;
+                    image.src = DEFAULT_PRODUCT_IMAGE;
+                };
+                requestAnimationFrame(() => {
+                    image.classList.add('loaded');
+                });
+            }
+        }
+    }
+}
+
 async function openProductDetail(productId) {
     const modal = document.getElementById('productDetailModal');
     if (!modal) return;
@@ -414,10 +605,18 @@ async function openProductDetail(productId) {
 
     let product = productsCache.find(item => String(item.id) === String(productId));
 
-    if (!product) {
-        try {
-            product = await fetchProduct(productId);
-        } catch (error) {
+    try {
+        const freshProduct = await fetchProduct(productId);
+        const cachedIndex = productsCache.findIndex(item => String(item.id) === String(productId));
+        product = freshProduct;
+
+        if (cachedIndex >= 0) {
+            productsCache[cachedIndex] = freshProduct;
+        } else {
+            productsCache.push(freshProduct);
+        }
+    } catch (error) {
+        if (!product) {
             alert('Бүтээгдэхүүний мэдээлэл унших үед алдаа гарлаа.');
             return;
         }
@@ -425,20 +624,22 @@ async function openProductDetail(productId) {
 
     const images = product.images.length > 0 ? product.images : [getProductMainImage(product)];
     const image = document.getElementById('detailProductImage');
+    const { colorVariants } = getProductOptions(product);
     image.alt = product.name;
     modal.dataset.productId = String(product.id);
     modal.dataset.images = JSON.stringify(images);
     modal.dataset.activeImage = '0';
+    modal.dataset.colorVariants = JSON.stringify(colorVariants);
+    modal.dataset.selectedColorVariant = '';
 
     document.getElementById('detailProductCategory').textContent = product.category;
-    document.getElementById('detailProductCode').textContent = product.sizes ? `Хэмжээ: ${product.sizes}` : '';
     document.getElementById('detailProductName').textContent = product.name;
-    document.getElementById('detailProductDescription').textContent = product.description;
+    document.getElementById('detailProductDescription').innerHTML = formatLongText(product.description);
     document.getElementById('detailProductPrice').textContent = formatPrice(product.price);
-    document.getElementById('detailProductExtra').textContent = `Үлдэгдэл: ${Number(product.stock) || 0}`;
     document.getElementById('detailQuantity').textContent = '1';
     renderDetailThumbnails(images);
     setDetailMainImage(0);
+    renderProductDetailOptions(product);
 
     modal.classList.add('show');
     document.body.classList.add('modal-open');
@@ -462,6 +663,7 @@ function setupProductDetailModal() {
         const productCard = e.target.closest('.product-card');
         const closeButton = e.target.closest('.product-detail-close');
         const thumbButton = e.target.closest('.product-detail-thumb');
+        const colorVariantButton = e.target.closest('.detail-color-variant');
         const previousButton = e.target.closest('.product-gallery-prev');
         const nextButton = e.target.closest('.product-gallery-next');
         const minusButton = e.target.closest('.quantity-minus');
@@ -475,8 +677,22 @@ function setupProductDetailModal() {
         }
 
         if (addToCartButton && productCard) {
-            const product = productsCache.find(item => String(item.id) === String(productCard.dataset.productId));
-            if (product) addProductToCart(product);
+            let product = productsCache.find(item => String(item.id) === String(productCard.dataset.productId));
+            try {
+                product = await fetchProduct(productCard.dataset.productId);
+            } catch (error) {
+                // The cached list product is enough for products without variants.
+            }
+
+            if (product) {
+                const { colorVariants } = getProductOptions(product);
+
+                if (colorVariants.length) {
+                    openProductDetail(product.id);
+                } else {
+                    addProductToCart(product);
+                }
+            }
         }
 
         if (productCard && !e.target.closest('button')) {
@@ -485,6 +701,10 @@ function setupProductDetailModal() {
 
         if (thumbButton) {
             setDetailMainImage(Number(thumbButton.dataset.imageIndex));
+        }
+
+        if (colorVariantButton) {
+            setSelectedColorVariant(Number(colorVariantButton.dataset.variantIndex || 0));
         }
 
         if (previousButton || nextButton) {
@@ -508,7 +728,7 @@ function setupProductDetailModal() {
                 product = await fetchProduct(productId);
             }
 
-            if (product) addProductToCart(product, quantity);
+            if (product) addProductToCart(product, quantity, getDetailSelections());
         }
 
         if (buyButton) {
@@ -520,7 +740,7 @@ function setupProductDetailModal() {
                 product = await fetchProduct(productId);
             }
 
-            if (product && addProductToCart(product, quantity)) {
+            if (product && addProductToCart(product, quantity, getDetailSelections())) {
                 window.location.href = 'cart.html';
             }
         }
@@ -719,27 +939,67 @@ function updateCartCount() {
     });
 }
 
-function addProductToCart(product, quantity = 1) {
+function getCartItemKey(item) {
+    return [item.id, item.selectedColor || item.color || '', item.selectedColorValue || ''].join('::');
+}
+
+function getCartOptionLines(item) {
+    const selectedColor = String(item.selectedColor || item.color || '').trim();
+    const selectedColorValue = String(item.selectedColorValue || item.colorValue || '').trim();
+    const lines = [];
+
+    if (selectedColor) lines.push(`Өнгө: ${selectedColor}`);
+    if (selectedColorValue && selectedColorValue !== selectedColor) lines.push(selectedColorValue);
+
+    return lines;
+}
+
+function addProductToCart(product, quantity = 1, selections = {}) {
     if (!isLoggedIn()) {
         redirectToLogin(getCurrentPageName());
         return false;
     }
 
+    const { colorVariants } = getProductOptions(product);
+    const selectedColor = String(selections.selectedColor || selections.color || '').trim();
+    const selectedColorValue = String(selections.selectedColorValue || selections.colorValue || '').trim();
+    const selectedColorImage = String(selections.selectedColorImage || selections.colorImage || '').trim();
+
+    if (colorVariants.length && !selectedColor) {
+        alert('Өнгөө сонгоно уу.');
+        return false;
+    }
+
+    if (selectedColor && colorVariants.length && !colorVariants.some(variant => (variant.name || variant.color) === selectedColor)) {
+        alert('Сонгосон өнгө энэ бүтээгдэхүүнд байхгүй байна.');
+        return false;
+    }
+
     const cart = getCartItems();
     const productId = String(product.id);
-    const existingItem = cart.find(item => String(item.id) === productId);
+    const cartKey = [productId, selectedColor, selectedColorValue].join('::');
+    const existingItem = cart.find(item => getCartItemKey(item) === cartKey);
     const nextQuantity = Math.max(1, Number(quantity) || 1);
 
     if (existingItem) {
         existingItem.quantity = (Number(existingItem.quantity) || 1) + nextQuantity;
+        existingItem.selectedColor = selectedColor;
+        existingItem.selectedColorValue = selectedColorValue;
+        existingItem.selectedColorImage = selectedColorImage;
+        existingItem.image = selectedColorImage || existingItem.image;
+        existingItem.cartKey = cartKey;
     } else {
         cart.push({
             id: productId,
-            productCode: product.sizes || '',
+            cartKey,
+            productCode: '',
             name: product.name,
             category: product.category,
             price: Number(product.price) || 0,
-            image: getProductMainImage(product),
+            image: selectedColorImage || getProductMainImage(product),
+            selectedColor,
+            selectedColorValue,
+            selectedColorImage,
             quantity: nextQuantity
         });
     }
@@ -749,15 +1009,15 @@ function addProductToCart(product, quantity = 1) {
     return true;
 }
 
-function removeCartItem(productId) {
-    const cart = getCartItems().filter(item => String(item.id) !== String(productId));
+function removeCartItem(cartItemKey) {
+    const cart = getCartItems().filter(item => getCartItemKey(item) !== String(cartItemKey));
     saveCartItems(cart);
     renderCartPage();
 }
 
-function changeCartQuantity(productId, delta) {
+function changeCartQuantity(cartItemKey, delta) {
     const cart = getCartItems();
-    const item = cart.find(cartItem => String(cartItem.id) === String(productId));
+    const item = cart.find(cartItem => getCartItemKey(cartItem) === String(cartItemKey));
 
     if (!item) return;
 
@@ -1009,22 +1269,27 @@ function renderCartPage() {
     } else {
         emptyElement?.classList.add('hidden');
         summaryElement?.classList.remove('hidden');
-        cartItemsElement.innerHTML = cart.map(item => `
-            <article class="cart-item" data-cart-id="${escapeHtml(item.id)}">
-                <img src="${escapeHtml(getSafeProductImage(item.image))}" alt="${escapeHtml(item.name)}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
-                <div class="cart-item-info">
-                    <span>${escapeHtml(item.productCode || item.category || '-')} · ${escapeHtml(item.category || '')}</span>
-                    <h3>${escapeHtml(item.name)}</h3>
-                    <strong>${formatPrice(item.price)}</strong>
-                </div>
-                <div class="cart-quantity-controls">
-                    <button class="cart-qty-btn" type="button" data-cart-action="decrease" aria-label="Тоо хасах">-</button>
-                    <span>${Number(item.quantity) || 1}</span>
-                    <button class="cart-qty-btn" type="button" data-cart-action="increase" aria-label="Тоо нэмэх">+</button>
-                </div>
-                <button class="cart-remove-btn" type="button" data-cart-action="remove">Remove</button>
-            </article>
-        `).join('');
+        cartItemsElement.innerHTML = cart.map(item => {
+            const optionLines = getCartOptionLines(item);
+
+            return `
+                <article class="cart-item" data-cart-id="${escapeHtml(getCartItemKey(item))}">
+                    <img src="${escapeHtml(getSafeProductImage(item.image))}" alt="${escapeHtml(item.name)}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
+                    <div class="cart-item-info">
+                        <span>${escapeHtml(item.category || '-')}</span>
+                        <h3>${escapeHtml(item.name)}</h3>
+                        ${optionLines.length ? `<div class="cart-item-options">${optionLines.map(line => `<small>${escapeHtml(line)}</small>`).join('')}</div>` : ''}
+                        <strong>${formatPrice(item.price)}</strong>
+                    </div>
+                    <div class="cart-quantity-controls">
+                        <button class="cart-qty-btn" type="button" data-cart-action="decrease" aria-label="Тоо хасах">-</button>
+                        <span>${Number(item.quantity) || 1}</span>
+                        <button class="cart-qty-btn" type="button" data-cart-action="increase" aria-label="Тоо нэмэх">+</button>
+                    </div>
+                    <button class="cart-remove-btn" type="button" data-cart-action="remove">Remove</button>
+                </article>
+            `;
+        }).join('');
     }
 
     if (itemCountElement) itemCountElement.textContent = String(itemCount);
@@ -1056,11 +1321,14 @@ function getCartOrderPayload(paymentMethod) {
 
     const items = cart.map(item => ({
         productId: item.id,
-        productCode: item.productCode || '',
+        productCode: '',
         name: item.name,
         price: item.price,
         quantity: item.quantity,
-        image: item.image
+        image: item.image,
+        selectedColor: item.selectedColor || '',
+        selectedColorValue: item.selectedColorValue || '',
+        selectedColorImage: item.selectedColorImage || ''
     }));
 
     const totalAmount = cart.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0);

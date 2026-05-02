@@ -278,12 +278,113 @@ function parseJsonArray(value) {
     }
 }
 
+function normalizeOptionList(value) {
+    let source = value;
+
+    if (typeof value === 'string') {
+        const trimmedValue = value.trim();
+
+        if (trimmedValue.startsWith('[')) {
+            try {
+                const parsedValue = JSON.parse(trimmedValue);
+                source = Array.isArray(parsedValue) ? parsedValue : trimmedValue;
+            } catch (error) {
+                source = trimmedValue;
+            }
+        }
+    }
+
+    const values = Array.isArray(source)
+        ? source
+        : String(source || '').split(/\r?\n|,/);
+
+    return [...new Set(values.map((item) => {
+        if (item && typeof item === 'object') {
+            return String(item.name || item.color || item.value || '').trim();
+        }
+
+        return String(item || '').trim();
+    }).filter(Boolean))];
+}
+
+function normalizeColorVariants(value) {
+    let source = value;
+
+    if (typeof value === 'string') {
+        const trimmedValue = value.trim();
+
+        if (!trimmedValue) return [];
+
+        try {
+            const parsedValue = JSON.parse(trimmedValue);
+            source = Array.isArray(parsedValue) ? parsedValue : [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    if (!Array.isArray(source)) return [];
+
+    return source
+        .map((variant) => ({
+            name: String(variant?.name || '').trim(),
+            color: String(variant?.color || variant?.value || '').trim(),
+            image: String(variant?.image || variant?.imageUrl || '').trim()
+        }))
+        .filter((variant) => variant.name || variant.color || variant.image)
+        .filter((variant, index, variants) => {
+            const key = `${variant.name.toLowerCase()}::${variant.color.toLowerCase()}::${variant.image}`;
+            return variants.findIndex((item) => `${item.name.toLowerCase()}::${item.color.toLowerCase()}::${item.image}` === key) === index;
+        });
+}
+
+function isMissingColumnError(error, columnName) {
+    const message = String(error?.message || '').toLowerCase();
+    return message.includes('no such column') && message.includes(String(columnName).toLowerCase());
+}
+
 function isHttpUrl(value) {
     try {
         const url = new URL(value);
         return url.protocol === 'http:' || url.protocol === 'https:';
     } catch (error) {
         return false;
+    }
+}
+
+function isAllowedImageReference(value) {
+    const imageValue = String(value || '').trim();
+    return isHttpUrl(imageValue)
+        || imageValue.startsWith('/uploads/')
+        || imageValue.startsWith('uploads/')
+        || imageValue.startsWith('images/')
+        || imageValue.startsWith('./images/')
+        || isSafeImagePath(imageValue);
+}
+
+function isSafeImagePath(value) {
+    const imageValue = String(value || '').trim();
+    return /^(?!https?:)(?!data:)(?!\/\/)(?!.*(?:^|\/)\.\.(?:\/|$))\.?\/?[\w./ -]+\.(png|jpe?g|webp|gif|avif)$/i.test(imageValue);
+}
+
+function shouldDebugColorVariants(env) {
+    return String(env.DEBUG_COLOR_VARIANTS || '').toLowerCase() === 'true';
+}
+
+async function debugSavedProductColorVariants(env, productId, label) {
+    if (!shouldDebugColorVariants(env)) return;
+
+    try {
+        const row = await env.DB.prepare('SELECT colors, colorVariants FROM products WHERE id = ?').bind(productId).first();
+        console.log(`[colorVariants] ${label}`, row);
+    } catch (error) {
+        console.log(`[colorVariants] ${label} read failed`, error?.message || error);
+    }
+}
+
+function debugColorVariants(env, label, value) {
+    if (shouldDebugColorVariants(env)) {
+        console.log(`[colorVariants] ${label}`, value);
     }
 }
 
@@ -301,6 +402,12 @@ function normalizeImages(body = {}) {
 function cleanProductInput(body = {}) {
     const images = normalizeImages(body);
     const customId = body.id || body.productId || body.customId;
+    const savedColorVariants = normalizeColorVariants(body.colorVariants);
+    const colorVariants = savedColorVariants.length ? savedColorVariants : normalizeColorVariants(body.colors);
+    const savedColors = normalizeOptionList(body.colors);
+    const colors = savedColors.length
+        ? savedColors
+        : colorVariants.map((variant) => variant.name || variant.color).filter(Boolean);
 
     return {
         id: customId === undefined || customId === null || customId === '' ? null : Number(customId),
@@ -309,7 +416,9 @@ function cleanProductInput(body = {}) {
         description: String(body.description || '').trim(),
         category: String(body.category || body.categoryName || body.categoryId || '').trim(),
         images,
-        sizes: String(body.sizes || '').trim(),
+        colors,
+        colorVariants,
+        sizes: normalizeOptionList(body.sizes),
         stock: Number(body.stock || 0)
     };
 }
@@ -323,6 +432,12 @@ function validateProduct(product, allowCustomId = false) {
     if (!product.category) return 'Product category is required.';
     if (!product.images.length) return 'At least one product image URL is required.';
     if (product.images.some((image) => !isHttpUrl(image))) return 'Every product image must be a valid http or https URL.';
+    if (product.colorVariants.some((variant) => !variant.name || !variant.color || !variant.image)) {
+        return 'Every color variant must include a name, color value, and image.';
+    }
+    if (product.colorVariants.some((variant) => !isAllowedImageReference(variant.image))) {
+        return 'Every color variant image must be a valid URL or supported image path.';
+    }
     if (!Number.isFinite(product.stock) || product.stock < 0) return 'Product stock must be 0 or greater.';
     return '';
 }
@@ -331,6 +446,12 @@ function toProductResponse(row) {
     const images = parseJsonArray(row.imageUrls);
     const legacyImage = String(row.imageUrl || '').trim();
     const imageUrls = images.length ? images : (legacyImage ? [legacyImage] : []);
+    const colorVariants = normalizeColorVariants(row.colorVariants);
+    const legacyColorVariants = colorVariants.length ? colorVariants : normalizeColorVariants(row.colors);
+    const savedColors = normalizeOptionList(row.colors);
+    const colors = savedColors.length
+        ? savedColors
+        : legacyColorVariants.map((variant) => variant.name || variant.color).filter(Boolean);
 
     return {
         id: String(row.id),
@@ -342,7 +463,9 @@ function toProductResponse(row) {
         imageUrl: imageUrls[0] || '',
         imageUrls,
         images: imageUrls,
-        sizes: row.sizes || '',
+        colors,
+        colorVariants: legacyColorVariants,
+        colorsText: colors.join(', '),
         stock: Number(row.stock) || 0,
         createdAt: row.createdAt || ''
     };
@@ -1050,18 +1173,51 @@ async function changeUserPassword(request, env) {
 }
 
 async function listProducts(env) {
-    const { results } = await env.DB.prepare(
-        'SELECT id, name, price, description, category, imageUrl, imageUrls, sizes, stock, createdAt FROM products ORDER BY datetime(createdAt) DESC, id DESC'
-    ).all();
+    let results;
+
+    try {
+        ({ results } = await env.DB.prepare(
+            'SELECT id, name, price, description, category, imageUrl, imageUrls, colors, colorVariants, sizes, stock, createdAt FROM products ORDER BY datetime(createdAt) DESC, id DESC'
+        ).all());
+    } catch (error) {
+        if (!isMissingColumnError(error, 'colorVariants')) {
+            if (!isMissingColumnError(error, 'colors')) throw error;
+
+            ({ results } = await env.DB.prepare(
+                'SELECT id, name, price, description, category, imageUrl, imageUrls, sizes, stock, createdAt FROM products ORDER BY datetime(createdAt) DESC, id DESC'
+            ).all());
+        } else {
+            ({ results } = await env.DB.prepare(
+                'SELECT id, name, price, description, category, imageUrl, imageUrls, colors, sizes, stock, createdAt FROM products ORDER BY datetime(createdAt) DESC, id DESC'
+            ).all());
+        }
+    }
+
     const products = await attachProductImages(env, results || []);
 
     return json(products);
 }
 
 async function getProduct(env, id) {
-    const row = await env.DB.prepare(
-        'SELECT id, name, price, description, category, imageUrl, imageUrls, sizes, stock, createdAt FROM products WHERE id = ?'
-    ).bind(id).first();
+    let row;
+
+    try {
+        row = await env.DB.prepare(
+            'SELECT id, name, price, description, category, imageUrl, imageUrls, colors, colorVariants, sizes, stock, createdAt FROM products WHERE id = ?'
+        ).bind(id).first();
+    } catch (error) {
+        if (!isMissingColumnError(error, 'colorVariants')) {
+            if (!isMissingColumnError(error, 'colors')) throw error;
+
+            row = await env.DB.prepare(
+                'SELECT id, name, price, description, category, imageUrl, imageUrls, sizes, stock, createdAt FROM products WHERE id = ?'
+            ).bind(id).first();
+        } else {
+            row = await env.DB.prepare(
+                'SELECT id, name, price, description, category, imageUrl, imageUrls, colors, sizes, stock, createdAt FROM products WHERE id = ?'
+            ).bind(id).first();
+        }
+    }
 
     if (!row) return fail('Product not found.', 404);
     const [product] = await attachProductImages(env, [row]);
@@ -1072,7 +1228,10 @@ async function createProduct(request, env) {
     const { error } = await requireAdmin(request, env);
     if (error) return error;
 
-    const product = cleanProductInput(await readJson(request));
+    const body = await readJson(request);
+    debugColorVariants(env, 'backend received create body.colorVariants', body.colorVariants);
+    const product = cleanProductInput(body);
+    debugColorVariants(env, 'backend normalized create colorVariants', product.colorVariants);
     const validationMessage = validateProduct(product, true);
     if (validationMessage) return fail(validationMessage, 400);
 
@@ -1084,16 +1243,47 @@ async function createProduct(request, env) {
     const createdAt = new Date().toISOString();
     const imageUrls = JSON.stringify(product.images);
     const imageUrl = product.images[0] || '';
+    const colors = JSON.stringify(product.colors);
+    const colorVariants = JSON.stringify(product.colorVariants);
+    const legacyColors = JSON.stringify(product.colorVariants.length ? product.colorVariants : product.colors);
+    const sizes = JSON.stringify(product.sizes);
     const query = product.id === null
-        ? 'INSERT INTO products (name, price, description, category, imageUrl, imageUrls, sizes, stock, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
-        : 'INSERT INTO products (id, name, price, description, category, imageUrl, imageUrls, sizes, stock, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+        ? 'INSERT INTO products (name, price, description, category, imageUrl, imageUrls, colors, colorVariants, sizes, stock, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        : 'INSERT INTO products (id, name, price, description, category, imageUrl, imageUrls, colors, colorVariants, sizes, stock, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
     const statement = env.DB.prepare(query);
-    const result = product.id === null
-        ? await statement.bind(product.name, Math.round(product.price), product.description, product.category, imageUrl, imageUrls, product.sizes, Math.round(product.stock), createdAt).run()
-        : await statement.bind(product.id, product.name, Math.round(product.price), product.description, product.category, imageUrl, imageUrls, product.sizes, Math.round(product.stock), createdAt).run();
+    let result;
+
+    try {
+        result = product.id === null
+            ? await statement.bind(product.name, Math.round(product.price), product.description, product.category, imageUrl, imageUrls, colors, colorVariants, sizes, Math.round(product.stock), createdAt).run()
+            : await statement.bind(product.id, product.name, Math.round(product.price), product.description, product.category, imageUrl, imageUrls, colors, colorVariants, sizes, Math.round(product.stock), createdAt).run();
+    } catch (error) {
+        if (!isMissingColumnError(error, 'colorVariants') && !isMissingColumnError(error, 'colors')) throw error;
+
+        const fallbackQuery = product.id === null
+            ? 'INSERT INTO products (name, price, description, category, imageUrl, imageUrls, colors, sizes, stock, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            : 'INSERT INTO products (id, name, price, description, category, imageUrl, imageUrls, colors, sizes, stock, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+        const fallbackStatement = env.DB.prepare(fallbackQuery);
+        try {
+            result = product.id === null
+                ? await fallbackStatement.bind(product.name, Math.round(product.price), product.description, product.category, imageUrl, imageUrls, legacyColors, sizes, Math.round(product.stock), createdAt).run()
+                : await fallbackStatement.bind(product.id, product.name, Math.round(product.price), product.description, product.category, imageUrl, imageUrls, legacyColors, sizes, Math.round(product.stock), createdAt).run();
+        } catch (fallbackError) {
+            if (!isMissingColumnError(fallbackError, 'colors')) throw fallbackError;
+
+            const legacyQuery = product.id === null
+                ? 'INSERT INTO products (name, price, description, category, imageUrl, imageUrls, sizes, stock, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                : 'INSERT INTO products (id, name, price, description, category, imageUrl, imageUrls, sizes, stock, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+            const legacyStatement = env.DB.prepare(legacyQuery);
+            result = product.id === null
+                ? await legacyStatement.bind(product.name, Math.round(product.price), product.description, product.category, imageUrl, imageUrls, sizes, Math.round(product.stock), createdAt).run()
+                : await legacyStatement.bind(product.id, product.name, Math.round(product.price), product.description, product.category, imageUrl, imageUrls, sizes, Math.round(product.stock), createdAt).run();
+        }
+    }
     const productId = product.id || result.meta.last_row_id;
 
     await syncProductImages(env, productId, product.images);
+    await debugSavedProductColorVariants(env, productId, 'saved create product colorVariants');
     return getProduct(env, productId);
 }
 
@@ -1101,27 +1291,72 @@ async function updateProduct(request, env, id) {
     const { error } = await requireAdmin(request, env);
     if (error) return error;
 
-    const product = cleanProductInput(await readJson(request));
+    const body = await readJson(request);
+    debugColorVariants(env, 'backend received update body.colorVariants', body.colorVariants);
+    const product = cleanProductInput(body);
+    debugColorVariants(env, 'backend normalized update colorVariants', product.colorVariants);
     const validationMessage = validateProduct(product);
     if (validationMessage) return fail(validationMessage, 400);
 
-    const result = await env.DB.prepare(
-        'UPDATE products SET name = ?, price = ?, description = ?, category = ?, imageUrl = ?, imageUrls = ?, sizes = ?, stock = ? WHERE id = ?'
-    ).bind(
-        product.name,
-        Math.round(product.price),
-        product.description,
-        product.category,
-        product.images[0] || '',
-        JSON.stringify(product.images),
-        product.sizes,
-        Math.round(product.stock),
-        id
-    ).run();
+    let result;
+
+    try {
+        result = await env.DB.prepare(
+            'UPDATE products SET name = ?, price = ?, description = ?, category = ?, imageUrl = ?, imageUrls = ?, colors = ?, colorVariants = ?, sizes = ?, stock = ? WHERE id = ?'
+        ).bind(
+            product.name,
+            Math.round(product.price),
+            product.description,
+            product.category,
+            product.images[0] || '',
+            JSON.stringify(product.images),
+            JSON.stringify(product.colors),
+            JSON.stringify(product.colorVariants),
+            JSON.stringify(product.sizes),
+            Math.round(product.stock),
+            id
+        ).run();
+    } catch (error) {
+        if (!isMissingColumnError(error, 'colorVariants') && !isMissingColumnError(error, 'colors')) throw error;
+
+        try {
+            result = await env.DB.prepare(
+                'UPDATE products SET name = ?, price = ?, description = ?, category = ?, imageUrl = ?, imageUrls = ?, colors = ?, sizes = ?, stock = ? WHERE id = ?'
+            ).bind(
+                product.name,
+                Math.round(product.price),
+                product.description,
+                product.category,
+                product.images[0] || '',
+                JSON.stringify(product.images),
+                JSON.stringify(product.colorVariants.length ? product.colorVariants : product.colors),
+                JSON.stringify(product.sizes),
+                Math.round(product.stock),
+                id
+            ).run();
+        } catch (fallbackError) {
+            if (!isMissingColumnError(fallbackError, 'colors')) throw fallbackError;
+
+            result = await env.DB.prepare(
+                'UPDATE products SET name = ?, price = ?, description = ?, category = ?, imageUrl = ?, imageUrls = ?, sizes = ?, stock = ? WHERE id = ?'
+            ).bind(
+                product.name,
+                Math.round(product.price),
+                product.description,
+                product.category,
+                product.images[0] || '',
+                JSON.stringify(product.images),
+                JSON.stringify(product.sizes),
+                Math.round(product.stock),
+                id
+            ).run();
+        }
+    }
 
     if (!result.meta.changes) return fail('Product not found.', 404);
 
     await syncProductImages(env, id, product.images);
+    await debugSavedProductColorVariants(env, id, 'saved update product colorVariants');
     return getProduct(env, id);
 }
 
@@ -1306,18 +1541,43 @@ async function createOrder(request, env) {
         if (!Number.isInteger(productId) || productId <= 0) return fail('Every product ID must be a positive integer.', 400);
         if (!Number.isInteger(quantity) || quantity <= 0) return fail('Every order quantity must be a positive integer.', 400);
 
-        const product = await env.DB.prepare('SELECT id, name, price, category, imageUrl, imageUrls, stock FROM products WHERE id = ?').bind(productId).first();
+        let product;
+
+        try {
+            product = await env.DB.prepare('SELECT id, name, price, category, imageUrl, imageUrls, colors, colorVariants, stock FROM products WHERE id = ?').bind(productId).first();
+        } catch (error) {
+            if (!isMissingColumnError(error, 'colorVariants')) {
+                if (!isMissingColumnError(error, 'colors')) throw error;
+
+                product = await env.DB.prepare('SELECT id, name, price, category, imageUrl, imageUrls, stock FROM products WHERE id = ?').bind(productId).first();
+            } else {
+                product = await env.DB.prepare('SELECT id, name, price, category, imageUrl, imageUrls, colors, stock FROM products WHERE id = ?').bind(productId).first();
+            }
+        }
+
         if (!product) return fail(`Product ${productId} is no longer available.`, 409);
         if (Number(product.stock) > 0 && quantity > Number(product.stock)) return fail(`Not enough stock for ${product.name}.`, 409);
 
-        const productImages = product ? toProductResponse(product).images : [];
+        const productResponse = toProductResponse(product);
+        const selectedColor = String(item.selectedColor || item.color || '').trim();
+        const selectedColorValue = String(item.selectedColorValue || item.colorValue || '').trim();
+        const selectedColorImage = String(item.selectedColorImage || item.colorImage || '').trim();
+        const selectedVariant = productResponse.colorVariants.find((variant) => (variant.name || variant.color) === selectedColor);
+
+        if (productResponse.colorVariants.length && !selectedColor) return fail(`Please choose a color for ${product.name}.`, 400);
+        if (selectedColor && productResponse.colorVariants.length && !selectedVariant) return fail(`Selected color is not available for ${product.name}.`, 400);
+
+        const productImages = productResponse.images;
         cleanItems.push({
             productId: String(product.id),
-            productCode: String(item.productCode || '').trim(),
+            productCode: '',
             name: product.name,
             price: Number(product.price || 0),
             quantity,
-            image: productImages[0] || String(item.image || '').trim()
+            image: selectedVariant?.image || selectedColorImage || productImages[0] || String(item.image || '').trim(),
+            selectedColor,
+            selectedColorValue: selectedVariant?.color || selectedColorValue,
+            selectedColorImage: selectedVariant?.image || selectedColorImage
         });
     }
 
@@ -1335,18 +1595,54 @@ async function createOrder(request, env) {
     });
 
     for (const item of cleanItems) {
-        await env.DB.prepare(
-            'INSERT INTO order_items (orderId, productId, productCode, productName, productPrice, quantity, imageUrl, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-        ).bind(
-            result.meta.last_row_id,
-            Number(item.productId),
-            item.productCode,
-            item.name,
-            Math.round(item.price),
-            item.quantity,
-            item.image,
-            createdAt
-        ).run();
+        try {
+            await env.DB.prepare(
+                'INSERT INTO order_items (orderId, productId, productCode, productName, productPrice, quantity, imageUrl, selectedColor, selectedColorValue, selectedColorImage, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            ).bind(
+                result.meta.last_row_id,
+                Number(item.productId),
+                item.productCode,
+                item.name,
+                Math.round(item.price),
+                item.quantity,
+                item.image,
+                item.selectedColor,
+                item.selectedColorValue,
+                item.selectedColorImage,
+                createdAt
+            ).run();
+        } catch (error) {
+            if (!isMissingColumnError(error, 'selectedColorValue') && !isMissingColumnError(error, 'selectedColorImage')) {
+                if (!isMissingColumnError(error, 'selectedColor')) throw error;
+
+                await env.DB.prepare(
+                    'INSERT INTO order_items (orderId, productId, productCode, productName, productPrice, quantity, imageUrl, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+                ).bind(
+                    result.meta.last_row_id,
+                    Number(item.productId),
+                    item.productCode,
+                    item.name,
+                    Math.round(item.price),
+                    item.quantity,
+                    item.image,
+                    createdAt
+                ).run();
+            } else {
+                await env.DB.prepare(
+                    'INSERT INTO order_items (orderId, productId, productCode, productName, productPrice, quantity, imageUrl, selectedColor, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                ).bind(
+                    result.meta.last_row_id,
+                    Number(item.productId),
+                    item.productCode,
+                    item.name,
+                    Math.round(item.price),
+                    item.quantity,
+                    item.image,
+                    item.selectedColor,
+                    createdAt
+                ).run();
+            }
+        }
     }
 
     const order = await env.DB.prepare('SELECT * FROM orders WHERE id = ?').bind(result.meta.last_row_id).first();

@@ -86,6 +86,17 @@ function setupEventListeners() {
         productImages.addEventListener('input', renderImagePreview);
     }
 
+    const addColorVariantBtn = document.getElementById('addColorVariantBtn');
+    if (addColorVariantBtn) {
+        addColorVariantBtn.addEventListener('click', () => addColorVariantRow());
+    }
+
+    const colorVariantsList = document.getElementById('colorVariantsList');
+    if (colorVariantsList) {
+        colorVariantsList.addEventListener('input', handleColorVariantInput);
+        colorVariantsList.addEventListener('click', handleColorVariantClick);
+    }
+
     const categoryForm = document.getElementById('categoryForm');
     if (categoryForm) {
         categoryForm.addEventListener('submit', handleCategorySubmit);
@@ -400,6 +411,12 @@ async function ensureCategoriesLoaded() {
     return categoriesCache;
 }
 
+function logColorVariants(label, value) {
+    if (localStorage.getItem('unaDebugColorVariants') === 'true') {
+        console.debug(`[colorVariants] ${label}`, value);
+    }
+}
+
 function getSafeProductImage(image) {
     const imageValue = String(image || '').trim();
 
@@ -408,6 +425,10 @@ function getSafeProductImage(image) {
     if (imageValue.startsWith('images/') || imageValue.startsWith('./images/')) return imageValue;
     if (imageValue.startsWith('data:image/')) return imageValue;
     if (/^https?:\/\//i.test(imageValue)) return imageValue;
+    if (isSafeImagePath(imageValue)) {
+        const normalizedPath = imageValue.replace(/^\.?\//, '');
+        return normalizedPath.includes('/') ? normalizedPath : `images/${normalizedPath}`;
+    }
 
     return DEFAULT_PRODUCT_IMAGE;
 }
@@ -416,9 +437,86 @@ function getProductMainImage(product) {
     return getSafeProductImage(product?.images?.[0] || product?.imageUrl || product?.image);
 }
 
+function normalizeOptionList(value) {
+    let source = value;
+
+    if (typeof value === 'string') {
+        const trimmedValue = value.trim();
+
+        if (trimmedValue.startsWith('[')) {
+            try {
+                const parsedValue = JSON.parse(trimmedValue);
+                source = Array.isArray(parsedValue) ? parsedValue : trimmedValue;
+            } catch (error) {
+                source = trimmedValue;
+            }
+        }
+    }
+
+    const values = Array.isArray(source)
+        ? source
+        : String(source || '').split(/\r?\n|,/);
+
+    return [...new Set(values.map(item => {
+        if (item && typeof item === 'object') {
+            return String(item.name || item.color || item.value || '').trim();
+        }
+
+        return String(item || '').trim();
+    }).filter(Boolean))];
+}
+
+function formatOptionList(value) {
+    return normalizeOptionList(value).join(', ');
+}
+
+function normalizeColorVariants(value) {
+    let source = value;
+
+    if (typeof value === 'string') {
+        const trimmedValue = value.trim();
+
+        if (!trimmedValue) return [];
+
+        try {
+            const parsedValue = JSON.parse(trimmedValue);
+            source = Array.isArray(parsedValue) ? parsedValue : [];
+        } catch (error) {
+            return [];
+        }
+    }
+
+    if (!Array.isArray(source)) return [];
+
+    return source
+        .map(variant => ({
+            name: String(variant?.name || '').trim(),
+            color: String(variant?.color || variant?.value || '').trim(),
+            image: String(variant?.image || variant?.imageUrl || '').trim()
+        }))
+        .filter(variant => variant.name || variant.color || variant.image);
+}
+
+function shortenText(text, maxLength = 120) {
+    const cleanText = String(text ?? '').trim();
+
+    if (cleanText.length <= maxLength) return cleanText;
+    return `${cleanText.slice(0, maxLength).trim()}...`;
+}
+
 function normalizeProduct(product, index = 0) {
     const numericPrice = Number(product?.price);
     const numericStock = Number(product?.stock);
+    const savedColorVariants = normalizeColorVariants(product?.colorVariants);
+    const legacyColorVariants = savedColorVariants.length ? savedColorVariants : normalizeColorVariants(product?.colors);
+    const colors = normalizeOptionList(product?.colors ?? product?.colorsText);
+    const colorVariants = legacyColorVariants;
+
+    logColorVariants('frontend received product.colorVariants', {
+        id: product?.id,
+        colorVariants: product?.colorVariants,
+        normalized: colorVariants
+    });
 
     return {
         id: product?.id ? String(product.id) : String(index + 1),
@@ -430,7 +528,10 @@ function normalizeProduct(product, index = 0) {
         images: Array.isArray(product?.images)
             ? product.images.map(image => String(image || '').trim()).filter(Boolean)
             : String(product?.imageUrl || product?.image || '').trim() ? [String(product?.imageUrl || product?.image || '').trim()] : [],
-        sizes: product?.sizes || '',
+        colors,
+        colorVariants,
+        colorsText: formatOptionList(colors),
+        colorVariantsText: colorVariants.map(variant => variant.name || variant.color || 'Variant').join(', '),
         stock: Number.isFinite(numericStock) ? numericStock : 0,
         createdAt: product?.createdAt
     };
@@ -451,6 +552,7 @@ async function openAddProductModal() {
     await renderProductCategoryOptions();
     document.getElementById('productStock').value = '0';
     renderImagePreview();
+    renderColorVariantRows([]);
     document.getElementById('productModal').classList.add('show');
 }
 
@@ -466,11 +568,12 @@ async function openEditProductModal(productId) {
     await renderProductCategoryOptions(product.categoryId);
     document.getElementById('productName').value = product.name;
     document.getElementById('productDescription').value = product.description;
-    document.getElementById('productSizes').value = product.sizes;
+    document.getElementById('productColors').value = product.colorsText;
     document.getElementById('productPrice').value = product.price;
     document.getElementById('productStock').value = product.stock;
     document.getElementById('productImages').value = product.images.join('\n');
     renderImagePreview();
+    renderColorVariantRows(product.colorVariants);
     document.getElementById('productModal').classList.add('show');
 }
 
@@ -479,6 +582,7 @@ function closeProductModal() {
     editingProductId = null;
     document.getElementById('productForm').reset();
     renderImagePreview();
+    renderColorVariantRows([]);
 }
 
 function renderImagePreview() {
@@ -508,6 +612,97 @@ function isValidImageUrl(image) {
     }
 }
 
+function isSafeImagePath(image) {
+    const imageValue = String(image || '').trim();
+    return /^(?!https?:)(?!data:)(?!\/\/)(?!.*(?:^|\/)\.\.(?:\/|$))\.?\/?[\w./ -]+\.(png|jpe?g|webp|gif|avif)$/i.test(imageValue);
+}
+
+function isValidImageReference(image) {
+    const imageValue = String(image || '').trim();
+    return isValidImageUrl(imageValue)
+        || imageValue.startsWith('/uploads/')
+        || imageValue.startsWith('uploads/')
+        || imageValue.startsWith('images/')
+        || imageValue.startsWith('./images/')
+        || isSafeImagePath(imageValue);
+}
+
+function createColorVariantRow(variant = {}) {
+    const row = document.createElement('div');
+    row.className = 'color-variant-row-admin';
+    row.innerHTML = `
+        <div class="color-variant-preview-admin">
+            <img src="${escapeHtml(getSafeProductImage(variant.image))}" alt="${escapeHtml(variant.name || 'Color variant')}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
+        </div>
+        <div class="form-group-admin">
+            <label>Color name</label>
+            <input type="text" class="color-variant-name" placeholder="Black" value="${escapeHtml(variant.name || '')}">
+        </div>
+        <div class="form-group-admin">
+            <label>Color value</label>
+            <input type="text" class="color-variant-value" placeholder="#222222 or Black" value="${escapeHtml(variant.color || '')}">
+        </div>
+        <div class="form-group-admin color-variant-image-field-admin">
+            <label>Image URL</label>
+            <input type="text" class="color-variant-image" placeholder="https://example.com/black-sofa.jpg эсвэл black-sofa.jpg" value="${escapeHtml(variant.image || '')}">
+        </div>
+        <button type="button" class="color-variant-remove-btn" data-color-variant-action="remove" aria-label="Remove color variant">
+            <i class="fas fa-trash"></i>
+        </button>
+    `;
+
+    return row;
+}
+
+function renderColorVariantRows(variants = []) {
+    const list = document.getElementById('colorVariantsList');
+    if (!list) return;
+
+    list.innerHTML = '';
+    normalizeColorVariants(variants).forEach(variant => {
+        list.appendChild(createColorVariantRow(variant));
+    });
+}
+
+function addColorVariantRow(variant = {}) {
+    const list = document.getElementById('colorVariantsList');
+    if (!list) return;
+
+    list.appendChild(createColorVariantRow(variant));
+}
+
+function getColorVariantsFromForm() {
+    return [...document.querySelectorAll('.color-variant-row-admin')]
+        .map(row => ({
+            name: row.querySelector('.color-variant-name')?.value.trim() || '',
+            color: row.querySelector('.color-variant-value')?.value.trim() || '',
+            image: row.querySelector('.color-variant-image')?.value.trim() || ''
+        }))
+        .filter(variant => variant.name || variant.image);
+}
+
+function handleColorVariantInput(e) {
+    const input = e.target.closest('.color-variant-image, .color-variant-name');
+    if (!input) return;
+
+    const row = input.closest('.color-variant-row-admin');
+    const image = row?.querySelector('.color-variant-preview-admin img');
+    const imageValue = row?.querySelector('.color-variant-image')?.value.trim();
+    const nameValue = row?.querySelector('.color-variant-name')?.value.trim();
+
+    if (image) {
+        image.src = getSafeProductImage(imageValue);
+        image.alt = nameValue || 'Color variant';
+    }
+}
+
+function handleColorVariantClick(e) {
+    const removeButton = e.target.closest('[data-color-variant-action="remove"]');
+    if (!removeButton) return;
+
+    removeButton.closest('.color-variant-row-admin')?.remove();
+}
+
 async function renderProductCategoryOptions(selectedCategoryId = '') {
     const select = document.getElementById('productCategory');
     if (!select) return;
@@ -535,7 +730,8 @@ async function handleProductFormSubmit(e) {
     const originalButtonText = saveButton.textContent;
     const name = document.getElementById('productName').value.trim();
     const description = document.getElementById('productDescription').value.trim();
-    const sizes = document.getElementById('productSizes').value.trim();
+    const colorVariants = getColorVariantsFromForm();
+    const colors = colorVariants.map(variant => variant.name || variant.color).filter(Boolean);
     const price = Number(document.getElementById('productPrice').value);
     const categorySelect = document.getElementById('productCategory');
     const categoryId = categorySelect.value;
@@ -568,6 +764,16 @@ async function handleProductFormSubmit(e) {
         return;
     }
 
+    if (colorVariants.some(variant => !variant.name || !variant.color || !variant.image)) {
+        alert('Color variant бүрт нэр, өнгөний утга, зурагны URL/зам оруулна уу.');
+        return;
+    }
+
+    if (colorVariants.some(variant => !isValidImageReference(variant.image))) {
+        alert('Color variant image нь http(s) URL эсвэл дэмжигдэх image path байх ёстой.');
+        return;
+    }
+
     saveButton.disabled = true;
     saveButton.textContent = 'Хадгалж байна...';
 
@@ -578,11 +784,14 @@ async function handleProductFormSubmit(e) {
             price,
             categoryId,
             category,
-            sizes,
+            colors,
+            colorVariants,
             images,
             imageUrl: images[0] || '',
             stock
         };
+
+        logColorVariants('admin submit payload', productData);
 
         if (editingProductId) {
             await requestJson(`${API_BASE}/products/${editingProductId}`, {
@@ -650,9 +859,9 @@ async function loadProductsTable() {
         row.innerHTML = `
             <td><img src="${escapeHtml(getProductMainImage(product))}" alt="${escapeHtml(product.name)}" class="product-image-thumb" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'"></td>
             <td class="product-cell-name">${escapeHtml(product.name)}</td>
-            <td class="product-cell-description">${escapeHtml(product.description)}</td>
+            <td class="product-cell-description">${escapeHtml(shortenText(product.description, 140))}</td>
             <td><span class="admin-category-badge">${escapeHtml(product.category)}</span></td>
-            <td>${escapeHtml(product.sizes || '-')}</td>
+            <td class="product-option-cell">${escapeHtml(product.colorVariantsText || product.colorsText || '-')}</td>
             <td>${Number(product.stock) || 0}</td>
             <td class="product-cell-price">${formatPrice(product.price)}</td>
             <td>
@@ -1200,16 +1409,23 @@ async function viewOrderDetails(orderId) {
             </div>
             <h3>Бүтээгдэхүүнүүд</h3>
             <div class="order-items-list">
-                ${order.items.map(item => `
-                    <div class="order-detail-item">
-                        <img src="${escapeHtml(getSafeProductImage(item.image))}" alt="${escapeHtml(item.name)}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
-                        <div>
-                            <span>${escapeHtml(item.productCode || '-')}</span>
-                            <strong>${escapeHtml(item.name)}</strong>
-                            <p>${formatPrice(item.price)} × ${Number(item.quantity) || 1}</p>
+                ${order.items.map(item => {
+                    const options = [
+                        item.selectedColor ? `Өнгө: ${item.selectedColor}` : '',
+                        item.selectedColorValue ? `Утга: ${item.selectedColorValue}` : ''
+                    ].filter(Boolean);
+
+                    return `
+                        <div class="order-detail-item">
+                            <img src="${escapeHtml(getSafeProductImage(item.image))}" alt="${escapeHtml(item.name)}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
+                            <div>
+                                <strong>${escapeHtml(item.name)}</strong>
+                                ${options.length ? `<div class="order-item-options">${options.map(option => `<small>${escapeHtml(option)}</small>`).join('')}</div>` : ''}
+                                <p>${formatPrice(item.price)} × ${Number(item.quantity) || 1}</p>
+                            </div>
                         </div>
-                    </div>
-                `).join('')}
+                    `;
+                }).join('')}
             </div>
         `;
         document.getElementById('orderModal').classList.add('show');

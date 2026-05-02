@@ -177,7 +177,7 @@
                                 <th>Нэр</th>
                                 <th>Тайлбар</th>
                                 <th>Ангилал</th>
-                                <th>Хэмжээ</th>
+                                <th>Өнгө</th>
                                 <th>Үлдэгдэл</th>
                                 <th>Үнэ</th>
                                 <th>Үйлдэл</th>
@@ -381,45 +381,61 @@
             </div>
 
             <form id="productForm" class="product-form-admin">
-                <div class="form-group-admin">
-                    <label for="productName">Бүтээгдэхүүний нэр *</label>
-                    <input type="text" id="productName" placeholder="Жишээ: Орчин үеийн буйдан" required>
-                </div>
+                <section class="product-form-section-admin">
+                    <h3>Basic Info</h3>
+                    <div class="form-group-admin">
+                        <label for="productName">Бүтээгдэхүүний нэр *</label>
+                        <input type="text" id="productName" placeholder="Жишээ: Орчин үеийн буйдан" required>
+                    </div>
+                    <div class="form-group-admin">
+                        <label for="productDescription">Тайлбар *</label>
+                        <textarea id="productDescription" placeholder="Бүтээгдэхүүний дэлгэрэнгүй тайлбар" rows="4" required></textarea>
+                    </div>
+                </section>
 
-                <div class="form-group-admin">
-                    <label for="productDescription">Тайлбар *</label>
-                    <textarea id="productDescription" placeholder="Бүтээгдэхүүний дэлгэрэнгүй тайлбар" rows="3" required></textarea>
-                </div>
+                <section class="product-form-section-admin">
+                    <h3>Price / Category</h3>
+                    <div class="form-row-admin">
+                        <div class="form-group-admin">
+                            <label for="productPrice">Үнэ (₮) *</label>
+                            <input type="number" id="productPrice" placeholder="Жишээ: 16500000" min="0" required>
+                        </div>
+                        <div class="form-group-admin">
+                            <label for="productStock">Үлдэгдэл *</label>
+                            <input type="number" id="productStock" placeholder="Жишээ: 12" min="0" value="0" required>
+                        </div>
+                    </div>
+                    <div class="form-group-admin">
+                        <label for="productCategory">Ангилал *</label>
+                        <select id="productCategory" required>
+                            <option value="">Ангилал уншиж байна...</option>
+                        </select>
+                    </div>
+                </section>
 
-                <div class="form-group-admin">
-                    <label for="productSizes">Хэмжээ</label>
-                    <input type="text" id="productSizes" placeholder="Жишээ: 220x90x75 см, S/M/L">
-                </div>
+                <section class="product-form-section-admin">
+                    <h3>Images</h3>
+                    <div class="form-group-admin">
+                        <label for="productImages">Main Image URLs</label>
+                        <textarea id="productImages" placeholder="https://example.com/product-1.jpg&#10;https://example.com/product-2.jpg" rows="4"></textarea>
+                        <small class="form-help-admin">Нэг мөрөнд нэг зурагны URL оруулна. Эхний зураг үндсэн зураг болно.</small>
+                    </div>
+                    <div id="imagePreview" class="image-preview-admin"></div>
+                </section>
 
-                <div class="form-group-admin">
-                    <label for="productPrice">Үнэ (₮) *</label>
-                    <input type="number" id="productPrice" placeholder="Жишээ: 16500000" min="0" required>
-                </div>
-
-                <div class="form-group-admin">
-                    <label for="productCategory">Ангилал *</label>
-                    <select id="productCategory" required>
-                        <option value="">Ангилал уншиж байна...</option>
-                    </select>
-                </div>
-
-                <div class="form-group-admin">
-                    <label for="productStock">Үлдэгдэл *</label>
-                    <input type="number" id="productStock" placeholder="Жишээ: 12" min="0" value="0" required>
-                </div>
-
-                <div class="form-group-admin">
-                    <label for="productImages">Image URLs</label>
-                    <textarea id="productImages" placeholder="https://example.com/product-1.jpg&#10;https://example.com/product-2.jpg" rows="4"></textarea>
-                    <small class="form-help-admin">Нэг мөрөнд нэг зурагны URL оруулна. Хоосон бол placeholder зураг харагдана.</small>
-                </div>
-
-                <div id="imagePreview" class="image-preview-admin"></div>
+                <section class="product-form-section-admin">
+                    <div class="form-section-heading-admin">
+                        <div>
+                            <h3>Color Variants</h3>
+                            <p>Өнгө тус бүрийн нэр, өнгөний утга, зурагны URL-г оруулна.</p>
+                        </div>
+                        <button type="button" id="addColorVariantBtn" class="admin-btn-secondary color-variant-add-btn">
+                            <i class="fas fa-plus"></i> Add Color Variant
+                        </button>
+                    </div>
+                    <div id="colorVariantsList" class="color-variants-list-admin"></div>
+                    <input type="hidden" id="productColors">
+                </section>
 
                 <div class="form-actions-admin">
                     <button type="submit" id="saveProductBtn" class="admin-btn-primary">Хадгалах</button>

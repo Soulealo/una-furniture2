@@ -1004,7 +1004,7 @@ tbody tr:last-child td {
 
 .products-table-admin {
     width: 100%;
-    min-width: 760px;
+    min-width: 820px;
     border-collapse: collapse;
 }
 
@@ -1030,6 +1030,16 @@ tbody tr:last-child td {
 
 .product-cell-description {
     max-width: 360px;
+    color: var(--text-light);
+    line-height: 1.5;
+}
+
+.product-option-cell {
+    max-width: 180px;
+    color: var(--text-dark);
+    font-size: 0.88rem;
+    font-weight: 700;
+    line-height: 1.5;
 }
 
 .admin-category-badge {
@@ -1295,6 +1305,26 @@ tbody tr:last-child td {
     color: var(--text-dark);
 }
 
+.order-item-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 8px 0;
+}
+
+.order-item-options small {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    padding: 0 9px;
+    border: 1px solid rgba(139, 125, 102, 0.35);
+    border-radius: 999px;
+    background: rgba(189, 178, 152, 0.18);
+    color: var(--primary);
+    font-size: 0.76rem;
+    font-weight: 800;
+}
+
 .order-items-list {
     display: grid;
     gap: 12px;
@@ -1506,7 +1536,7 @@ select {
 
 .dashboard-screen.active,
 .admin-main {
-    background: var(--bg);
+    background: #F7F3EC;
 }
 
 .login-container-admin,
@@ -1552,6 +1582,20 @@ select {
 
 .admin-sidebar {
     background: var(--primary);
+}
+
+/* Shared transparent grey glass admin header */
+.admin-navbar {
+    background: rgba(50, 50, 50, 0.18) !important;
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: none !important;
+}
+
+.admin-nav-container {
+    background: transparent !important;
+    box-shadow: none !important;
 }
 
 .sidebar-link {
@@ -1656,8 +1700,124 @@ select {
     background: var(--bg);
 }
 
+.product-form-admin {
+    display: grid;
+    gap: 18px;
+}
+
+.modal-content-admin {
+    background: #FAF8F3;
+}
+
+.product-form-section-admin {
+    display: grid;
+    gap: 16px;
+    padding: 18px;
+    border: 1px solid rgba(139, 125, 102, 0.22);
+    border-radius: 12px;
+    background: #FFFDF8;
+}
+
+.product-form-section-admin h3 {
+    margin: 0;
+    color: #2B2B2B;
+    font-size: 1rem;
+    font-weight: 900;
+}
+
+.form-section-heading-admin {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    align-items: flex-start;
+}
+
+.form-section-heading-admin p {
+    margin: 4px 0 0;
+    color: var(--text-light);
+    font-size: 0.86rem;
+}
+
+.form-row-admin {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px;
+}
+
+.color-variants-list-admin {
+    display: grid;
+    gap: 12px;
+}
+
+.color-variant-row-admin {
+    display: grid;
+    grid-template-columns: 76px minmax(120px, 1fr) minmax(120px, 0.8fr) minmax(180px, 1.35fr) 42px;
+    gap: 12px;
+    align-items: end;
+    padding: 12px;
+    border: 1px solid rgba(139, 125, 102, 0.2);
+    border-radius: 12px;
+    background: #F7F3EC;
+}
+
+.color-variant-preview-admin {
+    width: 76px;
+    height: 76px;
+    overflow: hidden;
+    border: 1px solid rgba(139, 125, 102, 0.22);
+    border-radius: 10px;
+    background: #EFE7DA;
+}
+
+.color-variant-preview-admin img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.color-variant-row-admin .form-group-admin {
+    margin: 0;
+}
+
+.color-variant-remove-btn {
+    width: 42px;
+    height: 42px;
+    border: 1px solid rgba(145, 58, 45, 0.28);
+    border-radius: 10px;
+    background: rgba(145, 58, 45, 0.08);
+    color: #913A2D;
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.color-variant-remove-btn:hover {
+    background: #913A2D;
+    color: #fff;
+}
+
+.color-variant-add-btn {
+    white-space: nowrap;
+}
+
 @media (max-width: 768px) {
     .admin-sidebar {
         background: var(--primary);
+    }
+
+    .form-section-heading-admin,
+    .form-row-admin,
+    .color-variant-row-admin {
+        grid-template-columns: 1fr;
+    }
+
+    .form-section-heading-admin {
+        display: grid;
+    }
+
+    .color-variant-preview-admin {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 4 / 3;
     }
 }
