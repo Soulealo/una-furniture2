@@ -67,12 +67,6 @@ function isSafeImagePath(image) {
     return /^(?!https?:)(?!data:)(?!\/\/)(?!.*(?:^|\/)\.\.(?:\/|$))\.?\/?[\w./ -]+\.(png|jpe?g|webp|gif|avif)$/i.test(imageValue);
 }
 
-function logColorVariants(label, value) {
-    if (localStorage.getItem('unaDebugColorVariants') === 'true') {
-        console.debug(`[colorVariants] ${label}`, value);
-    }
-}
-
 function getProductMainImage(product) {
     return getSafeProductImage(product?.images?.[0] || product?.imageUrl || product?.image);
 }
@@ -84,12 +78,6 @@ function normalizeProduct(product, index = 0) {
     const legacyColorVariants = savedColorVariants.length ? savedColorVariants : normalizeColorVariants(product?.colors);
     const colors = normalizeOptionList(product?.colors ?? product?.colorsText);
     const colorVariants = legacyColorVariants;
-
-    logColorVariants('frontend received product.colorVariants', {
-        id: product?.id,
-        colorVariants: product?.colorVariants,
-        normalized: colorVariants
-    });
 
     return {
         id: product?.id ? String(product.id) : String(index + 1),
@@ -188,6 +176,17 @@ function escapeHtml(value) {
     return div.innerHTML;
 }
 
+function parseJsonArray(value) {
+    if (Array.isArray(value)) return value;
+
+    try {
+        const parsed = JSON.parse(value || '[]');
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+        return [];
+    }
+}
+
 function normalizeOptionList(value) {
     let source = value;
 
@@ -210,7 +209,7 @@ function normalizeOptionList(value) {
 
     return [...new Set(values.map(item => {
         if (item && typeof item === 'object') {
-            return String(item.name || item.color || item.value || '').trim();
+            return String(item.name || item.colorValue || item.color_value || item.color || item.value || '').trim();
         }
 
         return String(item || '').trim();
@@ -240,11 +239,19 @@ function normalizeColorVariants(value) {
     if (!Array.isArray(source)) return [];
 
     return source
-        .map(variant => ({
-            name: String(variant?.name || '').trim(),
-            color: String(variant?.color || variant?.value || '').trim(),
-            image: String(variant?.image || variant?.imageUrl || '').trim()
-        }))
+        .map(variant => {
+            const colorValue = String(variant?.colorValue || variant?.color_value || variant?.color || variant?.value || '').trim();
+            const normalized = {
+                name: String(variant?.name || '').trim(),
+                color: colorValue,
+                colorValue,
+                image: String(variant?.image || variant?.imageUrl || '').trim()
+            };
+            const id = Number(variant?.id);
+
+            if (Number.isInteger(id) && id > 0) normalized.id = id;
+            return normalized;
+        })
         .filter(variant => variant.name || variant.color || variant.image);
 }
 
@@ -439,18 +446,20 @@ function createProductDetailModal() {
                     <h2 id="detailProductName"></h2>
                     <p id="detailProductPrice" class="product-detail-price"></p>
                     <div id="detailProductDescription" class="product-detail-description"></div>
-                    <div id="detailProductOptions" class="product-detail-options product-color-variants" hidden>
-                        <div class="product-option-group">
-                            <span>Өнгөний сонголт</span>
-                            <strong id="detailSelectedColorName" class="selected-color-name"></strong>
-                            <div id="detailColorVariants" class="detail-color-variants" role="listbox" aria-label="Өнгөний сонголт"></div>
-                        </div>
-                    </div>
                     <div class="product-detail-purchase">
-                        <div class="quantity-selector">
-                            <button class="quantity-btn quantity-minus" type="button" aria-label="Тоо хасах">-</button>
-                            <span id="detailQuantity">1</span>
-                            <button class="quantity-btn quantity-plus" type="button" aria-label="Тоо нэмэх">+</button>
+                        <div class="product-detail-purchase-row">
+                            <div class="quantity-selector">
+                                <button class="quantity-btn quantity-minus" type="button" aria-label="Тоо хасах">-</button>
+                                <span id="detailQuantity">1</span>
+                                <button class="quantity-btn quantity-plus" type="button" aria-label="Тоо нэмэх">+</button>
+                            </div>
+                            <div id="detailProductOptions" class="product-detail-options product-color-variants" hidden>
+                                <div class="product-option-group">
+                                    <span>Өнгөний сонголт</span>
+                                    <strong id="detailSelectedColorName" class="selected-color-name"></strong>
+                                    <div id="detailColorVariants" class="detail-color-variants" role="listbox" aria-label="Өнгөний сонголт"></div>
+                                </div>
+                            </div>
                         </div>
                         <div class="product-action-buttons">
                             <button class="cart-action-btn" type="button">Сагслах</button>
@@ -469,7 +478,7 @@ function setDetailMainImage(index) {
     const modal = document.getElementById('productDetailModal');
     const image = document.getElementById('detailProductImage');
     const thumbs = [...document.querySelectorAll('.product-detail-thumb')];
-    const images = JSON.parse(modal?.dataset.images || '[]');
+    const images = parseJsonArray(modal?.dataset.images);
 
     if (!image || images.length === 0) return;
 
@@ -531,8 +540,8 @@ function renderProductDetailOptions(product) {
         button.setAttribute('role', 'option');
         button.setAttribute('aria-selected', index === 0 ? 'true' : 'false');
         button.innerHTML = `
-            <img src="${escapeHtml(getSafeProductImage(variant.image))}" alt="${escapeHtml(variant.name || variant.color || 'Өнгө')}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
-            <span>${escapeHtml(variant.name || variant.color || 'Өнгө')}</span>
+            <img src="${escapeHtml(getSafeProductImage(variant.image))}" alt="${escapeHtml(variant.name || variant.colorValue || variant.color || 'Өнгө')}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
+            <span>${escapeHtml(variant.name || variant.colorValue || variant.color || 'Өнгө')}</span>
         `;
         variantsContainer.appendChild(button);
     });
@@ -542,15 +551,16 @@ function renderProductDetailOptions(product) {
 
 function getDetailSelections() {
     const modal = document.getElementById('productDetailModal');
-    const variants = normalizeColorVariants(JSON.parse(modal?.dataset.colorVariants || '[]'));
+    const variants = normalizeColorVariants(parseJsonArray(modal?.dataset.colorVariants));
     const selectedIndex = Number(modal?.dataset.selectedColorVariant || 0);
     const variant = variants[selectedIndex];
 
     if (!variant) return {};
 
     return {
-        selectedColor: variant.name || variant.color || '',
-        selectedColorValue: variant.color || '',
+        selectedColorName: variant.name || variant.colorValue || variant.color || '',
+        selectedColor: variant.name || variant.colorValue || variant.color || '',
+        selectedColorValue: variant.colorValue || variant.color || '',
         selectedColorImage: variant.image || ''
     };
 }
@@ -558,7 +568,7 @@ function getDetailSelections() {
 function setSelectedColorVariant(index) {
     const modal = document.getElementById('productDetailModal');
     const selectedName = document.getElementById('detailSelectedColorName');
-    const variants = normalizeColorVariants(JSON.parse(modal?.dataset.colorVariants || '[]'));
+    const variants = normalizeColorVariants(parseJsonArray(modal?.dataset.colorVariants));
     const variant = variants[index];
 
     if (!modal || !variant) return;
@@ -571,10 +581,10 @@ function setSelectedColorVariant(index) {
         button.setAttribute('aria-selected', isActive ? 'true' : 'false');
     });
 
-    if (selectedName) selectedName.textContent = variant.name || variant.color || '';
+    if (selectedName) selectedName.textContent = variant.name || variant.colorValue || variant.color || '';
 
     if (variant.image) {
-        const images = JSON.parse(modal.dataset.images || '[]');
+        const images = parseJsonArray(modal.dataset.images);
         const variantImage = getSafeProductImage(variant.image);
         const existingIndex = images.findIndex(image => getSafeProductImage(image) === variantImage);
 
@@ -786,6 +796,7 @@ function saveToken(token) {
 
 function removeToken() {
     localStorage.removeItem(TOKEN_KEY);
+    authUserCache = null;
 }
 
 function getTokenPayload() {
@@ -805,11 +816,14 @@ function getTokenPayload() {
 }
 
 function getCurrentAuthUser() {
-    return authUserCache || getTokenPayload();
+    const payload = authUserCache || getTokenPayload();
+    if (!payload) return null;
+    if (payload.exp && Number(payload.exp) <= Math.floor(Date.now() / 1000)) return null;
+    return payload;
 }
 
 function isLoggedIn() {
-    return Boolean(getToken() || authUserCache);
+    return Boolean(getCurrentAuthUser());
 }
 
 function getCurrentPageName() {
@@ -940,11 +954,11 @@ function updateCartCount() {
 }
 
 function getCartItemKey(item) {
-    return [item.id, item.selectedColor || item.color || '', item.selectedColorValue || ''].join('::');
+    return [item.id, item.selectedColorName || item.selectedColor || item.color || '', item.selectedColorValue || ''].join('::');
 }
 
 function getCartOptionLines(item) {
-    const selectedColor = String(item.selectedColor || item.color || '').trim();
+    const selectedColor = String(item.selectedColorName || item.selectedColor || item.color || '').trim();
     const selectedColorValue = String(item.selectedColorValue || item.colorValue || '').trim();
     const lines = [];
 
@@ -961,7 +975,7 @@ function addProductToCart(product, quantity = 1, selections = {}) {
     }
 
     const { colorVariants } = getProductOptions(product);
-    const selectedColor = String(selections.selectedColor || selections.color || '').trim();
+    const selectedColor = String(selections.selectedColorName || selections.selectedColor || selections.color || '').trim();
     const selectedColorValue = String(selections.selectedColorValue || selections.colorValue || '').trim();
     const selectedColorImage = String(selections.selectedColorImage || selections.colorImage || '').trim();
 
@@ -970,7 +984,7 @@ function addProductToCart(product, quantity = 1, selections = {}) {
         return false;
     }
 
-    if (selectedColor && colorVariants.length && !colorVariants.some(variant => (variant.name || variant.color) === selectedColor)) {
+    if (selectedColor && colorVariants.length && !colorVariants.some(variant => (variant.name || variant.colorValue || variant.color) === selectedColor || (variant.colorValue || variant.color) === selectedColorValue)) {
         alert('Сонгосон өнгө энэ бүтээгдэхүүнд байхгүй байна.');
         return false;
     }
@@ -983,6 +997,7 @@ function addProductToCart(product, quantity = 1, selections = {}) {
 
     if (existingItem) {
         existingItem.quantity = (Number(existingItem.quantity) || 1) + nextQuantity;
+        existingItem.selectedColorName = selectedColor;
         existingItem.selectedColor = selectedColor;
         existingItem.selectedColorValue = selectedColorValue;
         existingItem.selectedColorImage = selectedColorImage;
@@ -997,6 +1012,7 @@ function addProductToCart(product, quantity = 1, selections = {}) {
             category: product.category,
             price: Number(product.price) || 0,
             image: selectedColorImage || getProductMainImage(product),
+            selectedColorName: selectedColor,
             selectedColor,
             selectedColorValue,
             selectedColorImage,
@@ -1195,13 +1211,13 @@ function setupAccountPage() {
     const passwordForm = document.getElementById('changePasswordForm');
 
     document.getElementById('showEditAccountBtn')?.addEventListener('click', () => {
-        editForm.classList.toggle('hidden');
-        passwordForm.classList.add('hidden');
+        editForm?.classList.toggle('hidden');
+        passwordForm?.classList.add('hidden');
     });
 
     document.getElementById('showPasswordBtn')?.addEventListener('click', () => {
-        passwordForm.classList.toggle('hidden');
-        editForm.classList.add('hidden');
+        passwordForm?.classList.toggle('hidden');
+        editForm?.classList.add('hidden');
     });
 
     editForm?.addEventListener('submit', async (e) => {
@@ -1326,7 +1342,8 @@ function getCartOrderPayload(paymentMethod) {
         price: item.price,
         quantity: item.quantity,
         image: item.image,
-        selectedColor: item.selectedColor || '',
+        selectedColorName: item.selectedColorName || item.selectedColor || '',
+        selectedColor: item.selectedColorName || item.selectedColor || '',
         selectedColorValue: item.selectedColorValue || '',
         selectedColorImage: item.selectedColorImage || ''
     }));
@@ -1610,7 +1627,6 @@ function setupHeroVideoAutoplay() {
         video.setAttribute('webkit-playsinline', '');
         video.setAttribute('preload', 'auto');
         video.play().catch(() => {
-            console.log("Autoplay blocked, retrying...");
             video.classList.add('is-autoplay-blocked');
         });
     }

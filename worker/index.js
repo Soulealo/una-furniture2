@@ -300,7 +300,7 @@ function normalizeOptionList(value) {
 
     return [...new Set(values.map((item) => {
         if (item && typeof item === 'object') {
-            return String(item.name || item.color || item.value || '').trim();
+            return String(item.name || item.colorValue || item.color_value || item.color || item.value || '').trim();
         }
 
         return String(item || '').trim();
@@ -326,21 +326,34 @@ function normalizeColorVariants(value) {
     if (!Array.isArray(source)) return [];
 
     return source
-        .map((variant) => ({
-            name: String(variant?.name || '').trim(),
-            color: String(variant?.color || variant?.value || '').trim(),
-            image: String(variant?.image || variant?.imageUrl || '').trim()
-        }))
+        .map((variant) => {
+            const colorValue = String(variant?.colorValue || variant?.color_value || variant?.color || variant?.value || '').trim();
+            const normalized = {
+                name: String(variant?.name || '').trim(),
+                color: colorValue,
+                colorValue,
+                image: String(variant?.image || variant?.imageUrl || '').trim()
+            };
+            const id = Number(variant?.id);
+
+            if (Number.isInteger(id) && id > 0) normalized.id = id;
+            return normalized;
+        })
         .filter((variant) => variant.name || variant.color || variant.image)
         .filter((variant, index, variants) => {
-            const key = `${variant.name.toLowerCase()}::${variant.color.toLowerCase()}::${variant.image}`;
-            return variants.findIndex((item) => `${item.name.toLowerCase()}::${item.color.toLowerCase()}::${item.image}` === key) === index;
+            const key = `${variant.name.toLowerCase()}::${variant.colorValue.toLowerCase()}::${variant.image}`;
+            return variants.findIndex((item) => `${item.name.toLowerCase()}::${item.colorValue.toLowerCase()}::${item.image}` === key) === index;
         });
 }
 
 function isMissingColumnError(error, columnName) {
     const message = String(error?.message || '').toLowerCase();
     return message.includes('no such column') && message.includes(String(columnName).toLowerCase());
+}
+
+function isMissingTableError(error, tableName) {
+    const message = String(error?.message || '').toLowerCase();
+    return message.includes('no such table') && message.includes(String(tableName).toLowerCase());
 }
 
 function isHttpUrl(value) {
@@ -367,27 +380,6 @@ function isSafeImagePath(value) {
     return /^(?!https?:)(?!data:)(?!\/\/)(?!.*(?:^|\/)\.\.(?:\/|$))\.?\/?[\w./ -]+\.(png|jpe?g|webp|gif|avif)$/i.test(imageValue);
 }
 
-function shouldDebugColorVariants(env) {
-    return String(env.DEBUG_COLOR_VARIANTS || '').toLowerCase() === 'true';
-}
-
-async function debugSavedProductColorVariants(env, productId, label) {
-    if (!shouldDebugColorVariants(env)) return;
-
-    try {
-        const row = await env.DB.prepare('SELECT colors, colorVariants FROM products WHERE id = ?').bind(productId).first();
-        console.log(`[colorVariants] ${label}`, row);
-    } catch (error) {
-        console.log(`[colorVariants] ${label} read failed`, error?.message || error);
-    }
-}
-
-function debugColorVariants(env, label, value) {
-    if (shouldDebugColorVariants(env)) {
-        console.log(`[colorVariants] ${label}`, value);
-    }
-}
-
 function normalizeImages(body = {}) {
     const source = Array.isArray(body.images)
         ? body.images
@@ -407,7 +399,7 @@ function cleanProductInput(body = {}) {
     const savedColors = normalizeOptionList(body.colors);
     const colors = savedColors.length
         ? savedColors
-        : colorVariants.map((variant) => variant.name || variant.color).filter(Boolean);
+        : colorVariants.map((variant) => variant.name || variant.colorValue || variant.color).filter(Boolean);
 
     return {
         id: customId === undefined || customId === null || customId === '' ? null : Number(customId),
@@ -451,7 +443,7 @@ function toProductResponse(row) {
     const savedColors = normalizeOptionList(row.colors);
     const colors = savedColors.length
         ? savedColors
-        : legacyColorVariants.map((variant) => variant.name || variant.color).filter(Boolean);
+        : legacyColorVariants.map((variant) => variant.name || variant.colorValue || variant.color).filter(Boolean);
 
     return {
         id: String(row.id),
@@ -468,6 +460,19 @@ function toProductResponse(row) {
         colorsText: colors.join(', '),
         stock: Number(row.stock) || 0,
         createdAt: row.createdAt || ''
+    };
+}
+
+function toColorVariantResponse(row) {
+    const colorValue = String(row.color_value || row.colorValue || row.color || '').trim();
+    const id = Number(row.id);
+
+    return {
+        ...(Number.isInteger(id) && id > 0 ? { id } : {}),
+        name: String(row.name || '').trim(),
+        color: colorValue,
+        colorValue,
+        image: String(row.image || '').trim()
     };
 }
 
@@ -504,6 +509,55 @@ async function attachProductImages(env, rows) {
     });
 }
 
+async function getProductColorVariants(env, productIds) {
+    const uniqueIds = [...new Set(productIds.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0))];
+    if (!uniqueIds.length) return new Map();
+
+    const placeholders = uniqueIds.map(() => '?').join(', ');
+    let results;
+
+    try {
+        ({ results } = await env.DB.prepare(
+            `SELECT id, product_id, name, color_value, image, sort_order
+             FROM product_color_variants
+             WHERE product_id IN (${placeholders})
+             ORDER BY product_id, sort_order, id`
+        ).bind(...uniqueIds).all());
+    } catch (error) {
+        if (isMissingTableError(error, 'product_color_variants')) return new Map();
+        throw error;
+    }
+
+    const variantsByProduct = new Map();
+
+    (results || []).forEach((row) => {
+        const key = String(row.product_id);
+        if (!variantsByProduct.has(key)) variantsByProduct.set(key, []);
+        variantsByProduct.get(key).push(toColorVariantResponse(row));
+    });
+
+    return variantsByProduct;
+}
+
+async function attachProductColorVariants(env, products) {
+    const productList = Array.isArray(products) ? products : [];
+    const variantsByProduct = await getProductColorVariants(env, productList.map((product) => product.id));
+
+    return productList.map((product) => {
+        const colorVariants = variantsByProduct.get(String(product.id)) || [];
+        if (!colorVariants.length) return product;
+
+        const colors = colorVariants.map((variant) => variant.name || variant.colorValue || variant.color).filter(Boolean);
+
+        return {
+            ...product,
+            colors,
+            colorVariants,
+            colorsText: colors.join(', ')
+        };
+    });
+}
+
 async function syncProductImages(env, productId, images) {
     await env.DB.prepare('DELETE FROM product_images WHERE productId = ?').bind(productId).run();
 
@@ -511,6 +565,34 @@ async function syncProductImages(env, productId, images) {
         await env.DB.prepare(
             'INSERT INTO product_images (productId, url, position, createdAt) VALUES (?, ?, ?, ?)'
         ).bind(productId, image, index, new Date().toISOString()).run();
+    }
+}
+
+async function syncProductColorVariants(env, productId, variants) {
+    const colorVariants = normalizeColorVariants(variants)
+        .filter((variant) => variant.name || variant.image);
+
+    try {
+        await env.DB.prepare('DELETE FROM product_color_variants WHERE product_id = ?').bind(productId).run();
+    } catch (error) {
+        if (isMissingTableError(error, 'product_color_variants')) return;
+        throw error;
+    }
+
+    const now = new Date().toISOString();
+
+    for (const [index, variant] of colorVariants.entries()) {
+        await env.DB.prepare(
+            'INSERT INTO product_color_variants (product_id, name, color_value, image, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        ).bind(
+            productId,
+            variant.name,
+            variant.colorValue || variant.color,
+            variant.image,
+            index,
+            now,
+            now
+        ).run();
     }
 }
 
@@ -1193,7 +1275,7 @@ async function listProducts(env) {
         }
     }
 
-    const products = await attachProductImages(env, results || []);
+    const products = await attachProductColorVariants(env, await attachProductImages(env, results || []));
 
     return json(products);
 }
@@ -1220,7 +1302,7 @@ async function getProduct(env, id) {
     }
 
     if (!row) return fail('Product not found.', 404);
-    const [product] = await attachProductImages(env, [row]);
+    const [product] = await attachProductColorVariants(env, await attachProductImages(env, [row]));
     return json(product);
 }
 
@@ -1228,10 +1310,7 @@ async function createProduct(request, env) {
     const { error } = await requireAdmin(request, env);
     if (error) return error;
 
-    const body = await readJson(request);
-    debugColorVariants(env, 'backend received create body.colorVariants', body.colorVariants);
-    const product = cleanProductInput(body);
-    debugColorVariants(env, 'backend normalized create colorVariants', product.colorVariants);
+    const product = cleanProductInput(await readJson(request));
     const validationMessage = validateProduct(product, true);
     if (validationMessage) return fail(validationMessage, 400);
 
@@ -1283,7 +1362,7 @@ async function createProduct(request, env) {
     const productId = product.id || result.meta.last_row_id;
 
     await syncProductImages(env, productId, product.images);
-    await debugSavedProductColorVariants(env, productId, 'saved create product colorVariants');
+    await syncProductColorVariants(env, productId, product.colorVariants);
     return getProduct(env, productId);
 }
 
@@ -1292,9 +1371,9 @@ async function updateProduct(request, env, id) {
     if (error) return error;
 
     const body = await readJson(request);
-    debugColorVariants(env, 'backend received update body.colorVariants', body.colorVariants);
     const product = cleanProductInput(body);
-    debugColorVariants(env, 'backend normalized update colorVariants', product.colorVariants);
+    const shouldSyncColorVariants = Object.prototype.hasOwnProperty.call(body, 'colorVariants')
+        || Object.prototype.hasOwnProperty.call(body, 'colors');
     const validationMessage = validateProduct(product);
     if (validationMessage) return fail(validationMessage, 400);
 
@@ -1356,11 +1435,19 @@ async function updateProduct(request, env, id) {
     if (!result.meta.changes) return fail('Product not found.', 404);
 
     await syncProductImages(env, id, product.images);
-    await debugSavedProductColorVariants(env, id, 'saved update product colorVariants');
+    if (shouldSyncColorVariants) {
+        await syncProductColorVariants(env, id, product.colorVariants);
+    }
     return getProduct(env, id);
 }
 
 async function deleteProduct(env, id) {
+    try {
+        await env.DB.prepare('DELETE FROM product_color_variants WHERE product_id = ?').bind(id).run();
+    } catch (error) {
+        if (!isMissingTableError(error, 'product_color_variants')) throw error;
+    }
+
     await env.DB.prepare('DELETE FROM product_images WHERE productId = ?').bind(id).run();
     const result = await env.DB.prepare('DELETE FROM products WHERE id = ?').bind(id).run();
 
@@ -1558,14 +1645,20 @@ async function createOrder(request, env) {
         if (!product) return fail(`Product ${productId} is no longer available.`, 409);
         if (Number(product.stock) > 0 && quantity > Number(product.stock)) return fail(`Not enough stock for ${product.name}.`, 409);
 
-        const productResponse = toProductResponse(product);
-        const selectedColor = String(item.selectedColor || item.color || '').trim();
-        const selectedColorValue = String(item.selectedColorValue || item.colorValue || '').trim();
+        const [productResponse] = await attachProductColorVariants(env, await attachProductImages(env, [product]));
+        const selectedColor = String(item.selectedColorName || item.selectedColor || item.color || '').trim();
+        const selectedColorValue = String(item.selectedColorValue || item.colorValue || item.color_value || '').trim();
         const selectedColorImage = String(item.selectedColorImage || item.colorImage || '').trim();
-        const selectedVariant = productResponse.colorVariants.find((variant) => (variant.name || variant.color) === selectedColor);
+        const selectedVariant = productResponse.colorVariants.find((variant) => {
+            const variantName = String(variant.name || '').trim();
+            const variantColorValue = String(variant.colorValue || variant.color || '').trim();
 
-        if (productResponse.colorVariants.length && !selectedColor) return fail(`Please choose a color for ${product.name}.`, 400);
-        if (selectedColor && productResponse.colorVariants.length && !selectedVariant) return fail(`Selected color is not available for ${product.name}.`, 400);
+            return (selectedColor && (variantName === selectedColor || variantColorValue === selectedColor))
+                || (selectedColorValue && variantColorValue === selectedColorValue);
+        });
+
+        if (productResponse.colorVariants.length && !selectedColor && !selectedColorValue) return fail(`Please choose a color for ${product.name}.`, 400);
+        if ((selectedColor || selectedColorValue) && productResponse.colorVariants.length && !selectedVariant) return fail(`Selected color is not available for ${product.name}.`, 400);
 
         const productImages = productResponse.images;
         cleanItems.push({
@@ -1575,8 +1668,8 @@ async function createOrder(request, env) {
             price: Number(product.price || 0),
             quantity,
             image: selectedVariant?.image || selectedColorImage || productImages[0] || String(item.image || '').trim(),
-            selectedColor,
-            selectedColorValue: selectedVariant?.color || selectedColorValue,
+            selectedColor: selectedVariant?.name || selectedColor,
+            selectedColorValue: selectedVariant?.colorValue || selectedVariant?.color || selectedColorValue,
             selectedColorImage: selectedVariant?.image || selectedColorImage
         });
     }

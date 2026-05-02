@@ -33,7 +33,6 @@ async function initializeAdmin() {
             showDashboard();
             return;
         } catch (error) {
-            console.log('Stored admin session is invalid:', error);
             removeToken();
         }
     }
@@ -60,6 +59,10 @@ function setupEventListeners() {
     if (addProductBtn) {
         addProductBtn.addEventListener('click', openAddProductModal);
     }
+
+    document.querySelectorAll('[data-admin-action="add-product"]').forEach(button => {
+        button.addEventListener('click', openAddProductModal);
+    });
 
     const closeModalBtn = document.getElementById('closeModalBtn');
     if (closeModalBtn) {
@@ -273,7 +276,6 @@ async function handleAdminLogin(e) {
         document.getElementById('adminLoginForm').reset();
         showDashboard();
     } catch (error) {
-        console.log('Admin login failed:', error);
         errorDiv.textContent = error.message;
         errorDiv.classList.add('show');
     }
@@ -411,12 +413,6 @@ async function ensureCategoriesLoaded() {
     return categoriesCache;
 }
 
-function logColorVariants(label, value) {
-    if (localStorage.getItem('unaDebugColorVariants') === 'true') {
-        console.debug(`[colorVariants] ${label}`, value);
-    }
-}
-
 function getSafeProductImage(image) {
     const imageValue = String(image || '').trim();
 
@@ -459,7 +455,7 @@ function normalizeOptionList(value) {
 
     return [...new Set(values.map(item => {
         if (item && typeof item === 'object') {
-            return String(item.name || item.color || item.value || '').trim();
+            return String(item.name || item.colorValue || item.color_value || item.color || item.value || '').trim();
         }
 
         return String(item || '').trim();
@@ -489,11 +485,19 @@ function normalizeColorVariants(value) {
     if (!Array.isArray(source)) return [];
 
     return source
-        .map(variant => ({
-            name: String(variant?.name || '').trim(),
-            color: String(variant?.color || variant?.value || '').trim(),
-            image: String(variant?.image || variant?.imageUrl || '').trim()
-        }))
+        .map(variant => {
+            const colorValue = String(variant?.colorValue || variant?.color_value || variant?.color || variant?.value || '').trim();
+            const normalized = {
+                name: String(variant?.name || '').trim(),
+                color: colorValue,
+                colorValue,
+                image: String(variant?.image || variant?.imageUrl || '').trim()
+            };
+            const id = Number(variant?.id);
+
+            if (Number.isInteger(id) && id > 0) normalized.id = id;
+            return normalized;
+        })
         .filter(variant => variant.name || variant.color || variant.image);
 }
 
@@ -512,12 +516,6 @@ function normalizeProduct(product, index = 0) {
     const colors = normalizeOptionList(product?.colors ?? product?.colorsText);
     const colorVariants = legacyColorVariants;
 
-    logColorVariants('frontend received product.colorVariants', {
-        id: product?.id,
-        colorVariants: product?.colorVariants,
-        normalized: colorVariants
-    });
-
     return {
         id: product?.id ? String(product.id) : String(index + 1),
         name: product?.name || 'Бүтээгдэхүүн',
@@ -531,7 +529,7 @@ function normalizeProduct(product, index = 0) {
         colors,
         colorVariants,
         colorsText: formatOptionList(colors),
-        colorVariantsText: colorVariants.map(variant => variant.name || variant.color || 'Variant').join(', '),
+        colorVariantsText: colorVariants.map(variant => variant.name || variant.colorValue || variant.color || 'Variant').join(', '),
         stock: Number.isFinite(numericStock) ? numericStock : 0,
         createdAt: product?.createdAt
     };
@@ -640,7 +638,7 @@ function createColorVariantRow(variant = {}) {
         </div>
         <div class="form-group-admin">
             <label>Color value</label>
-            <input type="text" class="color-variant-value" placeholder="#222222 or Black" value="${escapeHtml(variant.color || '')}">
+            <input type="text" class="color-variant-value" placeholder="#222222 or Black" value="${escapeHtml(variant.colorValue || variant.color || '')}">
         </div>
         <div class="form-group-admin color-variant-image-field-admin">
             <label>Image URL</label>
@@ -676,6 +674,7 @@ function getColorVariantsFromForm() {
         .map(row => ({
             name: row.querySelector('.color-variant-name')?.value.trim() || '',
             color: row.querySelector('.color-variant-value')?.value.trim() || '',
+            colorValue: row.querySelector('.color-variant-value')?.value.trim() || '',
             image: row.querySelector('.color-variant-image')?.value.trim() || ''
         }))
         .filter(variant => variant.name || variant.image);
@@ -731,7 +730,7 @@ async function handleProductFormSubmit(e) {
     const name = document.getElementById('productName').value.trim();
     const description = document.getElementById('productDescription').value.trim();
     const colorVariants = getColorVariantsFromForm();
-    const colors = colorVariants.map(variant => variant.name || variant.color).filter(Boolean);
+    const colors = colorVariants.map(variant => variant.name || variant.colorValue || variant.color).filter(Boolean);
     const price = Number(document.getElementById('productPrice').value);
     const categorySelect = document.getElementById('productCategory');
     const categoryId = categorySelect.value;
@@ -791,8 +790,6 @@ async function handleProductFormSubmit(e) {
             stock
         };
 
-        logColorVariants('admin submit payload', productData);
-
         if (editingProductId) {
             await requestJson(`${API_BASE}/products/${editingProductId}`, {
                 method: 'PUT',
@@ -819,7 +816,6 @@ async function handleProductFormSubmit(e) {
         localStorage.setItem('unaProductsUpdatedAt', String(Date.now()));
         window.dispatchEvent(new CustomEvent('products:updated'));
     } catch (error) {
-        console.log('Product save failed:', error);
         alert(error.message);
     } finally {
         saveButton.disabled = false;
@@ -1383,6 +1379,8 @@ async function handleOrderActionClick(e) {
         } else if (action === 'status') {
             await updateOrderStatus(orderId, button.dataset.orderStatus);
         }
+    } catch (error) {
+        alert(error.message);
     } finally {
         button.disabled = false;
         button.textContent = originalText;
@@ -1435,7 +1433,7 @@ async function viewOrderDetails(orderId) {
 }
 
 function closeOrderModal() {
-    document.getElementById('orderModal').classList.remove('show');
+    document.getElementById('orderModal')?.classList.remove('show');
 }
 
 async function updateOrderStatus(orderId, status) {
