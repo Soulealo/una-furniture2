@@ -360,24 +360,202 @@ async function switchView(viewType) {
 }
 
 async function updateDashboard() {
-    const [products, orders, users] = await Promise.all([
+    const [products, orders, users, categories] = await Promise.all([
         fetchProducts(),
         fetchOrders(),
-        fetchUsers()
+        fetchUsers(),
+        fetchCategories()
     ]);
-    const totalProductsElement = document.getElementById('totalProducts');
-    const totalOrdersElement = document.getElementById('totalOrders');
-    const totalUsersElement = document.getElementById('totalUsers');
+    const completeOrders = orders.filter(isCompleteOrder);
+    const pendingOrders = orders.filter(isPendingOrder);
+    const revenue = completeOrders.reduce((sum, order) => sum + (Number(order.totalAmount) || 0), 0);
 
-    if (totalProductsElement) {
-        totalProductsElement.textContent = products.length;
+    setElementText('totalProducts', products.length);
+    setElementText('totalOrders', orders.length);
+    setElementText('totalUsers', users.length);
+    setElementText('totalCategories', categories.length);
+    setElementText('pendingOrdersCount', pendingOrders.length);
+    setElementText('completeOrdersCount', completeOrders.length);
+    setElementText('totalRevenue', formatPrice(revenue));
+    renderSalesChart(orders);
+    renderAdminRightPanel(orders);
+}
+
+function setElementText(elementId, value) {
+    const element = document.getElementById(elementId);
+    if (element) element.textContent = String(value);
+}
+
+function normalizeOrderItems(items) {
+    if (Array.isArray(items)) return items;
+
+    try {
+        const parsed = JSON.parse(items || '[]');
+        return Array.isArray(parsed) ? parsed : [];
+    } catch (error) {
+        return [];
     }
-    if (totalOrdersElement) {
-        totalOrdersElement.textContent = orders.length;
+}
+
+function getOrderTimestamp(order) {
+    const date = new Date(order?.createdAt || 0);
+    return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+}
+
+function isCompleteOrder(order) {
+    return ['paid', 'confirmed', 'complete', 'completed'].includes(String(order?.status || '').toLowerCase());
+}
+
+function isPendingOrder(order) {
+    const status = String(order?.status || 'pending').toLowerCase();
+    return status === 'pending' || status === 'chat_pending';
+}
+
+function getMonthStart(date) {
+    return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function addMonths(date, delta) {
+    return new Date(date.getFullYear(), date.getMonth() + delta, 1);
+}
+
+function getMonthKey(date) {
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function formatMonthShort(date) {
+    return date.toLocaleDateString('mn-MN', { month: 'short' });
+}
+
+function renderSalesChart(orders = []) {
+    const container = document.getElementById('salesChartBars');
+    if (!container) return;
+
+    const months = Array.from({ length: 6 }, (_, index) => addMonths(getMonthStart(new Date()), index - 5));
+    const grouped = new Map(months.map(month => [getMonthKey(month), { orderCount: 0, revenue: 0 }]));
+
+    orders.forEach(order => {
+        const date = new Date(order.createdAt || 0);
+        if (Number.isNaN(date.getTime())) return;
+
+        const key = getMonthKey(date);
+        const item = grouped.get(key);
+        if (!item) return;
+
+        item.orderCount += 1;
+        item.revenue += Number(order.totalAmount) || 0;
+    });
+
+    const values = [...grouped.values()];
+    const maxOrders = Math.max(1, ...values.map(item => item.orderCount));
+    const maxRevenue = Math.max(1, ...values.map(item => item.revenue));
+
+    container.innerHTML = months.map(month => {
+        const item = grouped.get(getMonthKey(month)) || { orderCount: 0, revenue: 0 };
+        const orderHeight = Math.max(8, Math.round((item.orderCount / maxOrders) * 190));
+        const revenueHeight = Math.max(8, Math.round((item.revenue / maxRevenue) * 190));
+
+        return `
+            <div class="sales-bar-group" title="${escapeHtml(formatMonthShort(month))}: ${item.orderCount} orders, ${formatPrice(item.revenue)}">
+                <div class="sales-bars">
+                    <span class="sales-bar orders" style="height: ${orderHeight}px"></span>
+                    <span class="sales-bar revenue" style="height: ${revenueHeight}px"></span>
+                </div>
+                <span>${escapeHtml(formatMonthShort(month))}</span>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderAdminCalendar(orders = []) {
+    const title = document.getElementById('adminCalendarTitle');
+    const grid = document.getElementById('adminCalendarGrid');
+    if (!grid) return;
+
+    const now = new Date();
+    const monthStart = getMonthStart(now);
+    const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    const startOffset = (monthStart.getDay() + 6) % 7;
+    const orderDays = new Set(orders.map(order => {
+        const date = new Date(order.createdAt || 0);
+        if (Number.isNaN(date.getTime()) || date.getMonth() !== now.getMonth() || date.getFullYear() !== now.getFullYear()) return '';
+        return String(date.getDate());
+    }).filter(Boolean));
+
+    if (title) {
+        title.textContent = now.toLocaleDateString('mn-MN', { month: 'long', year: 'numeric' });
     }
-    if (totalUsersElement) {
-        totalUsersElement.textContent = users.length;
+
+    const blanks = Array.from({ length: startOffset }, () => '<span aria-hidden="true"></span>');
+    const days = Array.from({ length: daysInMonth }, (_, index) => {
+        const day = index + 1;
+        const classes = [
+            day === now.getDate() ? 'is-today' : '',
+            orderDays.has(String(day)) ? 'has-order' : ''
+        ].filter(Boolean).join(' ');
+
+        return `<span class="${classes}">${day}</span>`;
+    });
+
+    grid.innerHTML = [...blanks, ...days].join('');
+}
+
+function formatShortDateTime(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '-';
+    return date.toLocaleDateString('mn-MN', { month: 'short', day: 'numeric' });
+}
+
+function renderLatestOrders(orders = []) {
+    const list = document.getElementById('adminLatestOrders');
+    const count = document.getElementById('latestOrdersCount');
+    if (!list) return;
+
+    const latestOrders = [...orders]
+        .sort((a, b) => getOrderTimestamp(b) - getOrderTimestamp(a))
+        .slice(0, 5);
+
+    if (count) count.textContent = String(latestOrders.length);
+
+    if (!latestOrders.length) {
+        list.innerHTML = '<p class="empty-panel-message">Шинэ захиалга алга байна.</p>';
+        return;
     }
+
+    list.innerHTML = latestOrders.map(order => `
+        <article class="latest-order-item">
+            <span class="latest-order-icon"><i class="fas fa-receipt"></i></span>
+            <div>
+                <strong>${escapeHtml(order.customerName || order.username || 'Customer')}</strong>
+                <small>${escapeHtml(order.orderCode || '-')} · ${escapeHtml(formatOrderItemsSummary(order.items, 1))}</small>
+                <div class="latest-order-meta">
+                    <span class="order-status-badge ${escapeHtml(order.status || 'pending')}">${escapeHtml(order.status || 'pending')}</span>
+                    <small>${formatPrice(order.totalAmount)} · ${formatShortDateTime(order.createdAt)}</small>
+                </div>
+            </div>
+        </article>
+    `).join('');
+}
+
+function renderAdminRightPanel(orders = ordersCache) {
+    const pendingOrders = orders.filter(isPendingOrder);
+    setElementText('rightNotificationCount', pendingOrders.length);
+    renderAdminCalendar(orders);
+    renderLatestOrders(orders);
+}
+
+function formatOrderItemsSummary(items, maxItems = 2) {
+    const orderItems = normalizeOrderItems(items);
+    if (!orderItems.length) return '-';
+
+    const visibleItems = orderItems.slice(0, maxItems).map(item => {
+        const color = item.selectedColor || item.selectedColorName || item.color || '';
+        const colorText = color ? ` (${color})` : '';
+        return `${item.name || item.productName || 'Бүтээгдэхүүн'}${colorText} × ${Number(item.quantity) || 1}`;
+    });
+    const extraCount = orderItems.length - visibleItems.length;
+
+    return extraCount > 0 ? `${visibleItems.join(', ')} +${extraCount}` : visibleItems.join(', ');
 }
 
 async function fetchProducts() {
@@ -1318,14 +1496,15 @@ async function loadUsersTable() {
 async function loadOrdersTable() {
     const tableBody = document.getElementById('ordersTableBody');
     const emptyState = document.getElementById('ordersEmptyState');
-    tableBody.innerHTML = '<tr><td colspan="10">Захиалгууд уншиж байна...</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="11">Захиалгууд уншиж байна...</td></tr>';
 
     let orders = [];
 
     try {
         orders = await fetchOrders();
+        renderAdminRightPanel(orders);
     } catch (error) {
-        tableBody.innerHTML = `<tr><td colspan="10">${escapeHtml(error.message)}</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="11">${escapeHtml(error.message)}</td></tr>`;
         return;
     }
 
@@ -1339,6 +1518,7 @@ async function loadOrdersTable() {
             <td>${escapeHtml(order.username || '-')}</td>
             <td>${escapeHtml(order.customerName || '-')}</td>
             <td>${escapeHtml(order.phone || '-')}</td>
+            <td class="order-products-cell">${escapeHtml(formatOrderItemsSummary(order.items, 2))}</td>
             <td class="product-cell-price">${formatPrice(order.totalAmount)}</td>
             <td>${escapeHtml(getPaymentMethodLabel(order.paymentMethod))}</td>
             <td>${escapeHtml(order.transactionCode || '-')}</td>
@@ -1407,9 +1587,9 @@ async function viewOrderDetails(orderId) {
             </div>
             <h3>Бүтээгдэхүүнүүд</h3>
             <div class="order-items-list">
-                ${order.items.map(item => {
+                ${normalizeOrderItems(order.items).map(item => {
                     const options = [
-                        item.selectedColor ? `Өнгө: ${item.selectedColor}` : '',
+                        (item.selectedColor || item.selectedColorName) ? `Өнгө: ${item.selectedColor || item.selectedColorName}` : '',
                         item.selectedColorValue ? `Утга: ${item.selectedColorValue}` : ''
                     ].filter(Boolean);
 

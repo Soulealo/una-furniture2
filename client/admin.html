@@ -56,24 +56,12 @@
 
     
     <div id="dashboardScreen" class="dashboard-screen">
-        
-        <nav class="admin-navbar">
-            <div class="admin-nav-container">
-                <a href="index.html" class="admin-nav-logo">
-                    <img class="site-logo-img" src="assets/logo/new-logo.png" alt="UNA Furniture Logo" onerror="this.hidden=true;this.nextElementSibling.classList.add('logo-fallback-visible');">
-                    <span class="logo-fallback">UNA Home & Furniture</span>
-                </a>
-                <div class="admin-nav-right">
-                    <span class="admin-username">Админ</span>
-                    <button id="logoutBtn" class="admin-logout-btn">
-                        <i class="fas fa-sign-out-alt"></i> Гарах
-                    </button>
-                </div>
-            </div>
-        </nav>
-
-        
         <aside class="admin-sidebar">
+            <a href="index.html" class="admin-sidebar-brand">
+                <img class="site-logo-img" src="assets/logo/new-logo.png" alt="UNA Furniture Logo" onerror="this.hidden=true;this.nextElementSibling.classList.add('logo-fallback-visible');">
+                <span class="logo-fallback">UNA Home & Furniture</span>
+                <small>Admin Dashboard</small>
+            </a>
             <div class="sidebar-menu">
                 <a href="#" class="sidebar-link active" data-menu="dashboard">
                     <i class="fas fa-home"></i>
@@ -104,25 +92,84 @@
                     <span>Admin Account</span>
                 </a>
             </div>
+            <div class="sidebar-footer">
+                <button id="logoutBtn" class="admin-logout-btn sidebar-logout-btn" type="button">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </button>
+            </div>
         </aside>
 
         
+        <div class="admin-layout">
         <main class="admin-main">
             
             <div class="admin-header">
-                <h1 id="pageTitle">Админ Самбар</h1>
+                <div>
+                    <span class="admin-header-kicker">UNA Home & Furniture</span>
+                    <h1 id="pageTitle">Админ Самбар</h1>
+                </div>
+                <div class="admin-header-profile">
+                    <span class="admin-username">Админ</span>
+                    <i class="fas fa-user-shield"></i>
+                </div>
             </div>
 
             
             <div id="dashboardView" class="admin-view active">
                 <div class="dashboard-grid">
+                    <section class="dashboard-hero-card">
+                        <div class="dashboard-hero-icon">
+                            <i class="fas fa-receipt"></i>
+                        </div>
+                        <div>
+                            <span>Pending orders</span>
+                            <strong id="pendingOrdersCount">0</strong>
+                            <p>Шинэ болон хүлээгдэж буй захиалгууд</p>
+                        </div>
+                    </section>
+
+                    <div class="dashboard-side-stats">
+                        <div class="stat-card-admin">
+                            <div class="stat-icon">
+                                <i class="fas fa-check"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3>Complete orders</h3>
+                                <p class="stat-number" id="completeOrdersCount">0</p>
+                            </div>
+                        </div>
+
+                        <div class="stat-card-admin">
+                            <div class="stat-icon">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div class="stat-content">
+                                <h3>Total users</h3>
+                                <p class="stat-number" id="totalUsers">0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dashboard-stat-grid">
                     <div class="stat-card-admin">
                         <div class="stat-icon">
                             <i class="fas fa-box"></i>
                         </div>
                         <div class="stat-content">
-                            <h3>Нийт Бүтээгдэхүүн</h3>
+                            <h3>Нийт бүтээгдэхүүн</h3>
                             <p class="stat-number" id="totalProducts">0</p>
+                        </div>
+                    </div>
+
+                    <div class="stat-card-admin">
+                        <div class="stat-icon">
+                            <i class="fas fa-layer-group"></i>
+                        </div>
+                        <div class="stat-content">
+                            <h3>Ангилал</h3>
+                            <p class="stat-number" id="totalCategories">0</p>
                         </div>
                     </div>
 
@@ -131,34 +178,53 @@
                             <i class="fas fa-receipt"></i>
                         </div>
                         <div class="stat-content">
-                            <h3>Нийт Захиалга</h3>
+                            <h3>Нийт захиалга</h3>
                             <p class="stat-number" id="totalOrders">0</p>
                         </div>
                     </div>
 
                     <div class="stat-card-admin">
                         <div class="stat-icon">
-                            <i class="fas fa-users"></i>
+                            <i class="fas fa-coins"></i>
                         </div>
                         <div class="stat-content">
-                            <h3>Нийт Хэрэглэгч</h3>
-                            <p class="stat-number" id="totalUsers">0</p>
+                            <h3>Борлуулалт</h3>
+                            <p class="stat-number stat-number-money" id="totalRevenue">₮0</p>
                         </div>
                     </div>
+                </div>
 
-                    <div class="quick-actions">
-                        <h3>Хурдан үйлдэл</h3>
+                <section class="sales-card-admin">
+                    <div class="section-heading-admin">
+                        <div>
+                            <span>Analytics</span>
+                            <h2>Борлуулалтын график</h2>
+                        </div>
+                        <div class="sales-legend">
+                            <span><i></i> Захиалга</span>
+                            <span><i></i> Борлуулалт</span>
+                        </div>
+                    </div>
+                    <div id="salesChartBars" class="sales-chart-bars" aria-label="Борлуулалтын график"></div>
+                </section>
+
+                <section class="quick-actions">
+                    <h3>Хурдан үйлдэл</h3>
+                    <div class="quick-actions-grid">
                         <button class="quick-action-btn" data-action="addProduct">
                             <i class="fas fa-plus"></i> Шинэ бүтээгдэхүүн нэмэх
                         </button>
                         <button class="quick-action-btn" data-action="viewProducts">
                             <i class="fas fa-list"></i> Бүтээгдэхүүний жагсаалт
                         </button>
+                        <button class="quick-action-btn" data-action="manageCategories">
+                            <i class="fas fa-tags"></i> Ангилал удирдах
+                        </button>
                         <button class="quick-action-btn" data-action="viewOrders">
                             <i class="fas fa-receipt"></i> Захиалгууд харах
                         </button>
                     </div>
-                </div>
+                </section>
             </div>
 
             
@@ -234,6 +300,7 @@
                                 <th>Username</th>
                                 <th>Нэр</th>
                                 <th>Утас</th>
+                                <th>Бүтээгдэхүүн</th>
                                 <th>Нийт</th>
                                 <th>Төлбөр</th>
                                 <th>Гүйлгээний код</th>
@@ -368,6 +435,50 @@
                 </div>
             </div>
         </main>
+            <aside class="admin-right-panel">
+                <div class="admin-profile-card">
+                    <div class="notification-dot">
+                        <i class="fas fa-bell"></i>
+                        <span id="rightNotificationCount">0</span>
+                    </div>
+                    <div class="admin-profile-mini">
+                        <span class="admin-profile-avatar">UNA</span>
+                        <div>
+                            <strong class="admin-username admin-profile-name">Админ</strong>
+                            <small>Dashboard</small>
+                        </div>
+                    </div>
+                </div>
+
+                <section class="admin-calendar-card">
+                    <div class="right-panel-heading">
+                        <h2 id="adminCalendarTitle">Calendar</h2>
+                        <div>
+                            <i class="fas fa-chevron-left"></i>
+                            <i class="fas fa-chevron-right"></i>
+                        </div>
+                    </div>
+                    <div class="calendar-weekdays">
+                        <span>Mon</span>
+                        <span>Tue</span>
+                        <span>Wed</span>
+                        <span>Thu</span>
+                        <span>Fri</span>
+                        <span>Sat</span>
+                        <span>Sun</span>
+                    </div>
+                    <div id="adminCalendarGrid" class="admin-calendar-grid"></div>
+                </section>
+
+                <section class="latest-orders-card">
+                    <div class="right-panel-heading">
+                        <h2>Шинэ захиалга</h2>
+                        <span id="latestOrdersCount">0</span>
+                    </div>
+                    <div id="adminLatestOrders" class="admin-latest-orders"></div>
+                </section>
+            </aside>
+        </div>
     </div>
 
     
@@ -382,14 +493,10 @@
 
             <form id="productForm" class="product-form-admin">
                 <section class="product-form-section-admin">
-                    <h3>Basic Info</h3>
+                    <h3>Basic Information</h3>
                     <div class="form-group-admin">
                         <label for="productName">Бүтээгдэхүүний нэр *</label>
                         <input type="text" id="productName" placeholder="Жишээ: Орчин үеийн буйдан" required>
-                    </div>
-                    <div class="form-group-admin">
-                        <label for="productDescription">Тайлбар *</label>
-                        <textarea id="productDescription" placeholder="Бүтээгдэхүүний дэлгэрэнгүй тайлбар" rows="4" required></textarea>
                     </div>
                 </section>
 
@@ -414,7 +521,7 @@
                 </section>
 
                 <section class="product-form-section-admin">
-                    <h3>Images</h3>
+                    <h3>Main Image</h3>
                     <div class="form-group-admin">
                         <label for="productImages">Main Image URLs</label>
                         <textarea id="productImages" placeholder="https://example.com/product-1.jpg&#10;https://example.com/product-2.jpg" rows="4"></textarea>
@@ -437,7 +544,15 @@
                     <input type="hidden" id="productColors">
                 </section>
 
-                <div class="form-actions-admin">
+                <section class="product-form-section-admin">
+                    <h3>Description</h3>
+                    <div class="form-group-admin">
+                        <label for="productDescription">Тайлбар *</label>
+                        <textarea id="productDescription" placeholder="Бүтээгдэхүүний дэлгэрэнгүй тайлбар" rows="5" required></textarea>
+                    </div>
+                </section>
+
+                <div class="form-actions-admin product-form-section-admin actions-section-admin">
                     <button type="submit" id="saveProductBtn" class="admin-btn-primary">Хадгалах</button>
                     <button type="button" id="cancelFormBtn" class="admin-btn-secondary">Цуцлах</button>
                 </div>
