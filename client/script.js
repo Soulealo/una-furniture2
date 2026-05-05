@@ -267,6 +267,30 @@ function escapeHtml(value) {
     return div.innerHTML;
 }
 
+// Returns a safe URL for use in href/src attributes. Only http(s), site-relative paths,
+// and data:image are permitted — javascript:, vbscript:, file:, etc. are rejected.
+function safeUrl(value, fallback = '') {
+    const raw = String(value ?? '').trim();
+    if (!raw) return fallback;
+
+    // Allow site-relative URLs (`/...`, `./...`, `../...`) and pure paths.
+    if (/^(?:\/|\.\.?\/)/.test(raw)) return raw;
+
+    // Allow inline image data URLs.
+    if (/^data:image\/(?:png|jpe?g|gif|webp|avif|svg\+xml);/i.test(raw)) return raw;
+
+    // For absolute URLs, require http(s).
+    try {
+        const parsed = new URL(raw, window.location.origin);
+        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
+            return parsed.toString();
+        }
+    } catch (error) {
+        // Falls through to fallback.
+    }
+    return fallback;
+}
+
 function parseJsonArray(value) {
     if (Array.isArray(value)) return value;
 
@@ -1057,10 +1081,21 @@ function updateProductDetailPageVariant(product, index) {
     if (variant?.image) setProductDetailPageImage(variant.image);
     if (priceElement) priceElement.innerHTML = renderProductDetailPrice(product, variant);
     if (stockElement) {
-        stockElement.textContent = `${getStockStatusLabel(status)} · ${getVariantStock(product, variant)} үлдэгдэл`;
-        stockElement.className = `detail-stock-status ${status}`;
+        const stockNumber = Number(getVariantStock(product, variant)) || 0;
+        const stockText = status === 'out_of_stock'
+            ? 'Дууссан'
+            : (stockNumber > 0 ? `${stockNumber} ширхэг бэлэн байна` : getStockStatusLabel(status));
+        stockElement.textContent = stockText;
+        // Preserve `pd-stock-text` (new layout class) alongside the legacy status class.
+        stockElement.className = `pd-stock-text detail-stock-status ${status}`;
     }
-    if (skuElement) skuElement.textContent = variant?.sku || product.sku || product.id;
+    if (skuElement) {
+        const skuValue = variant?.sku || product.sku || product.id;
+        // The new layout renders the SKU as "SKU: <value>" inline.
+        skuElement.textContent = skuElement.classList.contains('pd-buy__sku')
+            ? `SKU: ${skuValue}`
+            : skuValue;
+    }
     if (addButton) addButton.disabled = status === 'out_of_stock';
 
     const root = document.getElementById('productDetailPageRoot');
@@ -1080,75 +1115,221 @@ function renderProductDetailPage(product) {
     const images = [...new Set([...(product.images || []), ...colorVariants.map(variant => variant.image).filter(Boolean)])];
     const firstImage = selectedVariant?.image || images[0] || getProductMainImage(product);
     const status = getStockStatus(product, selectedVariant);
+    const stockNumber = Number(getVariantStock(product, selectedVariant)) || 0;
+
+    // Spec chips at the top of the meta section. Each chip is `{ label, value }`.
+    // We only emit chips that have a real value so the row stays clean for sparse data.
+    const sku = selectedVariant?.sku || product.sku || product.id;
+    const topColor = selectedVariant?.name || product.topColor || product.color || '';
+    const legColor = product.legColor || product.secondaryColor || '';
+    const dimensions = [product.width, product.height, product.depth].filter(Boolean).join(' × ');
+    const specChipsRaw = [
+        { label: 'Барааны код', value: sku, accent: true },
+        { label: 'Брэнд', value: product.brand },
+        { label: 'Тавцангийн өнгө', value: topColor },
+        { label: 'Хөлний өнгө', value: legColor },
+        { label: 'Материал', value: product.material },
+        { label: 'Хэмжээ', value: dimensions }
+    ].filter(chip => chip.value);
+
+    // Detailed key/value list shown in the "Үзүүлэлтүүд" block.
+    const detailRowsRaw = [
+        ['Тавцангийн өнгө', topColor],
+        ['Хөлний өнгө', legColor],
+        ['Материал', product.material],
+        ['Брэнд', product.brand],
+        ['Хэмжээ', dimensions],
+        ['Жин', product.weight],
+        ['Загвар', product.style || product.theme],
+        ['Хүргэлт', product.deliveryAvailable ? 'Боломжтой' : ''],
+        ['Угсралт', product.assemblyRequired ? 'Шаардлагатай' : '']
+    ].filter(([, value]) => value);
+
+    const stockBadgeText = status === 'out_of_stock'
+        ? 'Дууссан'
+        : (stockNumber > 0 ? `${stockNumber} ширхэг бэлэн байна` : getStockStatusLabel(status));
+
+    const brandLabel = product.brand || 'UNA';
+    const brandInitials = brandLabel
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(word => word.charAt(0).toUpperCase())
+        .join('') || 'U';
 
     root.classList.remove('is-loading');
     root.dataset.productId = product.id;
     root.dataset.selectedVariantIndex = selectedIndex >= 0 ? String(selectedIndex) : '';
     root.innerHTML = `
-        <div class="product-detail-page-grid">
-            <div class="product-detail-page-gallery">
-                <div class="page-detail-main-image-wrap">
-                    <img id="pageDetailMainImage" src="${escapeHtml(getSafeProductImage(firstImage))}" alt="${escapeHtml(product.name)}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
+        <div class="pd-page">
+            <header class="pd-header">
+                <button class="pd-back-btn" type="button" aria-label="Буцах" data-pd-action="back">
+                    <i class="fas fa-arrow-left" aria-hidden="true"></i>
+                </button>
+                <div class="pd-brand-chip" aria-hidden="true">
+                    <span class="pd-brand-chip__mark">${escapeHtml(brandInitials)}</span>
+                    <span class="pd-brand-chip__name">${escapeHtml(brandLabel)}</span>
                 </div>
-                <div class="page-detail-thumbs">
-                    ${images.map((image, index) => `
-                        <button class="page-detail-thumb${getSafeProductImage(image) === getSafeProductImage(firstImage) ? ' active' : ''}" type="button" data-image="${escapeHtml(image)}" aria-label="Зураг ${index + 1}">
-                            <img src="${escapeHtml(getSafeProductImage(image))}" alt="${escapeHtml(product.name)} ${index + 1}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
+                <div class="pd-title-block">
+                    <h1 class="pd-title">${escapeHtml(product.name)}</h1>
+                    <p class="pd-subtitle">
+                        <span class="pd-category">${escapeHtml(product.category || '-')}</span>
+                        <span class="pd-sku">#${escapeHtml(sku)}</span>
+                    </p>
+                </div>
+            </header>
+
+            <div class="pd-grid">
+                <section class="pd-gallery" aria-label="Бүтээгдэхүүний зураг">
+                    <div class="pd-main-image-wrap">
+                        <button class="pd-icon-btn pd-icon-btn--top-right" type="button" aria-label="Томруулж харах" data-pd-action="zoom">
+                            <i class="fas fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
                         </button>
+                        <img id="pageDetailMainImage" class="pd-main-image" src="${escapeHtml(getSafeProductImage(firstImage))}" alt="${escapeHtml(product.name)}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
+                        <button class="pd-icon-btn pd-icon-btn--bottom-right" type="button" aria-label="Зураг нээх" data-pd-action="zoom">
+                            <i class="fas fa-magnifying-glass-plus" aria-hidden="true"></i>
+                        </button>
+                    </div>
+                    <div class="pd-thumbs page-detail-thumbs">
+                        ${images.map((image, index) => `
+                            <button class="pd-thumb page-detail-thumb${getSafeProductImage(image) === getSafeProductImage(firstImage) ? ' active' : ''}" type="button" data-image="${escapeHtml(image)}" aria-label="Зураг ${index + 1}">
+                                <img src="${escapeHtml(getSafeProductImage(image))}" alt="${escapeHtml(product.name)} ${index + 1}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
+                            </button>
+                        `).join('')}
+                    </div>
+                </section>
+
+                <aside class="pd-buy" aria-label="Худалдан авалт">
+                    <span class="pd-buy__label">Үнэ</span>
+                    <div id="pageDetailPrice" class="pd-buy__price">${renderProductDetailPrice(product, selectedVariant)}</div>
+                    <hr class="pd-buy__divider">
+
+                    <div class="pd-buy__row">
+                        <div class="pd-qty-field" role="group" aria-label="Тоо ширхэг">
+                            <span class="pd-qty-field__label">Тоо ширхэг</span>
+                            <div class="pd-qty-control">
+                                <button class="pd-qty-btn page-quantity-minus" type="button" aria-label="Бууруулах">−</button>
+                                <span id="pageDetailQuantity" class="pd-qty-value" aria-live="polite">1</span>
+                                <button class="pd-qty-btn page-quantity-plus" type="button" aria-label="Нэмэх">+</button>
+                            </div>
+                        </div>
+                        <p id="pageDetailStock" class="pd-stock-text detail-stock-status ${status}">${escapeHtml(stockBadgeText)}</p>
+                    </div>
+
+                    ${colorVariants.length ? `
+                        <div class="pd-variant-block">
+                            <div class="pd-variant-head">
+                                <strong>Өнгөний сонголт</strong>
+                                <span>${escapeHtml(selectedVariant?.name || '')}</span>
+                            </div>
+                            <div class="page-color-variants pd-variant-list" role="listbox" aria-label="Өнгөний сонголт">
+                                ${colorVariants.map((variant, index) => `
+                                    <button class="page-color-variant pd-variant-chip${index === selectedIndex ? ' active' : ''}" type="button" data-variant-index="${index}" role="option" aria-selected="${index === selectedIndex ? 'true' : 'false'}">
+                                        <img src="${escapeHtml(getSafeProductImage(variant.image))}" alt="${escapeHtml(variant.name || 'Өнгө')}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
+                                        <span>${escapeHtml(variant.name || variant.colorValue || 'Өнгө')}</span>
+                                    </button>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+
+                    <button id="pageDetailAddToCart" class="pd-buy__cta buy-action-btn" type="button" ${status === 'out_of_stock' ? 'disabled' : ''}>
+                        <i class="fas fa-cart-plus" aria-hidden="true"></i>
+                        <span>Сагсанд нэмэх</span>
+                    </button>
+                    <span id="pageDetailSku" class="pd-buy__sku">SKU: ${escapeHtml(sku)}</span>
+                </aside>
+            </div>
+
+            ${specChipsRaw.length ? `
+                <div class="pd-spec-chips" role="list">
+                    ${specChipsRaw.map(chip => `
+                        <div class="pd-spec-chip${chip.accent ? ' is-accent' : ''}" role="listitem">
+                            <span class="pd-spec-chip__label">${escapeHtml(chip.label)}</span>
+                            <strong class="pd-spec-chip__value">${escapeHtml(chip.value)}</strong>
+                        </div>
                     `).join('')}
                 </div>
-            </div>
-            <div class="product-detail-page-info">
-                <span class="product-detail-category">${escapeHtml(product.category)}</span>
-                <h1>${escapeHtml(product.name)}</h1>
-                <div id="pageDetailPrice" class="page-detail-price">${renderProductDetailPrice(product, selectedVariant)}</div>
-                <p id="pageDetailStock" class="detail-stock-status ${status}">${getStockStatusLabel(status)} · ${getVariantStock(product, selectedVariant)} үлдэгдэл</p>
+            ` : ''}
 
-                ${colorVariants.length ? `
-                    <div class="page-detail-option">
-                        <div class="page-detail-option-head">
-                            <strong>Өнгөний сонголт</strong>
-                            <span>${escapeHtml(selectedVariant?.name || '')}</span>
-                        </div>
-                        <div class="page-color-variants" role="listbox" aria-label="Өнгөний сонголт">
-                            ${colorVariants.map((variant, index) => `
-                                <button class="page-color-variant${index === selectedIndex ? ' active' : ''}" type="button" data-variant-index="${index}" role="option" aria-selected="${index === selectedIndex ? 'true' : 'false'}">
-                                    <img src="${escapeHtml(getSafeProductImage(variant.image))}" alt="${escapeHtml(variant.name || 'Өнгө')}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
-                                    <span>${escapeHtml(variant.name || variant.colorValue || 'Өнгө')}</span>
-                                </button>
-                            `).join('')}
-                        </div>
-                    </div>
-                ` : ''}
-
-                <div class="page-detail-specs">
-                    <div><span>SKU / Product ID</span><strong id="pageDetailSku">${escapeHtml(selectedVariant?.sku || product.sku || product.id)}</strong></div>
-                    <div><span>Хэмжээ</span><strong>${escapeHtml([product.width, product.height, product.depth].filter(Boolean).join(' × ') || '-')}</strong></div>
-                    <div><span>Материал</span><strong>${escapeHtml(product.material || '-')}</strong></div>
-                    <div><span>Жин</span><strong>${escapeHtml(product.weight || '-')}</strong></div>
-                    <div><span>Брэнд</span><strong>${escapeHtml(product.brand || '-')}</strong></div>
-                    <div><span>Хүргэлт</span><strong>${product.deliveryAvailable ? 'Боломжтой' : 'Боломжгүй'}</strong></div>
-                    <div><span>Угсралт</span><strong>${product.assemblyRequired ? 'Шаардлагатай' : 'Шаардлагагүй'}</strong></div>
-                </div>
-
-                <div class="page-detail-actions">
-                    <div class="quantity-selector">
-                        <button class="quantity-btn page-quantity-minus" type="button">-</button>
-                        <span id="pageDetailQuantity">1</span>
-                        <button class="quantity-btn page-quantity-plus" type="button">+</button>
-                    </div>
-                    <button id="pageDetailAddToCart" class="buy-action-btn" type="button" ${status === 'out_of_stock' ? 'disabled' : ''}>Сагсанд нэмэх</button>
+            <div class="pd-banner pd-delivery-banner">
+                <span class="pd-banner__icon"><i class="fas fa-location-dot" aria-hidden="true"></i></span>
+                <div class="pd-banner__text">
+                    <strong>Энгийн</strong>
+                    <span>${escapeHtml(product.deliveryNote || '24-48 цагт хүргэнэ')}</span>
                 </div>
             </div>
-        </div>
-        <div class="product-detail-page-description">
-            <h2>Дэлгэрэнгүй тайлбар</h2>
-            ${formatLongText(product.description)}
-            ${product.deliveryNote || product.warrantyNote ? `<div class="page-detail-notes">${product.deliveryNote ? `<p><strong>Хүргэлт:</strong> ${escapeHtml(product.deliveryNote)}</p>` : ''}${product.warrantyNote ? `<p><strong>Баталгаа:</strong> ${escapeHtml(product.warrantyNote)}</p>` : ''}</div>` : ''}
+
+            <div class="pd-banner pd-review-banner" role="button" tabindex="0" data-pd-action="reviews">
+                <span class="pd-banner__icon pd-banner__icon--review"><i class="fas fa-comments" aria-hidden="true"></i></span>
+                <div class="pd-banner__text">
+                    <strong>Сэтгэгдэл байхгүй</strong>
+                    <div class="pd-review-stars" aria-label="Үнэлгээ алга">
+                        ${'<i class="far fa-star" aria-hidden="true"></i>'.repeat(5)}
+                    </div>
+                </div>
+                <i class="fas fa-chevron-right pd-banner__chevron" aria-hidden="true"></i>
+            </div>
+
+            ${detailRowsRaw.length ? `
+                <section class="pd-info-section">
+                    <h2 class="pd-section-title">Дэлгэрэнгүй мэдээлэл</h2>
+                    <h3 class="pd-section-subtitle">Үзүүлэлтүүд</h3>
+                    <dl class="pd-info-table">
+                        ${detailRowsRaw.map(([label, value]) => `
+                            <div class="pd-info-row">
+                                <dt>${escapeHtml(label)}</dt>
+                                <dd>${escapeHtml(value)}</dd>
+                            </div>
+                        `).join('')}
+                    </dl>
+                </section>
+            ` : ''}
+
+            ${product.description ? `
+                <section class="pd-extra-section">
+                    <h2 class="pd-section-title">Нэмэлт мэдээлэл</h2>
+                    <div class="pd-extra-text">${formatLongText(product.description)}</div>
+                </section>
+            ` : ''}
+
+            ${product.deliveryNote || product.warrantyNote ? `
+                <div class="pd-notes">
+                    ${product.deliveryNote ? `<p><strong>Хүргэлт:</strong> ${escapeHtml(product.deliveryNote)}</p>` : ''}
+                    ${product.warrantyNote ? `<p><strong>Баталгаа:</strong> ${escapeHtml(product.warrantyNote)}</p>` : ''}
+                </div>
+            ` : ''}
         </div>
     `;
 
     updateProductDetailPageVariant(product, selectedIndex);
+
+    // Wire up the new affordances. The variant/qty/thumb listeners are bound elsewhere
+    // (setupProductDetailPage) via event delegation on #productDetailPageRoot, so we
+    // only need to handle the new back/zoom/reviews actions here.
+    root.querySelector('[data-pd-action="back"]')?.addEventListener('click', () => {
+        if (window.history.length > 1) window.history.back();
+        else window.location.href = 'products.html';
+    });
+
+    const openZoom = () => {
+        const img = document.getElementById('pageDetailMainImage');
+        if (img?.src) window.open(img.src, '_blank', 'noopener');
+    };
+    root.querySelectorAll('[data-pd-action="zoom"]').forEach(btn => btn.addEventListener('click', openZoom));
+    document.getElementById('pageDetailMainImage')?.addEventListener('click', openZoom);
+
+    const reviewBanner = root.querySelector('[data-pd-action="reviews"]');
+    if (reviewBanner) {
+        const trigger = () => showToast('Сэтгэгдэл удахгүй нэмэгдэнэ.', 'info');
+        reviewBanner.addEventListener('click', trigger);
+        reviewBanner.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                trigger();
+            }
+        });
+    }
 }
 
 async function renderRelatedProducts(product) {
@@ -1643,6 +1824,12 @@ async function logoutUser() {
 
     removeToken();
     authUserCache = null;
+    // Wipe per-user client state so the next account on this device starts clean.
+    try {
+        localStorage.removeItem(CART_KEY);
+    } catch (error) {
+        // localStorage may be unavailable (private mode) — ignore.
+    }
     updateAuthNavigation();
     window.location.href = 'index.html';
 }
@@ -1723,8 +1910,10 @@ function setupPasswordResetForms() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email })
             });
+            // Backend deliberately does not return a reset link — show only the generic
+            // message. The link must reach the user via email, never via the response body.
             if (message) {
-                message.innerHTML = `${escapeHtml(data.message || 'Reset link үүслээ.')} ${data.resetUrl ? `<a href="${escapeHtml(data.resetUrl)}">Нууц үг солих</a>` : ''}`;
+                message.textContent = data.message || 'Хэрэв энэ имэйл бүртгэлтэй бол сэргээх заавар очно.';
             }
         } catch (error) {
             if (message) message.textContent = error.message;
@@ -1738,6 +1927,10 @@ function setupPasswordResetForms() {
         const password = document.getElementById('resetPassword')?.value || '';
         const confirmPassword = document.getElementById('resetConfirmPassword')?.value || '';
 
+        if (password.length < 6) {
+            if (message) message.textContent = 'Нууц үг хамгийн багадаа 6 тэмдэгт байх ёстой.';
+            return;
+        }
         if (password !== confirmPassword) {
             if (message) message.textContent = 'Нууц үг таарахгүй байна.';
             return;
@@ -1762,8 +1955,11 @@ function renderAccount(user) {
     const avatarElement = document.querySelector('.account-avatar');
 
     if (avatarElement) {
-        avatarElement.innerHTML = user.avatar
-            ? `<img src="${escapeHtml(user.avatar)}" alt="${escapeHtml(displayName)}" referrerpolicy="no-referrer">`
+        // safeUrl rejects javascript:/vbscript:/etc. — anything that isn't http(s),
+        // site-relative, or a data:image URL falls back to the icon.
+        const avatarSrc = user.avatar ? safeUrl(user.avatar, '') : '';
+        avatarElement.innerHTML = avatarSrc
+            ? `<img src="${escapeHtml(avatarSrc)}" alt="${escapeHtml(displayName)}" referrerpolicy="no-referrer">`
             : '<i class="fas fa-user"></i>';
     }
 
@@ -1938,6 +2134,9 @@ function renderCartPage() {
     updateCartCount();
 }
 
+// In-flight flag to defend against double-clicks creating duplicate orders.
+let checkoutInFlight = false;
+
 async function checkoutCart() {
     return checkoutCartWithMethod(getSelectedPaymentMethod());
 }
@@ -2083,6 +2282,7 @@ function renderOrderSuccess(order, settings = {}, paymentMethod = 'bank_transfer
 }
 
 async function checkoutCartWithMethod(paymentMethod) {
+    if (checkoutInFlight) return;            // hard guard against rapid double-click
     if (!isLoggedIn()) {
         showLoginPromptModal('checkout.html');
         return;
@@ -2094,8 +2294,10 @@ async function checkoutCartWithMethod(paymentMethod) {
         return;
     }
 
-    if (!/^[+\d][\d\s-]{5,}$/.test(deliveryInfo.phone)) {
-        showToast('Зөв утасны дугаар оруулна уу.', 'error');
+    // Mongolian phone: optional +976 prefix, then 8 digits (e.g. 88112233 / +976 9911 2233).
+    const phoneDigits = deliveryInfo.phone.replace(/[\s-]/g, '');
+    if (!/^(?:\+?976)?\d{8}$/.test(phoneDigits)) {
+        showToast('Зөв утасны дугаар оруулна уу (8 оронтой эсвэл +976...).', 'error');
         return;
     }
 
@@ -2106,6 +2308,22 @@ async function checkoutCartWithMethod(paymentMethod) {
 
     const payload = getCartOrderPayload(paymentMethod, deliveryInfo);
     if (!payload) return;
+
+    // Idempotency key — backend can use this to drop duplicate submissions if it ever
+    // adds a uniqueness check. Even without backend support, the client-side flag below
+    // already prevents in-tab double-submits.
+    payload.clientRequestId = (typeof crypto !== 'undefined' && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+    const confirmBtn = document.getElementById('confirmCheckoutBtn');
+    const originalLabel = confirmBtn ? confirmBtn.textContent : '';
+    checkoutInFlight = true;
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.dataset.busy = '1';
+        confirmBtn.textContent = 'Захиалж байна...';
+    }
 
     try {
         const settings = await fetchPaymentSettings();
@@ -2124,6 +2342,13 @@ async function checkoutCartWithMethod(paymentMethod) {
         }
     } catch (error) {
         showToast(error.message, 'error');
+    } finally {
+        checkoutInFlight = false;
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            delete confirmBtn.dataset.busy;
+            if (originalLabel) confirmBtn.textContent = originalLabel;
+        }
     }
 }
 

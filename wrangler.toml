@@ -7,10 +7,15 @@ routes = [
   { pattern = "www.unafurniture.com", custom_domain = true }
 ]
 
+# IMPORTANT: Sensitive secrets must NOT live in [vars] (they are public bundle vars).
+# Set them via wrangler secrets:
+#   npx wrangler secret put ADMIN_PASSWORD
+#   npx wrangler secret put ADMIN_SESSION_SECRET
+#   npx wrangler secret put JWT_SECRET
+#   npx wrangler secret put GOOGLE_CLIENT_ID
+#   npx wrangler secret put GOOGLE_CLIENT_SECRET
 [vars]
 ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "1234"
-ADMIN_SESSION_SECRET = "una-furniture-change-this-session-secret"
 
 [[d1_databases]]
 binding = "DB"

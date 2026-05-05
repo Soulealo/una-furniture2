@@ -1,7 +1,15 @@
 node_modules/
 dist/
 .env
+.dev.vars
 .vercel
 .env*.local
 .wrangler/
 .wrangler-dev.*.log
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.claude/

@@ -1,9 +1,30 @@
+// Default response headers. CORS Allow-Origin is intentionally not set globally — it is
+// added per-request from the whitelist below so we don't echo arbitrary origins back.
 const jsonHeaders = {
     'content-type': 'application/json; charset=UTF-8',
-    'access-control-allow-origin': '*',
     'access-control-allow-methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-    'access-control-allow-headers': 'Content-Type, Authorization'
+    'access-control-allow-headers': 'Content-Type, Authorization',
+    'vary': 'Origin'
 };
+
+const ALLOWED_ORIGINS = new Set([
+    'https://unafurniture.com',
+    'https://www.unafurniture.com',
+    'https://una-furniture.jntsnnrv.workers.dev'
+]);
+
+function resolveAllowedOrigin(request) {
+    const origin = request.headers.get('origin') || '';
+    if (!origin) return null;
+    if (ALLOWED_ORIGINS.has(origin)) return origin;
+    // Allow same-origin requests (browser sends Origin even for same-origin POSTs).
+    try {
+        const reqUrl = new URL(request.url);
+        const originUrl = new URL(origin);
+        if (reqUrl.host === originUrl.host && reqUrl.protocol === originUrl.protocol) return origin;
+    } catch (error) { /* ignore malformed Origin */ }
+    return null;
+}
 
 const htmlRoutes = new Map([
     ['/', '/index.html'],
@@ -50,8 +71,16 @@ let coreSchemaReady = false;
 let productColorVariantsSchemaReady = false;
 let ecommerceSchemaReady = false;
 
-function responseHeaders(extraHeaders = {}) {
+function responseHeaders(extraHeaders = {}, request = null) {
     const headers = new Headers(jsonHeaders);
+
+    if (request) {
+        const allowedOrigin = resolveAllowedOrigin(request);
+        if (allowedOrigin) {
+            headers.set('access-control-allow-origin', allowedOrigin);
+            headers.set('access-control-allow-credentials', 'true');
+        }
+    }
 
     Object.entries(extraHeaders).forEach(([key, value]) => {
         if (Array.isArray(value)) {
@@ -62,6 +91,23 @@ function responseHeaders(extraHeaders = {}) {
     });
 
     return headers;
+}
+
+// Per-request response helpers (preferred). The bare versions are kept for legacy call
+// sites; they omit CORS headers, which is fine for same-origin asset/HTML responses.
+function jsonFor(request, data, status = 200, extraHeaders = {}) {
+    const body = data && typeof data === 'object' && typeof data.success === 'boolean'
+        ? data
+        : { success: true, data };
+
+    return new Response(JSON.stringify(body), {
+        status,
+        headers: responseHeaders(extraHeaders, request)
+    });
+}
+
+function failFor(request, message, status = 400, extra = {}) {
+    return jsonFor(request, { success: false, message, ...extra }, status);
 }
 
 function json(data, status = 200, extraHeaders = {}) {
@@ -94,13 +140,15 @@ function base64UrlEncode(value) {
     return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
-function base64UrlDecode(value) {
-    const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
+function base64UrlDecodeBytes(value) {
+    const normalized = String(value || '').replace(/-/g, '+').replace(/_/g, '/');
     const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
     const binary = atob(padded);
-    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+}
 
-    return new TextDecoder().decode(bytes);
+function base64UrlDecode(value) {
+    return new TextDecoder().decode(base64UrlDecodeBytes(value));
 }
 
 async function hmac(value, secret) {
@@ -117,7 +165,11 @@ async function hmac(value, secret) {
 }
 
 function getJwtSecret(env) {
-    return env.JWT_SECRET || env.ADMIN_SESSION_SECRET || 'change-this-session-secret';
+    const secret = env.JWT_SECRET || env.ADMIN_SESSION_SECRET;
+    if (!secret) {
+        throw new Error('Server is misconfigured: JWT_SECRET (or ADMIN_SESSION_SECRET) must be set as a Worker secret.');
+    }
+    return secret;
 }
 
 function parseCookies(request) {
@@ -206,16 +258,59 @@ function safeEqual(a, b) {
     return diff === 0;
 }
 
+// PBKDF2-SHA256, 100,000 iterations. Format: `pbkdf2$<iter>$<saltB64>$<hashB64>`.
+// Legacy SHA-256 hashes (`<salt>:<hex>` without prefix) are still verified for backwards
+// compatibility, then transparently upgraded on next successful login (see comparePassword
+// callers — they should re-hash if `comparePassword` returns true and `needsRehash(storedHash)`).
+const PASSWORD_HASH_ITERATIONS = 100000;
+const PASSWORD_HASH_BYTES = 32;
+
+async function pbkdf2Hash(password, saltBytes, iterations = PASSWORD_HASH_ITERATIONS) {
+    const key = await crypto.subtle.importKey(
+        'raw',
+        new TextEncoder().encode(password),
+        { name: 'PBKDF2' },
+        false,
+        ['deriveBits']
+    );
+    const bits = await crypto.subtle.deriveBits(
+        { name: 'PBKDF2', hash: 'SHA-256', salt: saltBytes, iterations },
+        key,
+        PASSWORD_HASH_BYTES * 8
+    );
+    return new Uint8Array(bits);
+}
+
 async function hashPassword(password) {
-    const salt = randomId(12);
-    const hash = await sha256(`${salt}:${password}`);
-    return `${salt}:${hash}`;
+    const saltBytes = new Uint8Array(16);
+    crypto.getRandomValues(saltBytes);
+    const hashBytes = await pbkdf2Hash(password, saltBytes);
+    return `pbkdf2$${PASSWORD_HASH_ITERATIONS}$${base64UrlEncode(saltBytes)}$${base64UrlEncode(hashBytes)}`;
+}
+
+function needsRehash(storedHash) {
+    return !String(storedHash || '').startsWith('pbkdf2$');
 }
 
 async function comparePassword(password, storedHash) {
-    const [salt, hash] = String(storedHash || '').split(':');
+    const stored = String(storedHash || '');
+    if (!stored) return false;
+
+    if (stored.startsWith('pbkdf2$')) {
+        const parts = stored.split('$');
+        if (parts.length !== 4) return false;
+        const iterations = Number(parts[1]);
+        if (!Number.isFinite(iterations) || iterations < 1000) return false;
+        const saltBytes = base64UrlDecodeBytes(parts[2]);
+        const candidate = await pbkdf2Hash(password, saltBytes, iterations);
+        return safeEqual(base64UrlEncode(candidate), parts[3]);
+    }
+
+    // Legacy SHA-256 verification (timing-safe).
+    const [salt, hash] = stored.split(':');
     if (!salt || !hash) return false;
-    return await sha256(`${salt}:${password}`) === hash;
+    const candidate = await sha256(`${salt}:${password}`);
+    return safeEqual(candidate, hash);
 }
 
 async function createToken(env, claims) {
@@ -237,12 +332,14 @@ async function verifyToken(request, env) {
 
     if (!tokenHeader || !payload || !signature) return null;
 
+    // Allow rotation: try JWT_SECRET first, optionally fall back to ADMIN_SESSION_SECRET
+    // (only when explicitly set as a secret — never accept a hardcoded default).
     const secrets = [...new Set([
         getJwtSecret(env),
-        env.ADMIN_SESSION_SECRET || 'change-this-session-secret'
-    ])];
+        env.ADMIN_SESSION_SECRET
+    ].filter(Boolean))];
     const verified = await Promise.all(secrets.map((secret) => hmac(`${tokenHeader}.${payload}`, secret)));
-    if (!verified.includes(signature)) return null;
+    if (!verified.some((candidate) => safeEqual(candidate, signature))) return null;
 
     try {
         const session = JSON.parse(base64UrlDecode(payload));
@@ -1352,9 +1449,14 @@ async function loginAdmin(request, env) {
     const settingsEmail = normalizeLogin(settings.email);
 
     if (username === settingsUsername || (settingsEmail && username === settingsEmail)) {
-        const passwordOk = settings.passwordHash
-            ? await comparePassword(password, settings.passwordHash)
-            : password === (env.ADMIN_PASSWORD || '1234');
+        let passwordOk = false;
+        if (settings.passwordHash) {
+            passwordOk = await comparePassword(password, settings.passwordHash);
+        } else if (env.ADMIN_PASSWORD) {
+            // First-time bootstrap: compare with the secret set via `wrangler secret put ADMIN_PASSWORD`.
+            // No hardcoded default — if ADMIN_PASSWORD is unset, login is impossible by design.
+            passwordOk = safeEqual(password, env.ADMIN_PASSWORD);
+        }
 
         if (!passwordOk) return fail('Invalid admin username or password.', 401);
 
@@ -1385,6 +1487,17 @@ async function loginAdmin(request, env) {
 
     const passwordOk = await comparePassword(password, adminUser.passwordHash);
     if (!passwordOk) return fail('Invalid admin username or password.', 401);
+
+    if (needsRehash(adminUser.passwordHash)) {
+        try {
+            const upgraded = await hashPassword(password);
+            await env.DB.prepare('UPDATE users SET passwordHash = ?, updatedAt = ? WHERE id = ?')
+                .bind(upgraded, new Date().toISOString(), adminUser.id).run();
+            adminUser.passwordHash = upgraded;
+        } catch (error) {
+            console.error('[Worker] admin password rehash failed', error);
+        }
+    }
 
     const token = await createToken(env, toAdminUserPayload(adminUser));
 
@@ -1485,9 +1598,12 @@ async function changeAdminPassword(request, env) {
 
     const settings = await ensureAdminSettings(env);
 
-    const passwordOk = settings.passwordHash
-        ? await comparePassword(currentPassword, settings.passwordHash)
-        : currentPassword === (env.ADMIN_PASSWORD || '1234');
+    let passwordOk = false;
+    if (settings.passwordHash) {
+        passwordOk = await comparePassword(currentPassword, settings.passwordHash);
+    } else if (env.ADMIN_PASSWORD) {
+        passwordOk = safeEqual(currentPassword, env.ADMIN_PASSWORD);
+    }
 
     if (!passwordOk) return fail('Current password is incorrect.', 401);
 
@@ -1809,6 +1925,17 @@ async function loginUser(request, env) {
     const user = await env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
     if (!user || !await comparePassword(password, user.passwordHash)) {
         return fail('Invalid email or password.', 401);
+    }
+
+    // Transparently upgrade legacy hashes to PBKDF2.
+    if (needsRehash(user.passwordHash)) {
+        try {
+            const upgraded = await hashPassword(password);
+            await env.DB.prepare('UPDATE users SET passwordHash = ?, updatedAt = ? WHERE id = ?')
+                .bind(upgraded, new Date().toISOString(), user.id).run();
+        } catch (error) {
+            console.error('[Worker] password rehash failed', error);
+        }
     }
 
     const token = await createUserSessionToken(env, user, 'user');
@@ -2416,7 +2543,23 @@ async function createOrder(request, env) {
         }
 
         const productImages = productResponse.images;
-        const unitPrice = Number(selectedVariant?.salePrice || selectedVariant?.price || productResponse.salePrice || product.price || 0);
+        // SECURITY: unit price is derived strictly from server-side product/variant
+        // records — frontend `item.price`/`item.totalAmount` are never trusted.
+        // Treat 0 as "no sale price" so `salePrice = 0` doesn't accidentally mean free.
+        const variantSale = Number(selectedVariant?.salePrice) > 0 ? Number(selectedVariant.salePrice) : 0;
+        const variantBase = Number(selectedVariant?.price) > 0 ? Number(selectedVariant.price) : 0;
+        const productSale = Number(productResponse.salePrice) > 0 ? Number(productResponse.salePrice) : 0;
+        const productBase = Number(product.price) > 0 ? Number(product.price) : 0;
+        const unitPrice = variantSale || variantBase || productSale || productBase || 0;
+        if (unitPrice <= 0) return fail(`Price for ${product.name} is unavailable.`, 409);
+
+        // Stock decrement target: prefer the variant row when its stock is tracked,
+        // otherwise fall back to the parent products.stock when that one is tracked
+        // (>0). A stock value of 0 on `products` means "not tracked" by convention.
+        const variantStockTracked = selectedVariant && selectedVariant.stock !== null
+            && selectedVariant.stock !== undefined && Number.isFinite(Number(selectedVariant.stock));
+        const productStockTracked = Number(product.stock) > 0;
+
         cleanItems.push({
             productId: String(product.id),
             productCode: selectedVariant?.sku || productResponse.sku || '',
@@ -2427,9 +2570,54 @@ async function createOrder(request, env) {
             selectedColor: selectedVariant?.name || selectedColor,
             selectedColorValue: selectedVariant?.colorValue || selectedVariant?.color || selectedColorValue,
             selectedColorImage: selectedVariant?.image || selectedColorImage,
-            sku: selectedVariant?.sku || productResponse.sku || ''
+            sku: selectedVariant?.sku || productResponse.sku || '',
+            // Internal-only fields used below for the atomic stock decrement step.
+            _stockTarget: variantStockTracked
+                ? { kind: 'variant', id: Number(selectedVariant.id) }
+                : (productStockTracked ? { kind: 'product', id: Number(product.id) } : null)
         });
     }
+
+    // ATOMIC STOCK DECREMENT — guards against overselling under concurrent checkouts.
+    // Each conditional UPDATE only succeeds if the row still has enough stock; if any
+    // statement reports 0 changes we restore the rows that did succeed before bailing.
+    const applied = [];
+    for (const item of cleanItems) {
+        if (!item._stockTarget) continue;
+        const sql = item._stockTarget.kind === 'variant'
+            ? 'UPDATE product_color_variants SET stock = stock - ? WHERE id = ? AND stock >= ?'
+            : 'UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?';
+        try {
+            const res = await env.DB.prepare(sql).bind(item.quantity, item._stockTarget.id, item.quantity).run();
+            if (!res.meta || Number(res.meta.changes) === 0) {
+                // Compensate any prior successful decrements before failing.
+                for (const prev of applied) {
+                    const restore = prev.kind === 'variant'
+                        ? 'UPDATE product_color_variants SET stock = stock + ? WHERE id = ?'
+                        : 'UPDATE products SET stock = stock + ? WHERE id = ?';
+                    try {
+                        await env.DB.prepare(restore).bind(prev.qty, prev.id).run();
+                    } catch (restoreError) {
+                        console.error('[Worker] stock restore failed', restoreError);
+                    }
+                }
+                return fail(`Not enough stock for ${item.name}.`, 409);
+            }
+            applied.push({ kind: item._stockTarget.kind, id: item._stockTarget.id, qty: item.quantity });
+        } catch (error) {
+            // On unexpected failure, also restore previously decremented rows.
+            for (const prev of applied) {
+                const restore = prev.kind === 'variant'
+                    ? 'UPDATE product_color_variants SET stock = stock + ? WHERE id = ?'
+                    : 'UPDATE products SET stock = stock + ? WHERE id = ?';
+                try { await env.DB.prepare(restore).bind(prev.qty, prev.id).run(); } catch (_) { /* ignore */ }
+            }
+            throw error;
+        }
+    }
+
+    // Strip internal-only fields before persisting `items` JSON.
+    cleanItems.forEach((item) => { delete item._stockTarget; });
 
     const totalAmount = cleanItems.reduce((sum, item) => sum + (Number(item.price) || 0) * item.quantity, 0);
     const createdAt = new Date().toISOString();
@@ -2740,12 +2928,21 @@ async function forgotPassword(request, env) {
         await env.DB.prepare('INSERT INTO password_reset_tokens (userId, tokenHash, expiresAt, createdAt) VALUES (?, ?, ?, ?)')
             .bind(user.id, tokenHash, expiresAt, new Date().toISOString()).run();
 
-        return json({
-            message: 'Password reset instructions are ready.',
-            resetUrl: `/reset-password.html?token=${encodeURIComponent(token)}`
-        });
+        // SECURITY: never return the token in the HTTP response. The reset link must be
+        // delivered through a side channel (email/SMS) so that knowing only an email
+        // address is not enough to take over an account. If an email transport is wired
+        // up, dispatch it here. For now we just log the link server-side for the operator.
+        try {
+            const url = new URL(request.url);
+            const resetLink = `${url.origin}/reset-password.html?token=${encodeURIComponent(token)}`;
+            console.log(`[Worker] Password reset link issued for userId=${user.id} (deliver via email): ${resetLink}`);
+        } catch (error) {
+            console.error('[Worker] Failed to log reset link', error);
+        }
     }
 
+    // Always return the same generic response — never reveal whether the email exists
+    // (mitigates user enumeration).
     return json({ message: 'If the email exists, reset instructions will be sent.' });
 }
 
@@ -2789,7 +2986,8 @@ function assetRequest(request, pathname) {
 export default {
     async fetch(request, env) {
         if (request.method === 'OPTIONS') {
-            return new Response(null, { status: 204, headers: jsonHeaders });
+            // Honour the origin whitelist for CORS preflight responses.
+            return new Response(null, { status: 204, headers: responseHeaders({}, request) });
         }
 
         const url = new URL(request.url);
