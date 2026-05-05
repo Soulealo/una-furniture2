@@ -1,116 +1,65 @@
--- Add columns to products (will fail if columns already exist)
-ALTER TABLE products ADD imageUrls NVARCHAR(MAX);
-ALTER TABLE products ADD sizes NVARCHAR(MAX);
-ALTER TABLE products ADD stock INT CONSTRAINT DF_products_stock DEFAULT 0;
+PRAGMA foreign_keys = ON;
 
--- Create users table if it doesn't exist (T-SQL)
-IF NOT EXISTS (
-    SELECT 1 FROM sys.tables t
-    JOIN sys.schemas s ON t.schema_id = s.schema_id
-    WHERE t.name = 'users' AND s.name = 'dbo'
-)
-BEGIN
-    CREATE TABLE dbo.users (
-        id INT IDENTITY(1,1) PRIMARY KEY,
-        username NVARCHAR(255),
-        fullname NVARCHAR(255),
-        email NVARCHAR(320) UNIQUE,
-        passwordHash NVARCHAR(255),
-        phone NVARCHAR(50),
-        address NVARCHAR(500),
-        role NVARCHAR(50) DEFAULT 'user',
-        createdAt DATETIME DEFAULT GETDATE(),
-        updatedAt DATETIME DEFAULT GETDATE()
-    );
-END
+ALTER TABLE products ADD COLUMN imageUrls TEXT;
+ALTER TABLE products ADD COLUMN sizes TEXT;
+ALTER TABLE products ADD COLUMN stock INTEGER DEFAULT 0;
 
--- Create categories table if it doesn't exist
-IF NOT EXISTS (
-    SELECT 1 FROM sys.tables t
-    JOIN sys.schemas s ON t.schema_id = s.schema_id
-    WHERE t.name = 'categories' AND s.name = 'dbo'
-)
-BEGIN
-    CREATE TABLE dbo.categories (
-        id INT IDENTITY(1,1) PRIMARY KEY,
-        name NVARCHAR(255) UNIQUE,
-        createdAt DATETIME DEFAULT GETDATE(),
-        updatedAt DATETIME DEFAULT GETDATE()
-    );
-END
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT,
+    fullname TEXT,
+    email TEXT UNIQUE,
+    passwordHash TEXT,
+    phone TEXT,
+    address TEXT,
+    role TEXT DEFAULT 'user',
+    createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+);
 
--- Create orders table if it doesn't exist
-IF NOT EXISTS (
-    SELECT 1 FROM sys.tables t
-    JOIN sys.schemas s ON t.schema_id = s.schema_id
-    WHERE t.name = 'orders' AND s.name = 'dbo'
-)
-BEGIN
-    CREATE TABLE dbo.orders (
-        id INT IDENTITY(1,1) PRIMARY KEY,
-        orderCode NVARCHAR(255) UNIQUE,
-        userId INT,
-        items NVARCHAR(MAX),
-        totalAmount INT,
-        paymentMethod NVARCHAR(100),
-        transactionCode NVARCHAR(255),
-        status NVARCHAR(100),
-        createdAt DATETIME DEFAULT GETDATE(),
-        updatedAt DATETIME DEFAULT GETDATE()
-    );
-END
+CREATE TABLE IF NOT EXISTS categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE,
+    createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+);
 
--- Create payment_settings table if it doesn't exist
-IF NOT EXISTS (
-    SELECT 1 FROM sys.tables t
-    JOIN sys.schemas s ON t.schema_id = s.schema_id
-    WHERE t.name = 'payment_settings' AND s.name = 'dbo'
-)
-BEGIN
-    CREATE TABLE dbo.payment_settings (
-        id INT PRIMARY KEY,
-        bankName NVARCHAR(255),
-        accountNumber NVARCHAR(100),
-        accountHolder NVARCHAR(255),
-        facebookChatUrl NVARCHAR(1000),
-        updatedAt DATETIME DEFAULT GETDATE()
-    );
-END
+CREATE TABLE IF NOT EXISTS orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    orderCode TEXT UNIQUE,
+    userId INTEGER,
+    items TEXT,
+    totalAmount INTEGER DEFAULT 0,
+    paymentMethod TEXT,
+    transactionCode TEXT,
+    status TEXT DEFAULT 'pending',
+    createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+);
 
--- Create admin_settings table if it doesn't exist
-IF NOT EXISTS (
-    SELECT 1 FROM sys.tables t
-    JOIN sys.schemas s ON t.schema_id = s.schema_id
-    WHERE t.name = 'admin_settings' AND s.name = 'dbo'
-)
-BEGIN
-    CREATE TABLE dbo.admin_settings (
-        id INT PRIMARY KEY,
-        username NVARCHAR(255) UNIQUE,
-        email NVARCHAR(320),
-        passwordHash NVARCHAR(255),
-        createdAt DATETIME DEFAULT GETDATE(),
-        updatedAt DATETIME DEFAULT GETDATE()
-    );
-END
+CREATE TABLE IF NOT EXISTS payment_settings (
+    id INTEGER PRIMARY KEY,
+    bankName TEXT,
+    accountNumber TEXT,
+    accountHolder TEXT,
+    facebookChatUrl TEXT,
+    updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+);
 
--- Insert default category if not exists
-IF NOT EXISTS (SELECT 1 FROM dbo.categories WHERE name = 'Uncategorized')
-BEGIN
-    INSERT INTO dbo.categories (name, createdAt, updatedAt)
-    VALUES ('Uncategorized', GETDATE(), GETDATE());
-END
+CREATE TABLE IF NOT EXISTS admin_settings (
+    id INTEGER PRIMARY KEY,
+    username TEXT UNIQUE,
+    email TEXT,
+    passwordHash TEXT,
+    createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+    updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+);
 
--- Insert default payment_settings row if not exists
-IF NOT EXISTS (SELECT 1 FROM dbo.payment_settings WHERE id = 1)
-BEGIN
-    INSERT INTO dbo.payment_settings (id, bankName, accountNumber, accountHolder, facebookChatUrl, updatedAt)
-    VALUES (1, 'Khan Bank', '', 'UNA Home & Furniture', '', GETDATE());
-END
+INSERT OR IGNORE INTO categories (name, createdAt, updatedAt)
+VALUES ('Uncategorized', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
--- Insert default admin_settings row if not exists
-IF NOT EXISTS (SELECT 1 FROM dbo.admin_settings WHERE id = 1)
-BEGIN
-    INSERT INTO dbo.admin_settings (id, username, email, passwordHash, createdAt, updatedAt)
-    VALUES (1, 'admin', '', '', GETDATE(), GETDATE());
-END
+INSERT OR IGNORE INTO payment_settings (id, bankName, accountNumber, accountHolder, facebookChatUrl, updatedAt)
+VALUES (1, 'Khan Bank', '', 'UNA Home & Furniture', '', CURRENT_TIMESTAMP);
+
+INSERT OR IGNORE INTO admin_settings (id, username, email, passwordHash, createdAt, updatedAt)
+VALUES (1, 'admin', '', '', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);

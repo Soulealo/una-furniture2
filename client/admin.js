@@ -1,10 +1,56 @@
 const API_BASE = (() => {
+    const configuredBase = String(window.UNA_API_BASE || localStorage.getItem('UNA_API_BASE') || '').trim();
+    if (configuredBase) return configuredBase.replace(/\/+$/, '');
+    if (window.location.protocol === 'file:') return 'http://localhost:8787';
     return '';
 })();
 const TOKEN_KEY = 'unaAdminToken';
 const DEFAULT_PRODUCT_IMAGE = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22800%22%20height%3D%22600%22%20viewBox%3D%220%200%20800%20600%22%3E%3Crect%20width%3D%22800%22%20height%3D%22600%22%20fill%3D%22%23f5f1ed%22/%3E%3Cpath%20d%3D%22M260%20360l90-110%2070%2085%2055-65%20105%20125H220z%22%20fill%3D%22%23d4b896%22/%3E%3Ccircle%20cx%3D%22545%22%20cy%3D%22205%22%20r%3D%2242%22%20fill%3D%22%23c9a961%22/%3E%3Ctext%20x%3D%22400%22%20y%3D%22465%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%2C%20sans-serif%22%20font-size%3D%2234%22%20fill%3D%22%232a2420%22%3EUNA%20Home%3C/text%3E%3C/svg%3E';
 const DEMO_PRODUCT_CODES = ['SOFA-001', 'TABLE-001', 'CHAIR-001', 'LIGHT-001', 'DECOR-001', 'ART-001'];
 const DEMO_PRODUCT_NAMES = ['UNA Булан Буйдан', 'Модон Хоолны Ширээ', 'Орчин Үеийн Сандал', 'Алтан Гэрэлтүүлэг', 'Интерьер Чимэглэл', 'Ханын Урлагийн Зураг'];
+const CATEGORY_TREE = {
+    "Орон зай": ["Зочны өрөө", "Унтлагын өрөө", "Гал тогоо", "Ажлын өрөө", "Захиалгат тавилга"],
+    "Тавилга": ["Буйдан ба сандал", "Ширээ ба шүүгээ", "Гэрэлтүүлэг", "Даавуун эдлэл"],
+    "Гоёл чимэглэл": ["Ваар ба аяга", "Тавиур ба ширээний хэрэглэл", "Лааны суурь", "Чимэглэлийн хөшөө ба эдлэл", "Зургийн жааз ба хайрцаг"],
+    "Хана ба гадна": ["Толь", "Ханын чимэглэл", "Цаг", "Гадна орчны тавилга", "Шинэ загварууд"]
+};
+const CATEGORY_NAME_MAP = {
+    "Office": "Ажлын өрөө",
+    "Оффис": "Ажлын өрөө",
+    "Textile": "Даавуун эдлэл",
+    "Текстиль": "Даавуун эдлэл",
+    "Bed": "Ор",
+    "Chair": "Сандал",
+    "Decor": "Чимэглэл",
+    "Sofa": "Буйдан",
+    "Uncategorized": "Ангилаагүй",
+    "Буйдан & сандал": "Буйдан ба сандал",
+    "Ширээ & шүүгээ": "Ширээ ба шүүгээ",
+    "Ваар & аяга": "Ваар ба аяга",
+    "Tray & tabletop": "Тавиур ба ширээний хэрэглэл",
+    "Хөшөө & decor": "Чимэглэлийн хөшөө ба эдлэл",
+    "Зургийн жааз & хайрцаг": "Зургийн жааз ба хайрцаг",
+    "Гадна орчин": "Гадна орчны тавилга"
+};
+const LEGACY_CATEGORY_MAP = {
+    "Bed": { category: "Орон зай", subCategory: "Унтлагын өрөө" },
+    "Chair": { category: "Тавилга", subCategory: "Буйдан ба сандал" },
+    "Sofa": { category: "Тавилга", subCategory: "Буйдан ба сандал" },
+    "Decor": { category: "Гоёл чимэглэл", subCategory: "Чимэглэлийн хөшөө ба эдлэл" },
+    "Uncategorized": { category: "Орон зай", subCategory: "Зочны өрөө" },
+    "Office": { category: "Орон зай", subCategory: "Ажлын өрөө" },
+    "Оффис": { category: "Орон зай", subCategory: "Ажлын өрөө" },
+    "Textile": { category: "Тавилга", subCategory: "Даавуун эдлэл" },
+    "Текстиль": { category: "Тавилга", subCategory: "Даавуун эдлэл" },
+    "Буйдан & сандал": { category: "Тавилга", subCategory: "Буйдан ба сандал" },
+    "Ширээ & шүүгээ": { category: "Тавилга", subCategory: "Ширээ ба шүүгээ" },
+    "Ваар & аяга": { category: "Гоёл чимэглэл", subCategory: "Ваар ба аяга" },
+    "Tray & tabletop": { category: "Гоёл чимэглэл", subCategory: "Тавиур ба ширээний хэрэглэл" },
+    "Хөшөө & decor": { category: "Гоёл чимэглэл", subCategory: "Чимэглэлийн хөшөө ба эдлэл" },
+    "Зургийн жааз & хайрцаг": { category: "Гоёл чимэглэл", subCategory: "Зургийн жааз ба хайрцаг" },
+    "Гадна орчин": { category: "Хана ба гадна", subCategory: "Гадна орчны тавилга" }
+};
+const ALL_SUB_CATEGORIES = Object.values(CATEGORY_TREE).flat();
 
 let editingProductId = null;
 let productCache = [];
@@ -27,17 +73,14 @@ document.addEventListener('DOMContentLoaded', () => {
 async function initializeAdmin() {
     setupEventListeners();
 
-    if (tokenIsAdmin()) {
-        try {
-            await loadAdminProfile();
-            showDashboard();
-            return;
-        } catch (error) {
-            removeToken();
-        }
+    try {
+        await loadAdminProfile();
+        showDashboard();
+        return;
+    } catch (error) {
+        removeToken();
+        window.location.replace('login.html?admin=1&redirect=admin.html');
     }
-
-    showLoginScreen();
 }
 
 function setupEventListeners() {
@@ -54,6 +97,13 @@ function setupEventListeners() {
     document.querySelectorAll('.sidebar-link').forEach(link => {
         link.addEventListener('click', handleSidebarMenuClick);
     });
+
+    const notificationBtn = document.getElementById('adminNotificationBtn');
+    if (notificationBtn) {
+        notificationBtn.addEventListener('click', () => {
+            switchView('orders');
+        });
+    }
 
     const addProductBtn = document.getElementById('addProductBtn');
     if (addProductBtn) {
@@ -87,6 +137,11 @@ function setupEventListeners() {
     const productImages = document.getElementById('productImages');
     if (productImages) {
         productImages.addEventListener('input', renderImagePreview);
+    }
+
+    const productImageUpload = document.getElementById('productImageUpload');
+    if (productImageUpload) {
+        productImageUpload.addEventListener('change', handleProductImageUpload);
     }
 
     const addColorVariantBtn = document.getElementById('addColorVariantBtn');
@@ -135,10 +190,22 @@ function setupEventListeners() {
         closeOrderModalBtn.addEventListener('click', closeOrderModal);
     }
 
+    const closeDescriptionModalBtn = document.getElementById('closeDescriptionModalBtn');
+    if (closeDescriptionModalBtn) {
+        closeDescriptionModalBtn.addEventListener('click', closeDescriptionModal);
+    }
+
     const ordersTableBody = document.getElementById('ordersTableBody');
     if (ordersTableBody) {
         ordersTableBody.addEventListener('click', handleOrderActionClick);
     }
+
+    document.getElementById('orderDetailContent')?.addEventListener('click', async (e) => {
+        const saveButton = e.target.closest('[data-order-detail-save]');
+        if (!saveButton) return;
+
+        await updateOrderStatus(saveButton.dataset.orderDetailSave, document.getElementById('orderStatusSelect')?.value, document.getElementById('paymentStatusSelect')?.value);
+    });
 
     document.querySelectorAll('.quick-action-btn').forEach(btn => {
         btn.addEventListener('click', (e) => {
@@ -171,6 +238,15 @@ function setupEventListeners() {
         orderModal.addEventListener('click', (e) => {
             if (e.target === orderModal) {
                 closeOrderModal();
+            }
+        });
+    }
+
+    const descriptionModal = document.getElementById('descriptionModal');
+    if (descriptionModal) {
+        descriptionModal.addEventListener('click', (e) => {
+            if (e.target === descriptionModal) {
+                closeDescriptionModal();
             }
         });
     }
@@ -220,10 +296,18 @@ async function requestJson(url, options = {}) {
         headers.Authorization = `Bearer ${token}`;
     }
 
-    const response = await fetch(url, {
-        ...options,
-        headers
-    });
+    let response;
+
+    try {
+        response = await fetch(url, {
+            ...options,
+            headers,
+            credentials: 'same-origin'
+        });
+    } catch (error) {
+        throw new Error('Сервертэй холбогдох боломжгүй байна. Local server асаалттай эсэхийг шалгана уу.');
+    }
+
     const responseText = await response.text();
     let data = null;
 
@@ -280,13 +364,21 @@ async function handleAdminLogin(e) {
         errorDiv.classList.add('show');
     }
 }
-function handleLogout() {
+async function handleLogout() {
     const confirmLogout = confirm('Та системээс гарах уу?');
 
     if (confirmLogout) {
+        try {
+            await fetch(`${API_BASE}/admin/logout`, {
+                method: 'POST',
+                credentials: 'same-origin',
+                keepalive: true
+            });
+        } catch (error) {
+            // Local cleanup still runs if the network request fails.
+        }
         removeToken();
-        showLoginScreen();
-        document.getElementById('adminLoginForm').reset();
+        window.location.href = 'login.html';
     }
 }
 
@@ -296,11 +388,6 @@ function showLoginScreen() {
 }
 
 function showDashboard() {
-    if (!tokenIsAdmin()) {
-        showLoginScreen();
-        return;
-    }
-
     document.getElementById('loginScreen').classList.remove('active');
     document.getElementById('dashboardScreen').classList.add('active');
     updateAdminNavbarName();
@@ -353,6 +440,9 @@ async function switchView(viewType) {
     } else if (viewType === 'paymentSettings') {
         pageTitle.textContent = 'Төлбөрийн тохиргоо';
         await loadPaymentSettings();
+    } else if (viewType === 'contactMessages') {
+        pageTitle.textContent = 'Contact Messages';
+        await loadContactMessagesTable();
     } else if (viewType === 'adminAccount') {
         pageTitle.textContent = 'Admin Account';
         await loadAdminAccountSection();
@@ -403,11 +493,11 @@ function getOrderTimestamp(order) {
 }
 
 function isCompleteOrder(order) {
-    return ['paid', 'confirmed', 'complete', 'completed'].includes(String(order?.status || '').toLowerCase());
+    return ['paid', 'confirmed', 'delivered', 'complete', 'completed'].includes(String(order?.orderStatus || order?.status || '').toLowerCase());
 }
 
 function isPendingOrder(order) {
-    const status = String(order?.status || 'pending').toLowerCase();
+    const status = String(order?.orderStatus || order?.status || 'pending').toLowerCase();
     return status === 'pending' || status === 'chat_pending';
 }
 
@@ -465,6 +555,58 @@ function renderSalesChart(orders = []) {
             </div>
         `;
     }).join('');
+    renderChartJsAnalytics();
+}
+
+let revenueChartInstance = null;
+let ordersChartInstance = null;
+
+async function renderChartJsAnalytics() {
+    if (!window.Chart) return;
+    const revenueCanvas = document.getElementById('revenueLineChart');
+    const ordersCanvas = document.getElementById('ordersBarChart');
+    if (!revenueCanvas || !ordersCanvas) return;
+
+    try {
+        const summary = await requestJson(`${API_BASE}/api/analytics/summary`);
+        const daily = Array.isArray(summary.daily) ? summary.daily : [];
+        const labels = daily.map(item => item.date);
+        const revenueData = daily.map(item => Number(item.revenue) || 0);
+        const orderData = daily.map(item => Number(item.orderCount) || 0);
+
+        revenueChartInstance?.destroy();
+        ordersChartInstance?.destroy();
+        revenueChartInstance = new Chart(revenueCanvas, {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Revenue',
+                    data: revenueData,
+                    borderColor: '#c8a96a',
+                    backgroundColor: 'rgba(200, 169, 106, 0.16)',
+                    tension: 0.35,
+                    fill: true
+                }]
+            },
+            options: { responsive: true, plugins: { legend: { display: false } } }
+        });
+        ordersChartInstance = new Chart(ordersCanvas, {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Orders',
+                    data: orderData,
+                    backgroundColor: '#5f7f80'
+                }]
+            },
+            options: { responsive: true, plugins: { legend: { display: false } } }
+        });
+    } catch (error) {
+        revenueCanvas.hidden = true;
+        ordersCanvas.hidden = true;
+    }
 }
 
 function renderAdminCalendar(orders = []) {
@@ -529,7 +671,7 @@ function renderLatestOrders(orders = []) {
                 <strong>${escapeHtml(order.customerName || order.username || 'Customer')}</strong>
                 <small>${escapeHtml(order.orderCode || '-')} · ${escapeHtml(formatOrderItemsSummary(order.items, 1))}</small>
                 <div class="latest-order-meta">
-                    <span class="order-status-badge ${escapeHtml(order.status || 'pending')}">${escapeHtml(order.status || 'pending')}</span>
+                    <span class="order-status-badge ${escapeHtml(order.orderStatus || order.status || 'pending')}">${escapeHtml(order.orderStatus || order.status || 'pending')}</span>
                     <small>${formatPrice(order.totalAmount)} · ${formatShortDateTime(order.createdAt)}</small>
                 </div>
             </div>
@@ -664,12 +806,21 @@ function normalizeColorVariants(value) {
 
     return source
         .map(variant => {
-            const colorValue = String(variant?.colorValue || variant?.color_value || variant?.color || variant?.value || '').trim();
+            const colorValue = String(variant?.colorHex || variant?.colorValue || variant?.color_value || variant?.color || variant?.value || '').trim();
+            const price = Number(variant?.price);
+            const salePrice = Number(variant?.salePrice || variant?.sale_price);
+            const stock = Number(variant?.stock);
             const normalized = {
-                name: String(variant?.name || '').trim(),
+                name: String(variant?.name || variant?.colorName || '').trim(),
+                colorName: String(variant?.name || variant?.colorName || '').trim(),
                 color: colorValue,
+                colorHex: colorValue,
                 colorValue,
-                image: String(variant?.image || variant?.imageUrl || '').trim()
+                image: String(variant?.image || variant?.imageUrl || '').trim(),
+                price: Number.isFinite(price) && price >= 0 ? price : '',
+                salePrice: Number.isFinite(salePrice) && salePrice >= 0 ? salePrice : '',
+                stock: Number.isFinite(stock) && stock >= 0 ? Math.round(stock) : '',
+                sku: String(variant?.sku || variant?.productCode || '').trim()
             };
             const id = Number(variant?.id);
 
@@ -686,6 +837,19 @@ function shortenText(text, maxLength = 120) {
     return `${cleanText.slice(0, maxLength).trim()}...`;
 }
 
+function formatAdminLongText(text) {
+    const cleanText = String(text ?? '').trim();
+
+    if (!cleanText) {
+        return '<p>Тайлбар оруулаагүй байна.</p>';
+    }
+
+    return cleanText
+        .split(/\n{2,}/)
+        .map(paragraph => `<p>${escapeHtml(paragraph).replace(/\n/g, '<br>')}</p>`)
+        .join('');
+}
+
 function normalizeProduct(product, index = 0) {
     const numericPrice = Number(product?.price);
     const numericStock = Number(product?.stock);
@@ -699,8 +863,40 @@ function normalizeProduct(product, index = 0) {
         name: product?.name || 'Бүтээгдэхүүн',
         description: product?.description || '',
         price: Number.isFinite(numericPrice) ? numericPrice : 0,
+        salePrice: product?.salePrice === null || product?.salePrice === undefined ? '' : Number(product.salePrice) || '',
+        discountPercent: Number(product?.discountPercent) || 0,
         categoryId: product?.categoryId || product?.categoryName || product?.category || '',
-        category: product?.categoryName || product?.category || 'Uncategorized',
+        category: (() => {
+            const raw = CATEGORY_NAME_MAP[product?.categoryName || product?.category] || product?.categoryName || product?.category || 'Ангилаагүй';
+            if (CATEGORY_TREE[raw]) return raw;
+            if (LEGACY_CATEGORY_MAP[raw]) return LEGACY_CATEGORY_MAP[raw].category;
+            for (const [main, subs] of Object.entries(CATEGORY_TREE)) {
+                if (subs.includes(raw)) return main;
+            }
+            return raw;
+        })(),
+        subCategory: (() => {
+            const rawSub = CATEGORY_NAME_MAP[product?.subCategory] || product?.subCategory || '';
+            if (rawSub && ALL_SUB_CATEGORIES.includes(rawSub)) return rawSub;
+            const rawCat = product?.categoryName || product?.category || 'Ангилаагүй';
+            const mappedCat = CATEGORY_NAME_MAP[rawCat] || rawCat;
+            if (LEGACY_CATEGORY_MAP[rawCat]) return LEGACY_CATEGORY_MAP[rawCat].subCategory;
+            if (LEGACY_CATEGORY_MAP[mappedCat]) return LEGACY_CATEGORY_MAP[mappedCat].subCategory;
+            if (ALL_SUB_CATEGORIES.includes(mappedCat)) return mappedCat;
+            return rawSub;
+        })(),
+        sku: product?.sku || product?.productCode || '',
+        width: product?.width || product?.dimensions?.width || '',
+        height: product?.height || product?.dimensions?.height || '',
+        depth: product?.depth || product?.dimensions?.depth || '',
+        material: product?.material || '',
+        weight: product?.weight || '',
+        brand: product?.brand || product?.manufacturer || '',
+        deliveryAvailable: product?.deliveryAvailable !== false,
+        assemblyRequired: product?.assemblyRequired === true,
+        stockStatus: product?.stockStatus || (Number(product?.stock) > 0 ? 'available' : 'out_of_stock'),
+        warrantyNote: product?.warrantyNote || '',
+        deliveryNote: product?.deliveryNote || '',
         images: Array.isArray(product?.images)
             ? product.images.map(image => String(image || '').trim()).filter(Boolean)
             : String(product?.imageUrl || product?.image || '').trim() ? [String(product?.imageUrl || product?.image || '').trim()] : [],
@@ -727,26 +923,53 @@ async function openAddProductModal() {
     document.getElementById('productForm').reset();
     await renderProductCategoryOptions();
     document.getElementById('productStock').value = '0';
+    document.getElementById('productStockStatus').value = 'available';
+    document.getElementById('productDeliveryAvailable').checked = true;
+    document.getElementById('productAssemblyRequired').checked = false;
     renderImagePreview();
     renderColorVariantRows([]);
     document.getElementById('productModal').classList.add('show');
 }
 
 async function openEditProductModal(productId) {
-    let product = productCache.find(item => String(item.id) === String(productId));
+    let product;
 
-    if (!product) {
+    try {
         product = await fetchProduct(productId);
+        const cachedIndex = productCache.findIndex(item => String(item.id) === String(productId));
+
+        if (cachedIndex >= 0) {
+            productCache[cachedIndex] = product;
+        } else {
+            productCache.push(product);
+        }
+    } catch (error) {
+        product = productCache.find(item => String(item.id) === String(productId));
+        if (!product) throw error;
     }
 
     editingProductId = product.id;
     document.getElementById('modalTitle').textContent = 'Бүтээгдэхүүн засварлах';
-    await renderProductCategoryOptions(product.categoryId);
+    await renderProductCategoryOptions(product.category, product.subCategory);
     document.getElementById('productName').value = product.name;
+    document.getElementById('productSku').value = product.sku;
+    document.getElementById('productBrand').value = product.brand;
     document.getElementById('productDescription').value = product.description;
     document.getElementById('productColors').value = product.colorsText;
     document.getElementById('productPrice').value = product.price;
+    document.getElementById('productSalePrice').value = product.salePrice || '';
+    document.getElementById('productDiscountPercent').value = product.discountPercent || 0;
     document.getElementById('productStock').value = product.stock;
+    document.getElementById('productStockStatus').value = product.stockStatus || 'available';
+    document.getElementById('productWidth').value = product.width || '';
+    document.getElementById('productHeight').value = product.height || '';
+    document.getElementById('productDepth').value = product.depth || '';
+    document.getElementById('productMaterial').value = product.material || '';
+    document.getElementById('productWeight').value = product.weight || '';
+    document.getElementById('productDeliveryAvailable').checked = product.deliveryAvailable !== false;
+    document.getElementById('productAssemblyRequired').checked = product.assemblyRequired === true;
+    document.getElementById('productWarrantyNote').value = product.warrantyNote || '';
+    document.getElementById('productDeliveryNote').value = product.deliveryNote || '';
     document.getElementById('productImages').value = product.images.join('\n');
     renderImagePreview();
     renderColorVariantRows(product.colorVariants);
@@ -777,6 +1000,51 @@ function getProductImageUrlsFromForm() {
         .split(/\r?\n/)
         .map(image => image.trim())
         .filter(Boolean);
+}
+
+async function handleProductImageUpload(e) {
+    const input = e.currentTarget;
+    const file = input.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        let data = await requestJson(`${API_BASE}/api/upload`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ filename: file.name, contentType: file.type })
+        });
+
+        if (data.uploadUrl) {
+            const uploadResponse = await fetch(data.uploadUrl, {
+                method: 'PUT',
+                headers: { 'Content-Type': file.type || 'application/octet-stream' },
+                body: file
+            });
+            if (!uploadResponse.ok) {
+                const errorText = await uploadResponse.text();
+                throw new Error(errorText || 'Image upload failed.');
+            }
+        } else {
+            data = await requestJson(`${API_BASE}/api/upload`, {
+                method: 'POST',
+                body: formData
+            });
+        }
+        const publicUrl = data.publicUrl || data.url || '';
+        if (!publicUrl) throw new Error('Upload response did not include a public URL.');
+
+        const textarea = document.getElementById('productImages');
+        const current = textarea.value.trim();
+        textarea.value = current ? `${current}\n${publicUrl}` : publicUrl;
+        renderImagePreview();
+    } catch (error) {
+        alert(error.message);
+    } finally {
+        input.value = '';
+    }
 }
 
 function isValidImageUrl(image) {
@@ -822,6 +1090,22 @@ function createColorVariantRow(variant = {}) {
             <label>Image URL</label>
             <input type="text" class="color-variant-image" placeholder="https://example.com/black-sofa.jpg эсвэл black-sofa.jpg" value="${escapeHtml(variant.image || '')}">
         </div>
+        <div class="form-group-admin">
+            <label>Variant price</label>
+            <input type="number" class="color-variant-price" placeholder="Optional" min="0" value="${escapeHtml(variant.price ?? '')}">
+        </div>
+        <div class="form-group-admin">
+            <label>Sale price</label>
+            <input type="number" class="color-variant-sale-price" placeholder="Optional" min="0" value="${escapeHtml(variant.salePrice ?? '')}">
+        </div>
+        <div class="form-group-admin">
+            <label>Stock</label>
+            <input type="number" class="color-variant-stock" placeholder="Optional" min="0" value="${escapeHtml(variant.stock ?? '')}">
+        </div>
+        <div class="form-group-admin">
+            <label>SKU</label>
+            <input type="text" class="color-variant-sku" placeholder="SOFA-BLK-001" value="${escapeHtml(variant.sku || '')}">
+        </div>
         <button type="button" class="color-variant-remove-btn" data-color-variant-action="remove" aria-label="Remove color variant">
             <i class="fas fa-trash"></i>
         </button>
@@ -848,12 +1132,19 @@ function addColorVariantRow(variant = {}) {
 }
 
 function getColorVariantsFromForm() {
-    return [...document.querySelectorAll('.color-variant-row-admin')]
+    const list = document.getElementById('colorVariantsList');
+
+    return [...(list?.querySelectorAll('.color-variant-row-admin') || [])]
         .map(row => ({
             name: row.querySelector('.color-variant-name')?.value.trim() || '',
             color: row.querySelector('.color-variant-value')?.value.trim() || '',
             colorValue: row.querySelector('.color-variant-value')?.value.trim() || '',
-            image: row.querySelector('.color-variant-image')?.value.trim() || ''
+            colorHex: row.querySelector('.color-variant-value')?.value.trim() || '',
+            image: row.querySelector('.color-variant-image')?.value.trim() || '',
+            price: row.querySelector('.color-variant-price')?.value ? Number(row.querySelector('.color-variant-price')?.value) : null,
+            salePrice: row.querySelector('.color-variant-sale-price')?.value ? Number(row.querySelector('.color-variant-sale-price')?.value) : null,
+            stock: row.querySelector('.color-variant-stock')?.value ? Number(row.querySelector('.color-variant-stock')?.value) : null,
+            sku: row.querySelector('.color-variant-sku')?.value.trim() || ''
         }))
         .filter(variant => variant.name || variant.image);
 }
@@ -880,23 +1171,51 @@ function handleColorVariantClick(e) {
     removeButton.closest('.color-variant-row-admin')?.remove();
 }
 
-async function renderProductCategoryOptions(selectedCategoryId = '') {
+async function renderProductCategoryOptions(selectedCategory = '', selectedSubCategory = '') {
     const select = document.getElementById('productCategory');
+    const subSelect = document.getElementById('productSubCategory');
     if (!select) return;
 
-    const categories = await ensureCategoriesLoaded();
-    select.innerHTML = '';
+    select.innerHTML = '<option value="">Ангилал сонгоно уу</option>';
 
-    categories.forEach(category => {
+    Object.keys(CATEGORY_TREE).forEach(mainCat => {
         const option = document.createElement('option');
-        option.value = category.name;
-        option.textContent = category.name;
-        option.selected = selectedCategoryId ? category.name === selectedCategoryId : category.name === 'Uncategorized';
+        option.value = mainCat;
+        option.textContent = mainCat;
+        option.selected = mainCat === selectedCategory;
         select.appendChild(option);
     });
 
-    if (!select.value && categories[0]) {
-        select.value = categories[0].name;
+    // Setup change handler for cascading
+    select.onchange = () => {
+        updateSubCategoryOptions(select.value, '');
+    };
+
+    updateSubCategoryOptions(selectedCategory, selectedSubCategory);
+}
+
+function updateSubCategoryOptions(mainCategory, selectedSubCategory) {
+    const subSelect = document.getElementById('productSubCategory');
+    if (!subSelect) return;
+
+    subSelect.innerHTML = '';
+    const subs = CATEGORY_TREE[mainCategory] || [];
+
+    if (subs.length === 0) {
+        subSelect.innerHTML = '<option value="">Эхлээд үндсэн ангилал сонгоно уу</option>';
+        return;
+    }
+
+    subs.forEach(sub => {
+        const option = document.createElement('option');
+        option.value = sub;
+        option.textContent = sub;
+        option.selected = sub === selectedSubCategory;
+        subSelect.appendChild(option);
+    });
+
+    if (!selectedSubCategory || !subs.includes(selectedSubCategory)) {
+        subSelect.value = subs[0];
     }
 }
 
@@ -910,9 +1229,14 @@ async function handleProductFormSubmit(e) {
     const colorVariants = getColorVariantsFromForm();
     const colors = colorVariants.map(variant => variant.name || variant.colorValue || variant.color).filter(Boolean);
     const price = Number(document.getElementById('productPrice').value);
+    const salePriceInput = document.getElementById('productSalePrice').value;
+    const salePrice = salePriceInput ? Number(salePriceInput) : null;
+    const discountPercent = Number(document.getElementById('productDiscountPercent').value || 0);
     const categorySelect = document.getElementById('productCategory');
+    const subCategorySelect = document.getElementById('productSubCategory');
     const categoryId = categorySelect.value;
     const category = categorySelect.options[categorySelect.selectedIndex]?.textContent || categoryId || 'Uncategorized';
+    const subCategory = subCategorySelect?.value || '';
     const stock = Number(document.getElementById('productStock').value);
     const images = getProductImageUrlsFromForm();
 
@@ -921,8 +1245,8 @@ async function handleProductFormSubmit(e) {
         return;
     }
 
-    if (images.some(image => !isValidImageUrl(image))) {
-        alert('Image URLs must start with http:// or https://');
+    if (images.some(image => !isValidImageReference(image))) {
+        alert('Image URL эсвэл зөв image path оруулна уу.');
         return;
     }
 
@@ -941,8 +1265,13 @@ async function handleProductFormSubmit(e) {
         return;
     }
 
-    if (colorVariants.some(variant => !variant.name || !variant.color || !variant.image)) {
-        alert('Color variant бүрт нэр, өнгөний утга, зурагны URL/зам оруулна уу.');
+    if (salePrice !== null && (!Number.isFinite(salePrice) || salePrice > price)) {
+        alert('Sale price нь үндсэн үнээс их байж болохгүй.');
+        return;
+    }
+
+    if (colorVariants.some(variant => !variant.name || !variant.image)) {
+        alert('Color variant бүрт нэр болон зурагны URL/зам оруулна уу.');
         return;
     }
 
@@ -959,13 +1288,28 @@ async function handleProductFormSubmit(e) {
             name,
             description,
             price,
+            salePrice,
+            discountPercent,
             categoryId,
             category,
+            subCategory,
             colors,
             colorVariants,
             images,
             imageUrl: images[0] || '',
-            stock
+            stock,
+            sku: document.getElementById('productSku').value.trim(),
+            brand: document.getElementById('productBrand').value.trim(),
+            width: document.getElementById('productWidth').value.trim(),
+            height: document.getElementById('productHeight').value.trim(),
+            depth: document.getElementById('productDepth').value.trim(),
+            material: document.getElementById('productMaterial').value.trim(),
+            weight: document.getElementById('productWeight').value.trim(),
+            deliveryAvailable: document.getElementById('productDeliveryAvailable').checked,
+            assemblyRequired: document.getElementById('productAssemblyRequired').checked,
+            stockStatus: document.getElementById('productStockStatus').value,
+            warrantyNote: document.getElementById('productWarrantyNote').value.trim(),
+            deliveryNote: document.getElementById('productDeliveryNote').value.trim()
         };
 
         if (editingProductId) {
@@ -1006,14 +1350,14 @@ async function loadProductsTable() {
     const emptyState = document.getElementById('emptyState');
     const table = document.getElementById('productsTable');
 
-    tableBody.innerHTML = '<tr><td colspan="8">Бүтээгдэхүүн уншиж байна...</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="9">Бүтээгдэхүүн уншиж байна...</td></tr>';
 
     let products = [];
 
     try {
         products = await fetchProducts();
     } catch (error) {
-        tableBody.innerHTML = `<tr><td colspan="8">${escapeHtml(error.message)}</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="9">${escapeHtml(error.message)}</td></tr>`;
         return;
     }
 
@@ -1033,11 +1377,17 @@ async function loadProductsTable() {
         row.innerHTML = `
             <td><img src="${escapeHtml(getProductMainImage(product))}" alt="${escapeHtml(product.name)}" class="product-image-thumb" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'"></td>
             <td class="product-cell-name">${escapeHtml(product.name)}</td>
-            <td class="product-cell-description">${escapeHtml(shortenText(product.description, 140))}</td>
-            <td><span class="admin-category-badge">${escapeHtml(product.category)}</span></td>
+            <td class="product-cell-description description-cell" data-product-action="description-preview" data-product-id="${escapeHtml(product.id)}" title="Бүтэн тайлбар харах">
+                <div class="description-cell-text">${escapeHtml(product.description || 'Тайлбар оруулаагүй байна.')}</div>
+                <button class="description-preview-btn" type="button" data-product-action="description-preview" data-product-id="${escapeHtml(product.id)}">
+                    <i class="fas fa-eye"></i> Preview
+                </button>
+            </td>
+            <td><span class="admin-category-badge">${escapeHtml(product.category)}${product.subCategory ? ' › ' + escapeHtml(product.subCategory) : ''}</span></td>
             <td class="product-option-cell">${escapeHtml(product.colorVariantsText || product.colorsText || '-')}</td>
             <td>${Number(product.stock) || 0}</td>
             <td class="product-cell-price">${formatPrice(product.price)}</td>
+            <td><span class="order-status-badge ${escapeHtml(product.stockStatus || 'available')}">${escapeHtml(product.stockStatus || 'available')}</span></td>
             <td>
                 <div class="table-actions">
                     <button class="action-btn edit-btn" type="button" data-product-action="edit" data-product-id="${escapeHtml(product.id)}">
@@ -1176,16 +1526,24 @@ async function deleteCategory(categoryId, reassign = false) {
 }
 
 async function handleProductActionClick(e) {
-    const button = e.target.closest('[data-product-action]');
-    if (!button) return;
+    const actionElement = e.target.closest('[data-product-action]');
+    if (!actionElement) return;
 
-    const productId = button.dataset.productId;
-    const action = button.dataset.productAction;
+    const productId = actionElement.dataset.productId;
+    const action = actionElement.dataset.productAction;
 
     if (!productId) {
         alert('Бүтээгдэхүүний ID олдсонгүй.');
         return;
     }
+
+    if (action === 'description-preview') {
+        await openDescriptionPreview(productId);
+        return;
+    }
+
+    const button = actionElement.tagName === 'BUTTON' ? actionElement : actionElement.closest('button');
+    if (!button) return;
 
     button.disabled = true;
     const originalHtml = button.innerHTML;
@@ -1203,6 +1561,45 @@ async function handleProductActionClick(e) {
         button.disabled = false;
         button.innerHTML = originalHtml;
     }
+}
+
+async function openDescriptionPreview(productId) {
+    let product = productCache.find(item => String(item.id) === String(productId));
+
+    if (!product) {
+        product = await fetchProduct(productId);
+    }
+
+    if (!product) {
+        alert('Бүтээгдэхүүний мэдээлэл олдсонгүй.');
+        return;
+    }
+
+    const modal = document.getElementById('descriptionModal');
+    const title = document.getElementById('descriptionModalTitle');
+    const content = document.getElementById('descriptionPreviewContent');
+
+    if (!modal || !title || !content) return;
+
+    title.textContent = product.name || 'Бүтээгдэхүүний тайлбар';
+    content.innerHTML = `
+        <div class="description-preview-product">
+            <img src="${escapeHtml(getProductMainImage(product))}" alt="${escapeHtml(product.name)}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
+            <div>
+                <span>${escapeHtml(product.category || '-')}</span>
+                <strong>${escapeHtml(product.name || '-')}</strong>
+            </div>
+        </div>
+        <div class="description-full-text">
+            ${formatAdminLongText(product.description)}
+        </div>
+    `;
+
+    modal.classList.add('show');
+}
+
+function closeDescriptionModal() {
+    document.getElementById('descriptionModal')?.classList.remove('show');
 }
 
 async function deleteProduct(productId) {
@@ -1263,6 +1660,8 @@ function updateAdminNavbarName(user = adminProfile) {
 function getPaymentMethodLabel(method) {
     if (method === 'facebook_chat') return 'Facebook chat';
     if (method === 'bank_transfer') return 'Банк';
+    if (method === 'cash_on_delivery') return 'Бэлэн төлөх';
+    if (method === 'qpay') return 'QPay';
     return method || '-';
 }
 
@@ -1276,12 +1675,26 @@ async function fetchUsers() {
     return usersCache;
 }
 
+async function fetchContactMessages() {
+    return requestJson(`${API_BASE}/admin/contact-messages`);
+}
+
 async function loadPaymentSettings() {
     const settings = await requestJson(`${API_BASE}/settings/payment`);
     document.getElementById('bankName').value = settings.bankName || '';
     document.getElementById('accountNumber').value = settings.accountNumber || '';
     document.getElementById('accountHolder').value = settings.accountHolder || '';
     document.getElementById('facebookChatUrl').value = settings.facebookChatUrl || '';
+    document.getElementById('deliveryFee').value = settings.deliveryFee || 0;
+    document.getElementById('contactPhone').value = settings.contactPhone || '';
+    document.getElementById('contactEmail').value = settings.contactEmail || '';
+    document.getElementById('storeAddress').value = settings.storeAddress || '';
+    document.getElementById('workingHours').value = settings.workingHours || '';
+    document.getElementById('facebookPageUrl').value = settings.facebookPageUrl || '';
+    document.getElementById('estimatedDeliveryTime').value = settings.estimatedDeliveryTime || '';
+    document.getElementById('qpayInfo').value = settings.qpayInfo || '';
+    document.getElementById('settingsWarrantyNote').value = settings.warrantyNote || '';
+    document.getElementById('returnPolicy').value = settings.returnPolicy || '';
 }
 
 async function loadAdminProfile() {
@@ -1444,7 +1857,18 @@ async function handlePaymentSettingsSubmit(e) {
         bankName: document.getElementById('bankName').value.trim(),
         accountNumber: document.getElementById('accountNumber').value.trim(),
         accountHolder: document.getElementById('accountHolder').value.trim(),
-        facebookChatUrl: document.getElementById('facebookChatUrl').value.trim()
+        facebookChatUrl: document.getElementById('facebookChatUrl').value.trim(),
+        messengerUrl: document.getElementById('facebookChatUrl').value.trim(),
+        deliveryFee: Number(document.getElementById('deliveryFee').value || 0),
+        contactPhone: document.getElementById('contactPhone').value.trim(),
+        contactEmail: document.getElementById('contactEmail').value.trim(),
+        storeAddress: document.getElementById('storeAddress').value.trim(),
+        workingHours: document.getElementById('workingHours').value.trim(),
+        facebookPageUrl: document.getElementById('facebookPageUrl').value.trim(),
+        estimatedDeliveryTime: document.getElementById('estimatedDeliveryTime').value.trim(),
+        qpayInfo: document.getElementById('qpayInfo').value.trim(),
+        warrantyNote: document.getElementById('settingsWarrantyNote').value.trim(),
+        returnPolicy: document.getElementById('returnPolicy').value.trim()
     };
 
     try {
@@ -1493,10 +1917,38 @@ async function loadUsersTable() {
     });
 }
 
+async function loadContactMessagesTable() {
+    const tableBody = document.getElementById('contactMessagesTableBody');
+    const emptyState = document.getElementById('contactMessagesEmptyState');
+    if (!tableBody) return;
+
+    tableBody.innerHTML = '<tr><td colspan="5">Зурвасууд уншиж байна...</td></tr>';
+
+    try {
+        const messages = await fetchContactMessages();
+        tableBody.innerHTML = '';
+        if (emptyState) emptyState.style.display = messages.length ? 'none' : 'block';
+
+        messages.forEach(message => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${escapeHtml(message.name || '-')}</td>
+                <td>${escapeHtml(message.email || '-')}</td>
+                <td>${escapeHtml(message.phone || '-')}</td>
+                <td class="product-cell-description"><div class="description-cell-text">${escapeHtml(message.message || '-')}</div></td>
+                <td>${formatDate(message.createdAt)}</td>
+            `;
+            tableBody.appendChild(row);
+        });
+    } catch (error) {
+        tableBody.innerHTML = `<tr><td colspan="5">${escapeHtml(error.message)}</td></tr>`;
+    }
+}
+
 async function loadOrdersTable() {
     const tableBody = document.getElementById('ordersTableBody');
     const emptyState = document.getElementById('ordersEmptyState');
-    tableBody.innerHTML = '<tr><td colspan="11">Захиалгууд уншиж байна...</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="12">Захиалгууд уншиж байна...</td></tr>';
 
     let orders = [];
 
@@ -1504,7 +1956,7 @@ async function loadOrdersTable() {
         orders = await fetchOrders();
         renderAdminRightPanel(orders);
     } catch (error) {
-        tableBody.innerHTML = `<tr><td colspan="11">${escapeHtml(error.message)}</td></tr>`;
+        tableBody.innerHTML = `<tr><td colspan="12">${escapeHtml(error.message)}</td></tr>`;
         return;
     }
 
@@ -1521,14 +1973,15 @@ async function loadOrdersTable() {
             <td class="order-products-cell">${escapeHtml(formatOrderItemsSummary(order.items, 2))}</td>
             <td class="product-cell-price">${formatPrice(order.totalAmount)}</td>
             <td>${escapeHtml(getPaymentMethodLabel(order.paymentMethod))}</td>
-            <td>${escapeHtml(order.transactionCode || '-')}</td>
-            <td><span class="order-status-badge ${escapeHtml(order.status || 'pending')}">${escapeHtml(order.status || 'pending')}</span></td>
+            <td><span class="admin-code-badge">${escapeHtml(order.transactionNote || order.transactionCode || '-')}</span></td>
+            <td><span class="order-status-badge ${escapeHtml(order.paymentStatus || 'unpaid')}">${escapeHtml(order.paymentStatus || 'unpaid')}</span></td>
+            <td><span class="order-status-badge ${escapeHtml(order.orderStatus || order.status || 'pending')}">${escapeHtml(order.orderStatus || order.status || 'pending')}</span></td>
             <td>${formatDate(order.createdAt)}</td>
             <td>
                 <div class="table-actions order-actions">
                     <button class="action-btn edit-btn" type="button" data-order-action="details" data-order-id="${escapeHtml(order.id)}">Дэлгэрэнгүй</button>
                     <button class="action-btn edit-btn" type="button" data-order-action="status" data-order-status="paid" data-order-id="${escapeHtml(order.id)}">Төлсөн</button>
-                    <button class="action-btn edit-btn" type="button" data-order-action="status" data-order-status="confirmed" data-order-id="${escapeHtml(order.id)}">Баталгаажуулах</button>
+                    <button class="action-btn edit-btn" type="button" data-order-action="status" data-order-status="complete" data-payment-status="paid" data-order-id="${escapeHtml(order.id)}">Баталгаажуулах</button>
                     <button class="action-btn delete-btn" type="button" data-order-action="status" data-order-status="cancelled" data-order-id="${escapeHtml(order.id)}">Цуцлах</button>
                 </div>
             </td>
@@ -1557,7 +2010,7 @@ async function handleOrderActionClick(e) {
         if (action === 'details') {
             await viewOrderDetails(orderId);
         } else if (action === 'status') {
-            await updateOrderStatus(orderId, button.dataset.orderStatus);
+            await updateOrderStatus(orderId, button.dataset.orderStatus, button.dataset.paymentStatus || '');
         }
     } catch (error) {
         alert(error.message);
@@ -1581,9 +2034,23 @@ async function viewOrderDetails(orderId) {
                 <div><span>Хаяг</span><strong>${escapeHtml(order.address || '-')}</strong></div>
                 <div><span>Нийт</span><strong>${formatPrice(order.totalAmount)}</strong></div>
                 <div><span>Төлбөр</span><strong>${escapeHtml(getPaymentMethodLabel(order.paymentMethod))}</strong></div>
-                <div><span>Гүйлгээний код</span><strong>${escapeHtml(order.transactionCode || '-')}</strong></div>
-                <div><span>Төлөв</span><strong>${escapeHtml(order.status || '-')}</strong></div>
+                <div><span>Гүйлгээний код</span><strong>${escapeHtml(order.transactionNote || order.transactionCode || '-')}</strong></div>
+                <div><span>Payment status</span><strong>${escapeHtml(order.paymentStatus || 'unpaid')}</strong></div>
+                <div><span>Order status</span><strong>${escapeHtml(order.orderStatus || order.status || '-')}</strong></div>
                 <div><span>Огноо</span><strong>${formatDate(order.createdAt)}</strong></div>
+            </div>
+            <div class="order-status-editor">
+                <label>Order status
+                    <select id="orderStatusSelect">
+                        ${['pending', 'paid', 'complete', 'confirmed', 'delivered', 'cancelled'].map(status => `<option value="${status}" ${status === (order.orderStatus || order.status || 'pending') ? 'selected' : ''}>${status}</option>`).join('')}
+                    </select>
+                </label>
+                <label>Payment status
+                    <select id="paymentStatusSelect">
+                        ${['unpaid', 'paid', 'failed', 'refunded'].map(status => `<option value="${status}" ${status === (order.paymentStatus || 'unpaid') ? 'selected' : ''}>${status}</option>`).join('')}
+                    </select>
+                </label>
+                <button class="admin-btn-primary" type="button" data-order-detail-save="${escapeHtml(order.id)}">Save status</button>
             </div>
             <h3>Бүтээгдэхүүнүүд</h3>
             <div class="order-items-list">
@@ -1599,6 +2066,7 @@ async function viewOrderDetails(orderId) {
                             <div>
                                 <strong>${escapeHtml(item.name)}</strong>
                                 ${options.length ? `<div class="order-item-options">${options.map(option => `<small>${escapeHtml(option)}</small>`).join('')}</div>` : ''}
+                                ${item.sku || item.productCode ? `<small>SKU: ${escapeHtml(item.sku || item.productCode)}</small>` : ''}
                                 <p>${formatPrice(item.price)} × ${Number(item.quantity) || 1}</p>
                             </div>
                         </div>
@@ -1616,20 +2084,21 @@ function closeOrderModal() {
     document.getElementById('orderModal')?.classList.remove('show');
 }
 
-async function updateOrderStatus(orderId, status) {
+async function updateOrderStatus(orderId, status, paymentStatus = '') {
     const labels = {
         paid: 'төлсөн',
+        complete: 'баталгаажсан',
         confirmed: 'баталгаажсан',
         cancelled: 'цуцлагдсан'
     };
 
     try {
-        await requestJson(`${API_BASE}/admin/orders/${orderId}/status`, {
-            method: 'PUT',
+        await requestJson(`${API_BASE}/api/orders/${orderId}`, {
+            method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ status })
+            body: JSON.stringify({ status, orderStatus: status, paymentStatus })
         });
         await loadOrdersTable();
         await updateDashboard();

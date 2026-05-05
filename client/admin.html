@@ -11,6 +11,39 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="admin-styles.css">
+    <style>
+        html.admin-auth-pending body {
+            visibility: hidden;
+        }
+    </style>
+    <script>
+        document.documentElement.classList.add('admin-auth-pending');
+        (async () => {
+            const token = localStorage.getItem('unaAdminToken');
+            const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+            try {
+                const response = await fetch('/admin/session', {
+                    headers,
+                    credentials: 'same-origin'
+                });
+
+                if (!response.ok) throw new Error('Admin session required.');
+                const payload = await response.json();
+                const session = payload?.success === true ? payload.data : payload;
+
+                if (!['admin', 'manager'].includes(session?.role)) {
+                    throw new Error('Admin role required.');
+                }
+
+                window.__UNA_ADMIN_SESSION__ = session;
+                document.documentElement.classList.remove('admin-auth-pending');
+            } catch (error) {
+                localStorage.removeItem('unaAdminToken');
+                window.location.replace('login.html?admin=1&redirect=admin.html');
+            }
+        })();
+    </script>
 </head>
 <body>
     
@@ -86,6 +119,10 @@
                 <a href="#" class="sidebar-link" data-menu="paymentSettings">
                     <i class="fas fa-credit-card"></i>
                     <span>Төлбөрийн тохиргоо</span>
+                </a>
+                <a href="#" class="sidebar-link" data-menu="contactMessages">
+                    <i class="fas fa-message"></i>
+                    <span>Contact Messages</span>
                 </a>
                 <a href="#" class="sidebar-link" data-menu="adminAccount">
                     <i class="fas fa-user-shield"></i>
@@ -206,6 +243,10 @@
                         </div>
                     </div>
                     <div id="salesChartBars" class="sales-chart-bars" aria-label="Борлуулалтын график"></div>
+                    <div class="admin-chart-canvas-grid">
+                        <canvas id="revenueLineChart" height="120"></canvas>
+                        <canvas id="ordersBarChart" height="120"></canvas>
+                    </div>
                 </section>
 
                 <section class="quick-actions">
@@ -246,6 +287,7 @@
                                 <th>Өнгө</th>
                                 <th>Үлдэгдэл</th>
                                 <th>Үнэ</th>
+                                <th>Status</th>
                                 <th>Үйлдэл</th>
                             </tr>
                         </thead>
@@ -303,8 +345,9 @@
                                 <th>Бүтээгдэхүүн</th>
                                 <th>Нийт</th>
                                 <th>Төлбөр</th>
-                                <th>Гүйлгээний код</th>
-                                <th>Төлөв</th>
+                                <th>Reference</th>
+                                <th>Payment status</th>
+                                <th>Order status</th>
                                 <th>Огноо</th>
                                 <th>Үйлдэл</th>
                             </tr>
@@ -362,9 +405,74 @@
                             <label for="facebookChatUrl">Facebook chat link</label>
                             <input type="url" id="facebookChatUrl" placeholder="https://www.facebook.com/messages/t/...">
                         </div>
+                        <div class="form-group-admin">
+                            <label for="deliveryFee">Delivery fee</label>
+                            <input type="number" id="deliveryFee" min="0" placeholder="0">
+                        </div>
+                        <div class="form-row-admin">
+                            <div class="form-group-admin">
+                                <label for="contactPhone">Contact phone</label>
+                                <input type="text" id="contactPhone" placeholder="+976 ...">
+                            </div>
+                            <div class="form-group-admin">
+                                <label for="contactEmail">Contact email</label>
+                                <input type="email" id="contactEmail" placeholder="info@example.com">
+                            </div>
+                        </div>
+                        <div class="form-group-admin">
+                            <label for="storeAddress">Store address</label>
+                            <input type="text" id="storeAddress" placeholder="Улаанбаатар...">
+                        </div>
+                        <div class="form-row-admin">
+                            <div class="form-group-admin">
+                                <label for="workingHours">Working hours</label>
+                                <input type="text" id="workingHours" placeholder="Mon-Sat 10:00-19:00">
+                            </div>
+                            <div class="form-group-admin">
+                                <label for="facebookPageUrl">Facebook page URL</label>
+                                <input type="url" id="facebookPageUrl" placeholder="https://facebook.com/...">
+                            </div>
+                        </div>
+                        <div class="form-group-admin">
+                            <label for="estimatedDeliveryTime">Estimated delivery time</label>
+                            <input type="text" id="estimatedDeliveryTime" placeholder="24-72 цаг">
+                        </div>
+                        <div class="form-group-admin">
+                            <label for="qpayInfo">QPay info / placeholder</label>
+                            <textarea id="qpayInfo" rows="2" placeholder="QPay удахгүй..."></textarea>
+                        </div>
+                        <div class="form-group-admin">
+                            <label for="settingsWarrantyNote">Warranty note</label>
+                            <textarea id="settingsWarrantyNote" rows="2"></textarea>
+                        </div>
+                        <div class="form-group-admin">
+                            <label for="returnPolicy">Return / exchange policy</label>
+                            <textarea id="returnPolicy" rows="2"></textarea>
+                        </div>
                         <button type="submit" class="admin-btn-primary">Тохиргоо хадгалах</button>
                     </div>
                 </form>
+            </div>
+
+            <div id="contactMessagesView" class="admin-view">
+                <div class="products-table-container">
+                    <table class="products-table-admin">
+                        <thead>
+                            <tr>
+                                <th>Нэр</th>
+                                <th>Имэйл</th>
+                                <th>Утас</th>
+                                <th>Зурвас</th>
+                                <th>Огноо</th>
+                            </tr>
+                        </thead>
+                        <tbody id="contactMessagesTableBody"></tbody>
+                    </table>
+                    <div id="contactMessagesEmptyState" class="empty-state-admin">
+                        <i class="fas fa-message"></i>
+                        <p>Зурвас байхгүй</p>
+                    </div>
+                </div>
             </div>
 
             <div id="adminAccountView" class="admin-view">
@@ -403,7 +511,7 @@
                         <button type="submit" class="admin-btn-primary">Нууц үг солих</button>
                     </form>
 
-                    <form id="createAdminForm" class="settings-card-admin create-admin-card">
+                    <form id="createAdminForm" class="settings-card-admin create-admin-card" hidden>
                         <h2>Шинэ админ бүртгэх</h2>
                         <p>Админ эсвэл менежер эрхтэй шинэ хэрэглэгч үүсгэнэ.</p>
                         <div id="createAdminMessage" class="admin-message"></div>
@@ -437,7 +545,7 @@
         </main>
             <aside class="admin-right-panel">
                 <div class="admin-profile-card">
-                    <div class="notification-dot">
+                    <div class="notification-dot" id="adminNotificationBtn">
                         <i class="fas fa-bell"></i>
                         <span id="rightNotificationCount">0</span>
                     </div>
@@ -498,6 +606,16 @@
                         <label for="productName">Бүтээгдэхүүний нэр *</label>
                         <input type="text" id="productName" placeholder="Жишээ: Орчин үеийн буйдан" required>
                     </div>
+                    <div class="form-row-admin">
+                        <div class="form-group-admin">
+                            <label for="productSku">SKU / Product ID</label>
+                            <input type="text" id="productSku" placeholder="SOFA-BLK-001">
+                        </div>
+                        <div class="form-group-admin">
+                            <label for="productBrand">Брэнд / Үйлдвэрлэгч</label>
+                            <input type="text" id="productBrand" placeholder="UNA">
+                        </div>
+                    </div>
                 </section>
 
                 <section class="product-form-section-admin">
@@ -508,22 +626,96 @@
                             <input type="number" id="productPrice" placeholder="Жишээ: 16500000" min="0" required>
                         </div>
                         <div class="form-group-admin">
+                            <label for="productSalePrice">Sale price</label>
+                            <input type="number" id="productSalePrice" placeholder="Хямдарсан үнэ" min="0">
+                        </div>
+                    </div>
+                    <div class="form-row-admin">
+                        <div class="form-group-admin">
+                            <label for="productDiscountPercent">Discount %</label>
+                            <input type="number" id="productDiscountPercent" placeholder="0" min="0" max="100">
+                        </div>
+                        <div class="form-group-admin">
                             <label for="productStock">Үлдэгдэл *</label>
                             <input type="number" id="productStock" placeholder="Жишээ: 12" min="0" value="0" required>
                         </div>
                     </div>
                     <div class="form-group-admin">
-                        <label for="productCategory">Ангилал *</label>
-                        <select id="productCategory" required>
-                            <option value="">Ангилал уншиж байна...</option>
+                        <label for="productStockStatus">Stock status</label>
+                        <select id="productStockStatus">
+                            <option value="available">available</option>
+                            <option value="preorder">preorder</option>
+                            <option value="out_of_stock">out_of_stock</option>
                         </select>
+                    </div>
+                    <div class="form-row-admin">
+                        <div class="form-group-admin">
+                            <label for="productCategory">Үндсэн ангилал *</label>
+                            <select id="productCategory" required>
+                                <option value="">Ангилал сонгоно уу</option>
+                            </select>
+                        </div>
+                        <div class="form-group-admin">
+                            <label for="productSubCategory">Дэд ангилал *</label>
+                            <select id="productSubCategory" required>
+                                <option value="">Эхлээд үндсэн ангилал сонгоно уу</option>
+                            </select>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="product-form-section-admin">
+                    <h3>Furniture Details</h3>
+                    <div class="form-row-admin">
+                        <div class="form-group-admin">
+                            <label for="productWidth">Width</label>
+                            <input type="text" id="productWidth" placeholder="180cm">
+                        </div>
+                        <div class="form-group-admin">
+                            <label for="productHeight">Height</label>
+                            <input type="text" id="productHeight" placeholder="90cm">
+                        </div>
+                        <div class="form-group-admin">
+                            <label for="productDepth">Depth</label>
+                            <input type="text" id="productDepth" placeholder="95cm">
+                        </div>
+                    </div>
+                    <div class="form-row-admin">
+                        <div class="form-group-admin">
+                            <label for="productMaterial">Материал</label>
+                            <input type="text" id="productMaterial" placeholder="Performance fabric, wood frame">
+                        </div>
+                        <div class="form-group-admin">
+                            <label for="productWeight">Жин</label>
+                            <input type="text" id="productWeight" placeholder="72kg">
+                        </div>
+                    </div>
+                    <div class="form-row-admin">
+                        <label class="admin-checkbox-field">
+                            <input type="checkbox" id="productDeliveryAvailable" checked>
+                            <span>Хүргэлт боломжтой</span>
+                        </label>
+                        <label class="admin-checkbox-field">
+                            <input type="checkbox" id="productAssemblyRequired">
+                            <span>Угсралт шаардлагатай</span>
+                        </label>
+                    </div>
+                    <div class="form-group-admin">
+                        <label for="productWarrantyNote">Warranty / delivery note</label>
+                        <textarea id="productWarrantyNote" rows="3" placeholder="Баталгаа, хүргэлт, угсралтын нөхцөл"></textarea>
+                    </div>
+                    <div class="form-group-admin">
+                        <label for="productDeliveryNote">Delivery note</label>
+                        <textarea id="productDeliveryNote" rows="3" placeholder="Жишээ: Улаанбаатар хот дотор 24-48 цаг"></textarea>
                     </div>
                 </section>
 
                 <section class="product-form-section-admin">
                     <h3>Main Image</h3>
                     <div class="form-group-admin">
-                        <label for="productImages">Main Image URLs</label>
+                        <label for="productImages">Main image + Gallery image URLs</label>
+                        <input type="file" id="productImageUpload" accept="image/*">
+                        <small class="form-help-admin">Зураг upload хийвэл URL талбарт автоматаар нэмэгдэнэ.</small>
                         <textarea id="productImages" placeholder="https://example.com/product-1.jpg&#10;https://example.com/product-2.jpg" rows="4"></textarea>
                         <small class="form-help-admin">Нэг мөрөнд нэг зурагны URL оруулна. Эхний зураг үндсэн зураг болно.</small>
                     </div>
@@ -572,6 +764,19 @@
         </div>
     </div>
 
+    <div id="descriptionModal" class="admin-modal">
+        <div class="modal-content-admin description-modal-content">
+            <div class="modal-header-admin">
+                <h2 id="descriptionModalTitle">Бүтээгдэхүүний тайлбар</h2>
+                <button id="closeDescriptionModalBtn" class="modal-close-btn" type="button" aria-label="Хаах">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="descriptionPreviewContent" class="description-preview-content"></div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="admin.js"></script>
 </body>
 </html>

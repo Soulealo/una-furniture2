@@ -2,6 +2,10 @@ name = "una-furniture"
 main = "worker/index.js"
 compatibility_date = "2026-04-27"
 workers_dev = true
+routes = [
+  { pattern = "unafurniture.com", custom_domain = true },
+  { pattern = "www.unafurniture.com", custom_domain = true }
+]
 
 [vars]
 ADMIN_USERNAME = "admin"

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Миний аккаунт - UNA Home & Furniture</title>
+    <title>Захиалга баталгаажуулах - UNA Home & Furniture</title>
     <link rel="icon" href="data:,">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,20 +11,14 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
 </head>
-<body data-protected-page="true" data-page="account">
+<body data-page="checkout">
     <nav class="navbar">
         <div class="nav-container">
             <a href="index.html" class="nav-logo">
                 <img class="site-logo-img" src="assets/logo/new-logo.png" alt="UNA Furniture Logo" onerror="this.hidden=true;this.nextElementSibling.classList.add('logo-fallback-visible');">
                 <span class="logo-fallback">UNA Home & Furniture</span>
             </a>
-
-            <div class="hamburger">
-                <span></span>
-                <span></span>
-                <span></span>
-            </div>
-
+            <div class="hamburger"><span></span><span></span><span></span></div>
             <ul class="nav-menu">
                 <li><a href="index.html" class="nav-link">Нүүр</a></li>
                 <li class="nav-item-dropdown">
@@ -66,7 +60,6 @@
                 <li><a href="index.html#services" class="nav-link">Үйлчилгээ</a></li>
                 <li><a href="index.html#contact" class="nav-link">Холбоо барих</a></li>
             </ul>
-
             <div class="nav-right">
                 <i class="fas fa-user"></i>
                 <a href="login.html" class="login-btn">Нэвтрэх</a>
@@ -74,99 +67,74 @@
         </div>
     </nav>
 
-    <section class="account-hero">
+    <section class="cart-hero">
         <div class="hero-overlay"></div>
         <div class="hero-content">
-            <h1 class="hero-title">Миний аккаунт</h1>
-            <p class="hero-subtitle">Таны UNA Home & Furniture профайл</p>
+            <h1 class="hero-title">Checkout</h1>
+            <p class="hero-subtitle">Хүргэлт, төлбөр, захиалгын баталгаажуулалт</p>
         </div>
     </section>
 
-    <section class="account-section">
+    <section class="cart-section checkout-page-section">
         <div class="container">
-            <div id="accountMessage" class="account-message"></div>
+            <div id="checkoutEmpty" class="cart-empty hidden">
+                <i class="fas fa-shopping-cart"></i>
+                <p>Таны сагс хоосон байна.</p>
+                <a href="products.html" class="account-primary-btn">Бүтээгдэхүүн үзэх</a>
+            </div>
 
-            <div class="account-grid">
-                <article class="account-card">
-                    <div class="account-card-header">
-                        <div class="account-avatar">
-                            <i class="fas fa-user"></i>
-                        </div>
-                        <div>
-                            <span class="account-kicker">Гишүүний мэдээлэл</span>
-                            <h2 id="accountFullname">-</h2>
-                        </div>
+            <div id="checkoutPageLayout" class="cart-layout">
+                <div class="cart-items-panel">
+                    <div class="cart-header-row">
+                        <span class="account-kicker">Order</span>
+                        <h2>Захиалгын бараанууд</h2>
                     </div>
-
-                    <div class="account-info-list">
-                        <div class="account-info-row">
-                            <span>Username</span>
-                            <strong id="accountUsername">-</strong>
-                        </div>
-                        <div class="account-info-row">
-                            <span>Нэр</span>
-                            <strong id="accountName">-</strong>
-                        </div>
-                        <div class="account-info-row">
-                            <span>И-мэйл</span>
-                            <strong id="accountEmail">-</strong>
-                        </div>
-                        <div class="account-info-row">
-                            <span>Утасны дугаар</span>
-                            <strong id="accountPhone">-</strong>
-                        </div>
-                        <div class="account-info-row">
-                            <span>Хаяг</span>
-                            <strong id="accountAddress">-</strong>
-                        </div>
-                        <div class="account-info-row">
-                            <span>Бүртгүүлсэн огноо</span>
-                            <strong id="accountCreatedAt">-</strong>
-                        </div>
-                        <div class="account-info-row">
-                            <span>Role</span>
-                            <strong id="accountRole">-</strong>
-                        </div>
-                    </div>
-
-                    <div class="account-actions">
-                        <button id="showEditAccountBtn" class="account-primary-btn" type="button">Мэдээлэл засах</button>
-                        <button id="showPasswordBtn" class="account-secondary-btn" type="button">Нууц үг солих</button>
-                        <button class="account-logout-btn logout-btn" type="button">Гарах</button>
-                    </div>
-                </article>
-
-                <div class="account-panels">
-                    <form id="accountEditForm" class="account-form hidden">
-                        <h3>Мэдээлэл засах</h3>
-                        <label for="editFullname">Нэр</label>
-                        <input id="editFullname" type="text" required>
-                        <label for="editPhone">Утасны дугаар</label>
-                        <input id="editPhone" type="tel" placeholder="+976 ...">
-                        <label for="editAddress">Хаяг</label>
-                        <textarea id="editAddress" rows="4"></textarea>
-                        <button class="account-primary-btn" type="submit">Хадгалах</button>
-                    </form>
-
-                    <form id="changePasswordForm" class="account-form hidden">
-                        <h3>Нууц үг солих</h3>
-                        <label for="oldPassword">Одоогийн нууц үг</label>
-                        <input id="oldPassword" type="password" required>
-                        <label for="newPassword">Шинэ нууц үг</label>
-                        <input id="newPassword" type="password" minlength="6" required>
-                        <button class="account-primary-btn" type="submit">Нууц үг солих</button>
-                    </form>
-
-                    <section class="orders-panel">
-                        <div class="orders-panel-header">
-                            <span class="account-kicker">Захиалгын түүх</span>
-                            <h3>Миний захиалгууд</h3>
-                        </div>
-                        <div id="ordersList" class="orders-list">
-                            <p class="empty-products-message">Захиалгын түүх уншиж байна...</p>
-                        </div>
-                    </section>
+                    <div id="checkoutItems" class="cart-items"></div>
                 </div>
+
+                <aside class="cart-summary">
+                    <form id="checkoutDeliveryForm" class="checkout-step">
+                        <span class="account-kicker">Step 1</span>
+                        <h4>Хүргэлтийн мэдээлэл</h4>
+                        <input id="checkoutFullname" type="text" placeholder="Бүтэн нэр" required>
+                        <input id="checkoutPhone" type="tel" placeholder="Утас" required>
+                        <input id="checkoutEmail" type="email" placeholder="Имэйл">
+                        <textarea id="checkoutAddress" placeholder="Хүргэлтийн хаяг" rows="3" required></textarea>
+                        <textarea id="checkoutNote" placeholder="Нэмэлт тайлбар" rows="2"></textarea>
+                    </form>
+
+                    <div class="checkout-step">
+                        <span class="account-kicker">Step 2</span>
+                        <h4>Төлбөрийн арга</h4>
+                        <label class="payment-method-option">
+                            <input type="radio" name="checkoutPaymentMethod" value="bank_transfer" checked>
+                            <span><i class="fas fa-university"></i> Банкны шилжүүлэг</span>
+                        </label>
+                        <label class="payment-method-option">
+                            <input type="radio" name="checkoutPaymentMethod" value="facebook_chat">
+                            <span><i class="fab fa-facebook-messenger"></i> Facebook chat-аар захиалах</span>
+                        </label>
+                        <label class="payment-method-option">
+                            <input type="radio" name="checkoutPaymentMethod" value="cash_on_delivery">
+                            <span><i class="fas fa-money-bill-wave"></i> Бэлэн төлөх</span>
+                        </label>
+                        <label class="payment-method-option">
+                            <input type="radio" name="checkoutPaymentMethod" value="qpay">
+                            <span><i class="fas fa-qrcode"></i> QPay</span>
+                        </label>
+                        <input id="checkoutReference" type="text" placeholder="Гүйлгээний лавлах код / reference">
+                        <div id="checkoutPaymentInfo" class="bank-payment-result hidden"></div>
+                    </div>
+
+                    <div class="checkout-step">
+                        <span class="account-kicker">Step 3</span>
+                        <h4>Захиалгын баталгаажуулалт</h4>
+                        <div id="checkoutConfirmation" class="checkout-confirmation"></div>
+                        <button id="confirmCheckoutBtn" class="checkout-btn" type="button">Захиалга баталгаажуулах</button>
+                    </div>
+
+                    <div id="bankPaymentResult" class="bank-payment-result hidden"></div>
+                </aside>
             </div>
         </div>
     </section>
@@ -177,12 +145,7 @@
                 <img class="footer-logo-img" src="assets/logo/new-logo.png" alt="UNA Furniture Logo" onerror="this.hidden=true;this.nextElementSibling.classList.add('logo-fallback-visible');">
                 <span class="logo-fallback">UNA Home & Furniture</span>
             </div>
-            <p>© 2026 UNA Home & Furniture. Бүх эрх хуулиар хамгаалагдсан. | Таны гэрт тохирох ганц, төгс сонголт</p>
-            <div class="social-links">
-                <a href="#"><i class="fab fa-facebook"></i></a>
-                <a href="#"><i class="fab fa-instagram"></i></a>
-                <a href="#"><i class="fab fa-linkedin"></i></a>
-            </div>
+            <p>© 2026 UNA Home & Furniture. Бүх эрх хуулиар хамгаалагдсан.</p>
         </div>
     </footer>
 

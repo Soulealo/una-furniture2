@@ -1,0 +1,9 @@
+{
+  "files.associations": {
+    "*.sql": "sqlite"
+  },
+  "sql-formatter.dialect": "sqlite",
+  "sqltools.format": {
+    "language": "sqlite"
+  }
+}

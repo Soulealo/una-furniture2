@@ -11,6 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
 <link href="styles.css" rel="stylesheet"/>
+<link href="legal-modal.css" rel="stylesheet"/>
 </head>
 <body>
 
@@ -26,7 +27,42 @@
 <ul class="nav-menu">
 <li><a class="nav-link" href="index.html">Нүүр</a></li>
 
-<li><a class="nav-link" href="products.html">Бүтээгдэхүүн</a></li>
+<li class="nav-item-dropdown">
+<a class="nav-link nav-dropdown-toggle" href="products.html">Бүтээгдэхүүн <i class="fas fa-chevron-down" aria-hidden="true"></i></a>
+<div class="nav-dropdown-menu nav-dropdown-mega">
+                        <div class="nav-dropdown-section">
+                            <span class="nav-dropdown-heading">Орон зай</span>
+                            <a href="products.html?category=Зочны%20өрөө" class="nav-dropdown-link">Зочны өрөө</a>
+                            <a href="products.html?category=Унтлагын%20өрөө" class="nav-dropdown-link">Унтлагын өрөө</a>
+                            <a href="products.html?category=Гал%20тогоо" class="nav-dropdown-link">Гал тогоо</a>
+                            <a href="products.html?category=Оффис" class="nav-dropdown-link">Оффис</a>
+                            <a href="products.html?category=Захиалгат%20тавилга" class="nav-dropdown-link">Захиалгат тавилга</a>
+                        </div>
+                        <div class="nav-dropdown-section">
+                            <span class="nav-dropdown-heading">Тавилга</span>
+                            <a href="products.html?category=Буйдан%20%26%20сандал" class="nav-dropdown-link">Буйдан &amp; сандал</a>
+                            <a href="products.html?category=Ширээ%20%26%20шүүгээ" class="nav-dropdown-link">Ширээ &amp; шүүгээ</a>
+                            <a href="products.html?category=Гэрэлтүүлэг" class="nav-dropdown-link">Гэрэлтүүлэг</a>
+                            <a href="products.html?category=Текстиль" class="nav-dropdown-link">Текстиль</a>
+                        </div>
+                        <div class="nav-dropdown-section">
+                            <span class="nav-dropdown-heading">Гоёл чимэглэл</span>
+                            <a href="products.html?category=Ваар%20%26%20аяга" class="nav-dropdown-link">Ваар &amp; аяга</a>
+                            <a href="products.html?category=Tray%20%26%20tabletop" class="nav-dropdown-link">Tray &amp; tabletop</a>
+                            <a href="products.html?category=Лааны%20суурь" class="nav-dropdown-link">Лааны суурь</a>
+                            <a href="products.html?category=Хөшөө%20%26%20decor" class="nav-dropdown-link">Хөшөө &amp; decor</a>
+                            <a href="products.html?category=Зургийн%20жааз%20%26%20хайрцаг" class="nav-dropdown-link">Зургийн жааз &amp; хайрцаг</a>
+                        </div>
+                        <div class="nav-dropdown-section">
+                            <span class="nav-dropdown-heading">Хана ба гадна</span>
+                            <a href="products.html?category=Толь" class="nav-dropdown-link">Толь</a>
+                            <a href="products.html?category=Ханын%20чимэглэл" class="nav-dropdown-link">Ханын чимэглэл</a>
+                            <a href="products.html?category=Цаг" class="nav-dropdown-link">Цаг</a>
+                            <a href="products.html?category=Гадна%20орчин" class="nav-dropdown-link">Гадна орчин</a>
+                            <a href="products.html?category=Шинэ%20загварууд" class="nav-dropdown-link">Шинэ загварууд</a>
+                        </div>
+                    </div>
+                </li>
 <li><a class="nav-link" href="index.html#services">Үйлчилгээ</a></li>
 <li><a class="nav-link" href="index.html#contact">Холбоо барих</a></li>
 </ul>
@@ -87,8 +123,8 @@
 </div>
 <div class="terms-checkbox">
 <label>
-<input name="terms" required="" type="checkbox"/>
-<span><a class="terms-link" href="#">Үйлчилгээний нөхцөл</a> болон <a class="terms-link" href="#">Нууцлалын бодлого</a>-г зөвшөөрч байна</span>
+<input id="agree-checkbox" name="terms" required="" type="checkbox"/>
+<span>Би <a class="legal-inline-link" href="terms.html" data-legal-tab="terms">Үйлчилгээний нөхцөл</a> болон <a class="legal-inline-link" href="privacy.html" data-legal-tab="privacy">Нууцлалын бодлого</a>-той танилцаж, зөвшөөрч байна.</span>
 </label>
 </div>
 <button class="signup-submit-btn" type="submit">
@@ -129,6 +165,7 @@
 </div>
 </div>
 </footer>
+<script src="legal-modal.js"></script>
 <script src="script.js"></script>
 </body>
 </html>

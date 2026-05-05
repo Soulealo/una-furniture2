@@ -1,4 +1,7 @@
 const API_BASE = (() => {
+    const configuredBase = String(window.UNA_API_BASE || localStorage.getItem('UNA_API_BASE') || '').trim();
+    if (configuredBase) return configuredBase.replace(/\/+$/, '');
+    if (window.location.protocol === 'file:') return 'http://localhost:8787';
     return '';
 })();
 const TOKEN_KEY = 'unaToken';
@@ -6,8 +9,53 @@ const CART_KEY = 'unaCart';
 const DEFAULT_PRODUCT_IMAGE = 'data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%22800%22%20height%3D%22600%22%20viewBox%3D%220%200%20800%20600%22%3E%3Crect%20width%3D%22800%22%20height%3D%22600%22%20fill%3D%22%23f5f1ed%22/%3E%3Cpath%20d%3D%22M260%20360l90-110%2070%2085%2055-65%20105%20125H220z%22%20fill%3D%22%23d4b896%22/%3E%3Ccircle%20cx%3D%22545%22%20cy%3D%22205%22%20r%3D%2242%22%20fill%3D%22%23c9a961%22/%3E%3Ctext%20x%3D%22400%22%20y%3D%22465%22%20text-anchor%3D%22middle%22%20font-family%3D%22Arial%2C%20sans-serif%22%20font-size%3D%2234%22%20fill%3D%22%232a2420%22%3EUNA%20Home%3C/text%3E%3C/svg%3E';
 const DEMO_PRODUCT_CODES = ['SOFA-001', 'TABLE-001', 'CHAIR-001', 'LIGHT-001', 'DECOR-001', 'ART-001'];
 const DEMO_PRODUCT_NAMES = ['UNA Булан Буйдан', 'Модон Хоолны Ширээ', 'Орчин Үеийн Сандал', 'Алтан Гэрэлтүүлэг', 'Интерьер Чимэглэл', 'Ханын Урлагийн Зураг'];
+const DEFAULT_CATEGORY_FILTERS = ['Зочны өрөө', 'Унтлагын өрөө', 'Гал тогоо', 'Ажлын өрөө', 'Захиалгат тавилга'];
+const CATEGORY_TREE = {
+    "Орон зай": ["Зочны өрөө", "Унтлагын өрөө", "Гал тогоо", "Ажлын өрөө", "Захиалгат тавилга"],
+    "Тавилга": ["Буйдан ба сандал", "Ширээ ба шүүгээ", "Гэрэлтүүлэг", "Даавуун эдлэл"],
+    "Гоёл чимэглэл": ["Ваар ба аяга", "Тавиур ба ширээний хэрэглэл", "Лааны суурь", "Чимэглэлийн хөшөө ба эдлэл", "Зургийн жааз ба хайрцаг"],
+    "Хана ба гадна": ["Толь", "Ханын чимэглэл", "Цаг", "Гадна орчны тавилга", "Шинэ загварууд"]
+};
+const CATEGORY_NAME_MAP = {
+    "Office": "Ажлын өрөө",
+    "Оффис": "Ажлын өрөө",
+    "Textile": "Даавуун эдлэл",
+    "Текстиль": "Даавуун эдлэл",
+    "Bed": "Ор",
+    "Chair": "Сандал",
+    "Decor": "Чимэглэл",
+    "Sofa": "Буйдан",
+    "Uncategorized": "Ангилаагүй",
+    "Буйдан & сандал": "Буйдан ба сандал",
+    "Ширээ & шүүгээ": "Ширээ ба шүүгээ",
+    "Ваар & аяга": "Ваар ба аяга",
+    "Tray & tabletop": "Тавиур ба ширээний хэрэглэл",
+    "Хөшөө & decor": "Чимэглэлийн хөшөө ба эдлэл",
+    "Зургийн жааз & хайрцаг": "Зургийн жааз ба хайрцаг",
+    "Гадна орчин": "Гадна орчны тавилга"
+};
+const LEGACY_CATEGORY_MAP = {
+    "Bed": { category: "Орон зай", subCategory: "Унтлагын өрөө" },
+    "Chair": { category: "Тавилга", subCategory: "Буйдан ба сандал" },
+    "Sofa": { category: "Тавилга", subCategory: "Буйдан ба сандал" },
+    "Decor": { category: "Гоёл чимэглэл", subCategory: "Чимэглэлийн хөшөө ба эдлэл" },
+    "Uncategorized": { category: "Орон зай", subCategory: "Зочны өрөө" },
+    "Office": { category: "Орон зай", subCategory: "Ажлын өрөө" },
+    "Оффис": { category: "Орон зай", subCategory: "Ажлын өрөө" },
+    "Textile": { category: "Тавилга", subCategory: "Даавуун эдлэл" },
+    "Текстиль": { category: "Тавилга", subCategory: "Даавуун эдлэл" },
+    "Буйдан & сандал": { category: "Тавилга", subCategory: "Буйдан ба сандал" },
+    "Ширээ & шүүгээ": { category: "Тавилга", subCategory: "Ширээ ба шүүгээ" },
+    "Ваар & аяга": { category: "Гоёл чимэглэл", subCategory: "Ваар ба аяга" },
+    "Tray & tabletop": { category: "Гоёл чимэглэл", subCategory: "Тавиур ба ширээний хэрэглэл" },
+    "Хөшөө & decor": { category: "Гоёл чимэглэл", subCategory: "Чимэглэлийн хөшөө ба эдлэл" },
+    "Зургийн жааз & хайрцаг": { category: "Гоёл чимэглэл", subCategory: "Зургийн жааз ба хайрцаг" },
+    "Гадна орчин": { category: "Хана ба гадна", subCategory: "Гадна орчны тавилга" }
+};
+const ALL_SUB_CATEGORIES = Object.values(CATEGORY_TREE).flat();
 
-let selectedCategoryId = 'all';
+let selectedMainCategory = 'all';
+let selectedSubCategory = 'all';
 let selectedSort = 'default';
 let selectedSearchTerm = '';
 let productsCache = [];
@@ -15,6 +63,7 @@ let productsLoaded = false;
 let categoriesCache = [];
 let categoriesLoaded = false;
 let authUserCache = null;
+let paymentSettingsCache = null;
 
 function clearLegacyProductStorage() {
     ['products', 'unaProducts', 'demoProducts', 'productCache', 'sampleProducts'].forEach(key => {
@@ -23,13 +72,20 @@ function clearLegacyProductStorage() {
 }
 
 async function requestJson(url, options = {}) {
-    const response = await fetch(url, {
-        ...options,
-        headers: {
-            Accept: 'application/json',
-            ...(options.headers || {})
-        }
-    });
+    let response;
+
+    try {
+        response = await fetch(url, {
+            ...options,
+            headers: {
+                Accept: 'application/json',
+                ...(options.headers || {})
+            }
+        });
+    } catch (error) {
+        throw new Error('Сервертэй холбогдох боломжгүй байна. Local server асаалттай эсэхийг шалгана уу.');
+    }
+
     const responseText = await response.text();
     let data = null;
 
@@ -84,8 +140,42 @@ function normalizeProduct(product, index = 0) {
         name: product?.name || 'Бүтээгдэхүүн',
         description: product?.description || '',
         price: Number.isFinite(numericPrice) ? numericPrice : 0,
+        salePrice: product?.salePrice === null || product?.salePrice === undefined ? null : Number(product.salePrice) || null,
+        discountPercent: Number(product?.discountPercent) || 0,
         categoryId: product?.categoryId || product?.categoryName || product?.category || '',
-        category: product?.categoryName || product?.category || 'Uncategorized',
+        category: (() => {
+            const raw = CATEGORY_NAME_MAP[product?.categoryName || product?.category] || product?.categoryName || product?.category || 'Ангилаагүй';
+            if (CATEGORY_TREE[raw]) return raw;
+            if (LEGACY_CATEGORY_MAP[raw]) return LEGACY_CATEGORY_MAP[raw].category;
+            // Check if raw is a sub category name and find its parent
+            for (const [main, subs] of Object.entries(CATEGORY_TREE)) {
+                if (subs.includes(raw)) return main;
+            }
+            return raw;
+        })(),
+        subCategory: (() => {
+            const rawSub = CATEGORY_NAME_MAP[product?.subCategory] || product?.subCategory || '';
+            if (rawSub && ALL_SUB_CATEGORIES.includes(rawSub)) return rawSub;
+            const rawCat = product?.categoryName || product?.category || 'Ангилаагүй';
+            const mappedCat = CATEGORY_NAME_MAP[rawCat] || rawCat;
+            if (LEGACY_CATEGORY_MAP[rawCat]) return LEGACY_CATEGORY_MAP[rawCat].subCategory;
+            if (LEGACY_CATEGORY_MAP[mappedCat]) return LEGACY_CATEGORY_MAP[mappedCat].subCategory;
+            // If mappedCat is actually a sub category name
+            if (ALL_SUB_CATEGORIES.includes(mappedCat)) return mappedCat;
+            return rawSub;
+        })(),
+        sku: product?.sku || product?.productCode || '',
+        width: product?.width || product?.dimensions?.width || '',
+        height: product?.height || product?.dimensions?.height || '',
+        depth: product?.depth || product?.dimensions?.depth || '',
+        material: product?.material || '',
+        weight: product?.weight || '',
+        brand: product?.brand || product?.manufacturer || '',
+        deliveryAvailable: product?.deliveryAvailable !== false,
+        assemblyRequired: product?.assemblyRequired === true,
+        stockStatus: product?.stockStatus || (Number(product?.stock) > 0 ? 'available' : 'out_of_stock'),
+        warrantyNote: product?.warrantyNote || '',
+        deliveryNote: product?.deliveryNote || '',
         images: Array.isArray(product?.images)
             ? product.images.map(image => String(image || '').trim()).filter(Boolean)
             : String(product?.imageUrl || product?.image || '').trim() ? [String(product?.imageUrl || product?.image || '').trim()] : [],
@@ -106,7 +196,8 @@ function normalizeProducts(products) {
 }
 
 async function fetchProducts() {
-    const products = await requestJson(`${API_BASE}/products`);
+    const query = selectedSearchTerm ? `?q=${encodeURIComponent(selectedSearchTerm)}` : '';
+    const products = await requestJson(`${API_BASE}/api/products${query}`);
     return normalizeProducts(products);
 }
 
@@ -156,7 +247,7 @@ async function ensureProductsLoaded() {
 }
 
 async function fetchProduct(productId) {
-    const product = await requestJson(`${API_BASE}/products/${productId}`);
+    const product = await requestJson(`${API_BASE}/api/products/${productId}`);
     return normalizeProduct(product);
 }
 
@@ -240,12 +331,21 @@ function normalizeColorVariants(value) {
 
     return source
         .map(variant => {
-            const colorValue = String(variant?.colorValue || variant?.color_value || variant?.color || variant?.value || '').trim();
+            const colorValue = String(variant?.colorHex || variant?.colorValue || variant?.color_value || variant?.color || variant?.value || '').trim();
+            const price = Number(variant?.price);
+            const salePrice = Number(variant?.salePrice || variant?.sale_price);
+            const stock = Number(variant?.stock);
             const normalized = {
-                name: String(variant?.name || '').trim(),
+                name: String(variant?.name || variant?.colorName || '').trim(),
+                colorName: String(variant?.name || variant?.colorName || '').trim(),
                 color: colorValue,
+                colorHex: colorValue,
                 colorValue,
-                image: String(variant?.image || variant?.imageUrl || '').trim()
+                image: String(variant?.image || variant?.imageUrl || '').trim(),
+                price: Number.isFinite(price) && price >= 0 ? price : null,
+                salePrice: Number.isFinite(salePrice) && salePrice >= 0 ? salePrice : null,
+                stock: Number.isFinite(stock) && stock >= 0 ? Math.round(stock) : null,
+                sku: String(variant?.sku || variant?.productCode || '').trim()
             };
             const id = Number(variant?.id);
 
@@ -289,24 +389,38 @@ function getProductOptions(product) {
 function createProductCard(product, useShortDescription = false) {
     const productCard = document.createElement('div');
     const description = shortenText(product.description, useShortDescription ? 110 : 105);
+    const { colorVariants } = getProductOptions(product);
+    const detailUrl = `product-detail.html?id=${encodeURIComponent(product.id)}`;
+    const displayPrice = product.salePrice ? product.salePrice : product.price;
+    const materialText = product.material ? escapeHtml(product.material) : 'Сонгомол материал';
 
     productCard.className = 'product-card';
     productCard.dataset.productId = String(product.id);
     productCard.innerHTML = `
         <div class="product-image">
-            <img alt="${escapeHtml(product.name)}" src="${escapeHtml(getProductMainImage(product))}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'"/>
+            <img alt="${escapeHtml(product.name)}" src="${escapeHtml(getProductMainImage(product))}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'"/>
             <div class="product-overlay">
-                <button class="view-details-btn" type="button" data-product-id="${escapeHtml(product.id)}">Дэлгэрэнгүй үзэх</button>
+                <a class="view-details-btn" href="${escapeHtml(detailUrl)}" data-product-id="${escapeHtml(product.id)}">Дэлгэрэнгүй харах</a>
             </div>
         </div>
         <div class="product-info">
-            <span class="product-category">${escapeHtml(product.category)}</span>
+            <div class="product-meta-row">
+                <span class="product-category">${escapeHtml(product.category)}</span>
+                <span class="product-material">${materialText}</span>
+            </div>
             <h3 class="product-name">${escapeHtml(product.name)}</h3>
             <p class="product-description">${escapeHtml(description)}</p>
+            ${colorVariants.length ? `<div class="product-card-swatches" aria-label="Өнгөний сонголт">${colorVariants.slice(0, 5).map(variant => `
+                <span title="${escapeHtml(variant.name || variant.colorValue || 'Өнгө')}" style="--swatch:${escapeHtml(variant.colorValue || variant.color || '#d8c7ae')}"></span>
+            `).join('')}</div>` : ''}
             <div class="product-footer">
-                <span class="product-price">${formatPrice(product.price)}</span>
+                <span class="product-price">${product.salePrice ? `<small>${formatPrice(product.price)}</small>` : ''}${formatPrice(displayPrice)}</span>
+            </div>
+            <div class="product-actions">
+                <a class="view-details-btn product-details-link" href="${escapeHtml(detailUrl)}" data-product-id="${escapeHtml(product.id)}">Дэлгэрэнгүй харах</a>
                 <button class="add-to-cart-btn" type="button" aria-label="Сагсанд нэмэх">
                     <i class="fas fa-shopping-cart"></i>
+                    <span>Сагсанд хийх</span>
                 </button>
             </div>
         </div>
@@ -318,8 +432,12 @@ function createProductCard(product, useShortDescription = false) {
 function getFilteredAndSortedProducts(products) {
     let visibleProducts = [...products];
 
-    if (selectedCategoryId !== 'all') {
-        visibleProducts = visibleProducts.filter(product => product.categoryId === selectedCategoryId);
+    if (selectedMainCategory !== 'all') {
+        visibleProducts = visibleProducts.filter(product => product.category === selectedMainCategory);
+    }
+
+    if (selectedSubCategory !== 'all') {
+        visibleProducts = visibleProducts.filter(product => product.subCategory === selectedSubCategory);
     }
 
     if (selectedSearchTerm) {
@@ -328,6 +446,7 @@ function getFilteredAndSortedProducts(products) {
             product.name,
             product.description,
             product.category,
+            product.subCategory,
             product.colorsText
         ].some(value => String(value || '').toLowerCase().includes(normalizedSearch)));
     }
@@ -345,32 +464,94 @@ function getFilteredAndSortedProducts(products) {
     return visibleProducts;
 }
 
-function renderCategoryFilters(categories) {
+function renderCategoryFilters() {
     const filterContainer = document.querySelector('.category-filter-buttons');
+    let subContainer = document.querySelector('.subcategory-filter-buttons');
 
     if (!filterContainer) return;
 
-    filterContainer.innerHTML = '';
-
-    const categoryOptions = [
-        { id: 'all', name: 'Бүх бүтээгдэхүүн' },
-        ...categories
-    ];
-
-    if (selectedCategoryId !== 'all' && !categories.some(category => category.id === selectedCategoryId)) {
-        selectedCategoryId = 'all';
+    // Create sub container if not present
+    if (!subContainer) {
+        subContainer = document.createElement('div');
+        subContainer.className = 'subcategory-filter-buttons';
+        filterContainer.parentNode.insertBefore(subContainer, filterContainer.nextSibling);
     }
 
-    categoryOptions.forEach(category => {
+    filterContainer.innerHTML = '';
+
+    const mainCategories = [
+        { id: 'all', name: 'Бүх бүтээгдэхүүн' },
+        ...Object.keys(CATEGORY_TREE).map(name => ({ id: name, name }))
+    ];
+
+    mainCategories.forEach(category => {
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = `category-filter-btn${category.id === selectedCategoryId ? ' active' : ''}`;
+        button.className = `category-filter-btn${category.id === selectedMainCategory ? ' active' : ''}`;
         button.textContent = category.name;
         button.addEventListener('click', () => {
-            selectedCategoryId = category.id;
+            selectedMainCategory = category.id;
+            selectedSubCategory = 'all';
+            const nextUrl = new URL(window.location.href);
+            if (category.id === 'all') {
+                nextUrl.searchParams.delete('category');
+                nextUrl.searchParams.delete('sub');
+            } else {
+                nextUrl.searchParams.set('category', category.id);
+                nextUrl.searchParams.delete('sub');
+            }
+            window.history.replaceState({}, '', nextUrl);
+            updateActiveNavLinks();
+            renderSubCategoryFilters(subContainer);
             renderProducts();
         });
         filterContainer.appendChild(button);
+    });
+
+    renderSubCategoryFilters(subContainer);
+}
+
+function renderSubCategoryFilters(subContainer) {
+    if (!subContainer) return;
+
+    subContainer.innerHTML = '';
+
+    if (selectedMainCategory === 'all' || !CATEGORY_TREE[selectedMainCategory]) {
+        subContainer.classList.remove('visible');
+        return;
+    }
+
+    subContainer.classList.add('visible');
+    const subs = CATEGORY_TREE[selectedMainCategory];
+
+    const allButton = document.createElement('button');
+    allButton.type = 'button';
+    allButton.className = `subcategory-filter-btn${selectedSubCategory === 'all' ? ' active' : ''}`;
+    allButton.textContent = 'Бүгд';
+    allButton.addEventListener('click', () => {
+        selectedSubCategory = 'all';
+        const nextUrl = new URL(window.location.href);
+        nextUrl.searchParams.delete('sub');
+        window.history.replaceState({}, '', nextUrl);
+        renderSubCategoryFilters(subContainer);
+        renderProducts();
+    });
+    subContainer.appendChild(allButton);
+
+    subs.forEach(sub => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = `subcategory-filter-btn${sub === selectedSubCategory ? ' active' : ''}`;
+        button.textContent = sub;
+        button.addEventListener('click', () => {
+            selectedSubCategory = sub;
+            const nextUrl = new URL(window.location.href);
+            nextUrl.searchParams.set('sub', sub);
+            window.history.replaceState({}, '', nextUrl);
+            renderSubCategoryFilters(subContainer);
+            renderProducts();
+        });
+        subContainer.appendChild(button);
     });
 }
 
@@ -380,14 +561,11 @@ async function renderProducts() {
 
     productsGrid.innerHTML = '<p class="empty-products-message">Бүтээгдэхүүн уншиж байна...</p>';
 
-    const [products, categories] = await Promise.all([
-        ensureProductsLoaded(),
-        ensureCategoriesLoaded()
-    ]);
+    const products = await ensureProductsLoaded();
     const visibleProducts = getFilteredAndSortedProducts(products);
     const resultCount = document.getElementById('productsResultCount');
 
-    renderCategoryFilters(categories);
+    renderCategoryFilters();
     productsGrid.innerHTML = '';
 
     if (resultCount) {
@@ -395,7 +573,7 @@ async function renderProducts() {
     }
 
     if (visibleProducts.length === 0) {
-        productsGrid.innerHTML = `<p class="empty-products-message">${selectedSearchTerm ? 'Энэ хайлтад бүтээгдэхүүн олдсонгүй.' : 'Энэ ангилалд бүтээгдэхүүн байхгүй байна.'}</p>`;
+        productsGrid.innerHTML = `<p class="empty-products-message">${selectedSearchTerm ? 'Энэ хайлтад бүтээгдэхүүн олдсонгүй.' : 'Бүтээгдэхүүн олдсонгүй'}</p>`;
         return;
     }
 
@@ -406,8 +584,43 @@ async function renderProducts() {
 
 function setupProductControls() {
     const sortSelect = document.getElementById('productSort');
+    const params = new URLSearchParams(window.location.search);
 
-    selectedSearchTerm = new URLSearchParams(window.location.search).get('q')?.trim() || '';
+    selectedSearchTerm = params.get('q')?.trim() || '';
+
+    // Parse category/sub from URL params
+    const urlCategory = params.get('category')?.trim() || '';
+    const urlSub = params.get('sub')?.trim() || '';
+
+    if (urlCategory && CATEGORY_TREE[urlCategory]) {
+        // Direct main category match
+        selectedMainCategory = urlCategory;
+        if (urlSub && CATEGORY_TREE[urlCategory].includes(urlSub)) {
+            selectedSubCategory = urlSub;
+        }
+    } else if (urlCategory) {
+        // Backward compat: urlCategory might be a sub category name
+        for (const [main, subs] of Object.entries(CATEGORY_TREE)) {
+            if (subs.includes(urlCategory)) {
+                selectedMainCategory = main;
+                selectedSubCategory = urlCategory;
+                // Fix URL
+                const nextUrl = new URL(window.location.href);
+                nextUrl.searchParams.set('category', main);
+                nextUrl.searchParams.set('sub', urlCategory);
+                window.history.replaceState({}, '', nextUrl);
+                break;
+            }
+        }
+        if (selectedMainCategory === 'all') {
+            // Legacy category name like Bed, Chair, etc.
+            const mapped = LEGACY_CATEGORY_MAP[urlCategory];
+            if (mapped) {
+                selectedMainCategory = mapped.category;
+                selectedSubCategory = mapped.subCategory;
+            }
+        }
+    }
 
     if (!sortSelect) return;
 
@@ -447,18 +660,18 @@ function createProductDetailModal() {
                     <p id="detailProductPrice" class="product-detail-price"></p>
                     <div id="detailProductDescription" class="product-detail-description"></div>
                     <div class="product-detail-purchase">
+                        <div id="detailProductOptions" class="product-detail-options product-color-variants" hidden>
+                            <div class="product-option-group">
+                                <span>Өнгөний сонголт</span>
+                                <strong id="detailSelectedColorName" class="selected-color-name"></strong>
+                                <div id="detailColorVariants" class="detail-color-variants" role="listbox" aria-label="Өнгөний сонголт"></div>
+                            </div>
+                        </div>
                         <div class="product-detail-purchase-row">
                             <div class="quantity-selector">
                                 <button class="quantity-btn quantity-minus" type="button" aria-label="Тоо хасах">-</button>
                                 <span id="detailQuantity">1</span>
                                 <button class="quantity-btn quantity-plus" type="button" aria-label="Тоо нэмэх">+</button>
-                            </div>
-                            <div id="detailProductOptions" class="product-detail-options product-color-variants" hidden>
-                                <div class="product-option-group">
-                                    <span>Өнгөний сонголт</span>
-                                    <strong id="detailSelectedColorName" class="selected-color-name"></strong>
-                                    <div id="detailColorVariants" class="detail-color-variants" role="listbox" aria-label="Өнгөний сонголт"></div>
-                                </div>
                             </div>
                         </div>
                         <div class="product-action-buttons">
@@ -546,7 +759,7 @@ function renderProductDetailOptions(product) {
         variantsContainer.appendChild(button);
     });
 
-    setSelectedColorVariant(0);
+    setSelectedColorVariant(0, false);
 }
 
 function getDetailSelections() {
@@ -561,11 +774,14 @@ function getDetailSelections() {
         selectedColorName: variant.name || variant.colorValue || variant.color || '',
         selectedColor: variant.name || variant.colorValue || variant.color || '',
         selectedColorValue: variant.colorValue || variant.color || '',
-        selectedColorImage: variant.image || ''
+        selectedColorImage: variant.image || '',
+        selectedSku: variant.sku || '',
+        selectedPrice: variant.salePrice || variant.price || '',
+        selectedStock: variant.stock
     };
 }
 
-function setSelectedColorVariant(index) {
+function setSelectedColorVariant(index, updateImage = true) {
     const modal = document.getElementById('productDetailModal');
     const selectedName = document.getElementById('detailSelectedColorName');
     const variants = normalizeColorVariants(parseJsonArray(modal?.dataset.colorVariants));
@@ -583,7 +799,7 @@ function setSelectedColorVariant(index) {
 
     if (selectedName) selectedName.textContent = variant.name || variant.colorValue || variant.color || '';
 
-    if (variant.image) {
+    if (updateImage && variant.image) {
         const images = parseJsonArray(modal.dataset.images);
         const variantImage = getSafeProductImage(variant.image);
         const existingIndex = images.findIndex(image => getSafeProductImage(image) === variantImage);
@@ -682,7 +898,7 @@ function setupProductDetailModal() {
         const buyButton = e.target.closest('.buy-action-btn');
         const modal = document.getElementById('productDetailModal');
 
-        if (detailsButton) {
+        if (detailsButton && detailsButton.tagName !== 'A') {
             openProductDetail(detailsButton.getAttribute('data-product-id'));
         }
 
@@ -698,15 +914,15 @@ function setupProductDetailModal() {
                 const { colorVariants } = getProductOptions(product);
 
                 if (colorVariants.length) {
-                    openProductDetail(product.id);
+                    window.location.href = `product-detail.html?id=${encodeURIComponent(product.id)}`;
                 } else {
                     addProductToCart(product);
                 }
             }
         }
 
-        if (productCard && !e.target.closest('button')) {
-            openProductDetail(productCard.dataset.productId);
+        if (productCard && !e.target.closest('button, a')) {
+            window.location.href = `product-detail.html?id=${encodeURIComponent(productCard.dataset.productId)}`;
         }
 
         if (thumbButton) {
@@ -767,20 +983,275 @@ function setupProductDetailModal() {
     });
 }
 
+function getVariantDisplayPrice(product, variant = null) {
+    const regular = Number(variant?.price ?? product.price ?? 0);
+    const sale = Number(variant?.salePrice ?? product.salePrice ?? 0);
+
+    return {
+        regular: Number.isFinite(regular) ? regular : 0,
+        sale: Number.isFinite(sale) && sale > 0 ? sale : null,
+        current: Number.isFinite(sale) && sale > 0 ? sale : (Number.isFinite(regular) ? regular : 0)
+    };
+}
+
+function getVariantStock(product, variant = null) {
+    if (variant && variant.stock !== null && variant.stock !== undefined && variant.stock !== '') {
+        return Number(variant.stock) || 0;
+    }
+
+    return Number(product.stock) || 0;
+}
+
+function getStockStatus(product, variant = null) {
+    const stock = getVariantStock(product, variant);
+    if (product.stockStatus === 'preorder') return 'preorder';
+    if (product.stockStatus === 'out_of_stock' || stock <= 0) return 'out_of_stock';
+    return 'available';
+}
+
+function renderProductDetailPrice(product, variant = null) {
+    const price = getVariantDisplayPrice(product, variant);
+    return price.sale && price.sale < price.regular
+        ? `<span class="detail-sale-price">${formatPrice(price.sale)}</span><span class="detail-old-price">${formatPrice(price.regular)}</span>`
+        : `<span class="detail-sale-price">${formatPrice(price.current)}</span>`;
+}
+
+function getStockStatusLabel(status) {
+    if (status === 'preorder') return 'Preorder';
+    if (status === 'out_of_stock') return 'Out of stock';
+    return 'Available';
+}
+
+function getFirstAvailableVariantIndex(product) {
+    const { colorVariants } = getProductOptions(product);
+    const availableIndex = colorVariants.findIndex(variant => getVariantStock(product, variant) > 0);
+    return availableIndex >= 0 ? availableIndex : 0;
+}
+
+function setProductDetailPageImage(imageUrl) {
+    const mainImage = document.getElementById('pageDetailMainImage');
+    if (!mainImage) return;
+
+    mainImage.src = getSafeProductImage(imageUrl);
+    mainImage.onerror = () => {
+        mainImage.onerror = null;
+        mainImage.src = DEFAULT_PRODUCT_IMAGE;
+    };
+}
+
+function updateProductDetailPageVariant(product, index) {
+    const { colorVariants } = getProductOptions(product);
+    const variant = colorVariants[index] || null;
+    const status = getStockStatus(product, variant);
+    const priceElement = document.getElementById('pageDetailPrice');
+    const stockElement = document.getElementById('pageDetailStock');
+    const skuElement = document.getElementById('pageDetailSku');
+    const addButton = document.getElementById('pageDetailAddToCart');
+
+    document.querySelectorAll('.page-color-variant').forEach(button => {
+        const active = Number(button.dataset.variantIndex) === index;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-selected', active ? 'true' : 'false');
+    });
+
+    if (variant?.image) setProductDetailPageImage(variant.image);
+    if (priceElement) priceElement.innerHTML = renderProductDetailPrice(product, variant);
+    if (stockElement) {
+        stockElement.textContent = `${getStockStatusLabel(status)} · ${getVariantStock(product, variant)} үлдэгдэл`;
+        stockElement.className = `detail-stock-status ${status}`;
+    }
+    if (skuElement) skuElement.textContent = variant?.sku || product.sku || product.id;
+    if (addButton) addButton.disabled = status === 'out_of_stock';
+
+    const root = document.getElementById('productDetailPageRoot');
+    if (root) {
+        root.dataset.selectedVariantIndex = variant ? String(index) : '';
+        root.dataset.productId = product.id;
+    }
+}
+
+function renderProductDetailPage(product) {
+    const root = document.getElementById('productDetailPageRoot');
+    if (!root) return;
+
+    const { colorVariants } = getProductOptions(product);
+    const selectedIndex = colorVariants.length ? getFirstAvailableVariantIndex(product) : -1;
+    const selectedVariant = selectedIndex >= 0 ? colorVariants[selectedIndex] : null;
+    const images = [...new Set([...(product.images || []), ...colorVariants.map(variant => variant.image).filter(Boolean)])];
+    const firstImage = selectedVariant?.image || images[0] || getProductMainImage(product);
+    const status = getStockStatus(product, selectedVariant);
+
+    root.classList.remove('is-loading');
+    root.dataset.productId = product.id;
+    root.dataset.selectedVariantIndex = selectedIndex >= 0 ? String(selectedIndex) : '';
+    root.innerHTML = `
+        <div class="product-detail-page-grid">
+            <div class="product-detail-page-gallery">
+                <div class="page-detail-main-image-wrap">
+                    <img id="pageDetailMainImage" src="${escapeHtml(getSafeProductImage(firstImage))}" alt="${escapeHtml(product.name)}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
+                </div>
+                <div class="page-detail-thumbs">
+                    ${images.map((image, index) => `
+                        <button class="page-detail-thumb${getSafeProductImage(image) === getSafeProductImage(firstImage) ? ' active' : ''}" type="button" data-image="${escapeHtml(image)}" aria-label="Зураг ${index + 1}">
+                            <img src="${escapeHtml(getSafeProductImage(image))}" alt="${escapeHtml(product.name)} ${index + 1}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+            <div class="product-detail-page-info">
+                <span class="product-detail-category">${escapeHtml(product.category)}</span>
+                <h1>${escapeHtml(product.name)}</h1>
+                <div id="pageDetailPrice" class="page-detail-price">${renderProductDetailPrice(product, selectedVariant)}</div>
+                <p id="pageDetailStock" class="detail-stock-status ${status}">${getStockStatusLabel(status)} · ${getVariantStock(product, selectedVariant)} үлдэгдэл</p>
+
+                ${colorVariants.length ? `
+                    <div class="page-detail-option">
+                        <div class="page-detail-option-head">
+                            <strong>Өнгөний сонголт</strong>
+                            <span>${escapeHtml(selectedVariant?.name || '')}</span>
+                        </div>
+                        <div class="page-color-variants" role="listbox" aria-label="Өнгөний сонголт">
+                            ${colorVariants.map((variant, index) => `
+                                <button class="page-color-variant${index === selectedIndex ? ' active' : ''}" type="button" data-variant-index="${index}" role="option" aria-selected="${index === selectedIndex ? 'true' : 'false'}">
+                                    <img src="${escapeHtml(getSafeProductImage(variant.image))}" alt="${escapeHtml(variant.name || 'Өнгө')}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
+                                    <span>${escapeHtml(variant.name || variant.colorValue || 'Өнгө')}</span>
+                                </button>
+                            `).join('')}
+                        </div>
+                    </div>
+                ` : ''}
+
+                <div class="page-detail-specs">
+                    <div><span>SKU / Product ID</span><strong id="pageDetailSku">${escapeHtml(selectedVariant?.sku || product.sku || product.id)}</strong></div>
+                    <div><span>Хэмжээ</span><strong>${escapeHtml([product.width, product.height, product.depth].filter(Boolean).join(' × ') || '-')}</strong></div>
+                    <div><span>Материал</span><strong>${escapeHtml(product.material || '-')}</strong></div>
+                    <div><span>Жин</span><strong>${escapeHtml(product.weight || '-')}</strong></div>
+                    <div><span>Брэнд</span><strong>${escapeHtml(product.brand || '-')}</strong></div>
+                    <div><span>Хүргэлт</span><strong>${product.deliveryAvailable ? 'Боломжтой' : 'Боломжгүй'}</strong></div>
+                    <div><span>Угсралт</span><strong>${product.assemblyRequired ? 'Шаардлагатай' : 'Шаардлагагүй'}</strong></div>
+                </div>
+
+                <div class="page-detail-actions">
+                    <div class="quantity-selector">
+                        <button class="quantity-btn page-quantity-minus" type="button">-</button>
+                        <span id="pageDetailQuantity">1</span>
+                        <button class="quantity-btn page-quantity-plus" type="button">+</button>
+                    </div>
+                    <button id="pageDetailAddToCart" class="buy-action-btn" type="button" ${status === 'out_of_stock' ? 'disabled' : ''}>Сагсанд нэмэх</button>
+                </div>
+            </div>
+        </div>
+        <div class="product-detail-page-description">
+            <h2>Дэлгэрэнгүй тайлбар</h2>
+            ${formatLongText(product.description)}
+            ${product.deliveryNote || product.warrantyNote ? `<div class="page-detail-notes">${product.deliveryNote ? `<p><strong>Хүргэлт:</strong> ${escapeHtml(product.deliveryNote)}</p>` : ''}${product.warrantyNote ? `<p><strong>Баталгаа:</strong> ${escapeHtml(product.warrantyNote)}</p>` : ''}</div>` : ''}
+        </div>
+    `;
+
+    updateProductDetailPageVariant(product, selectedIndex);
+}
+
+async function renderRelatedProducts(product) {
+    const grid = document.getElementById('relatedProductsGrid');
+    if (!grid) return;
+
+    const products = await ensureProductsLoaded();
+    const related = products
+        .filter(item => item.id !== product.id && item.category === product.category)
+        .slice(0, 4);
+
+    grid.innerHTML = related.length
+        ? ''
+        : '<p class="empty-products-message">Төстэй бүтээгдэхүүн одоогоор байхгүй байна.</p>';
+    related.forEach(item => grid.appendChild(createProductCard(item, true)));
+}
+
+async function setupProductDetailPage() {
+    const root = document.getElementById('productDetailPageRoot');
+    if (!root) return;
+
+    const productId = new URLSearchParams(window.location.search).get('id');
+    if (!productId) {
+        root.innerHTML = '<p class="empty-products-message">Бүтээгдэхүүний ID олдсонгүй.</p>';
+        return;
+    }
+
+    try {
+        const product = await fetchProduct(productId);
+        const cachedIndex = productsCache.findIndex(item => item.id === product.id);
+        if (cachedIndex >= 0) productsCache[cachedIndex] = product;
+        else productsCache.push(product);
+        renderProductDetailPage(product);
+        await renderRelatedProducts(product);
+    } catch (error) {
+        root.innerHTML = `<p class="empty-products-message">${escapeHtml(error.message)}</p>`;
+    }
+
+    root.addEventListener('click', async (e) => {
+        const thumb = e.target.closest('.page-detail-thumb');
+        const variantButton = e.target.closest('.page-color-variant');
+        const minus = e.target.closest('.page-quantity-minus');
+        const plus = e.target.closest('.page-quantity-plus');
+        const addButton = e.target.closest('#pageDetailAddToCart');
+        const product = productsCache.find(item => String(item.id) === String(root.dataset.productId));
+
+        if (!product) return;
+
+        if (thumb) {
+            document.querySelectorAll('.page-detail-thumb').forEach(button => button.classList.toggle('active', button === thumb));
+            setProductDetailPageImage(thumb.dataset.image);
+        }
+
+        if (variantButton) {
+            updateProductDetailPageVariant(product, Number(variantButton.dataset.variantIndex || 0));
+        }
+
+        if (minus || plus) {
+            const quantity = document.getElementById('pageDetailQuantity');
+            const value = Number(quantity?.textContent || 1);
+            if (quantity) quantity.textContent = String(plus ? value + 1 : Math.max(1, value - 1));
+        }
+
+        if (addButton) {
+            const { colorVariants } = getProductOptions(product);
+            const selectedIndex = Number(root.dataset.selectedVariantIndex || -1);
+            const variant = colorVariants[selectedIndex] || null;
+            const price = getVariantDisplayPrice(product, variant);
+            const quantity = Number(document.getElementById('pageDetailQuantity')?.textContent || 1);
+            const added = addProductToCart(product, quantity, {
+                selectedColorName: variant?.name || '',
+                selectedColorValue: variant?.colorValue || variant?.color || '',
+                selectedColorImage: variant?.image || '',
+                selectedSku: variant?.sku || product.sku || '',
+                selectedPrice: price.current,
+                selectedStock: getVariantStock(product, variant)
+            });
+
+            if (added) window.location.href = 'cart.html';
+        }
+    });
+}
+
 async function renderFeaturedProducts() {
     const featuredGrid = document.querySelector('.featured-products-grid');
     if (!featuredGrid) return;
 
-    featuredGrid.innerHTML = '<p class="empty-products-message">Бүтээгдэхүүн уншиж байна...</p>';
+    featuredGrid.innerHTML = Array.from({ length: 4 }).map(() => '<div class="product-card product-card-skeleton" aria-hidden="true"></div>').join('');
 
-    const featuredProducts = (await ensureProductsLoaded()).slice(0, 4);
-    featuredGrid.innerHTML = '';
+    let featuredProducts = [];
+
+    try {
+        featuredProducts = normalizeProducts(await requestJson(`${API_BASE}/api/products?featured=true`)).slice(0, 4);
+    } catch (error) {
+        featuredProducts = (await ensureProductsLoaded()).slice(0, 4);
+    }
 
     if (featuredProducts.length === 0) {
         featuredGrid.innerHTML = '<p class="empty-products-message">Бүтээгдэхүүн одоогоор байхгүй байна.</p>';
         return;
     }
 
+    featuredGrid.innerHTML = '';
     featuredProducts.forEach(product => {
         featuredGrid.appendChild(createProductCard(product, true));
     });
@@ -885,11 +1356,18 @@ async function requestAuthJson(url, options = {}) {
         headers.Authorization = `Bearer ${token}`;
     }
 
-    const response = await fetch(url, {
-        ...options,
-        headers,
-        credentials: 'same-origin'
-    });
+    let response;
+
+    try {
+        response = await fetch(url, {
+            ...options,
+            headers,
+            credentials: 'same-origin'
+        });
+    } catch (error) {
+        throw new Error('Сервертэй холбогдох боломжгүй байна. Local server асаалттай эсэхийг шалгана уу.');
+    }
+
     const responseText = await response.text();
     let data = null;
 
@@ -969,15 +1447,17 @@ function getCartOptionLines(item) {
 }
 
 function addProductToCart(product, quantity = 1, selections = {}) {
-    if (!isLoggedIn()) {
-        redirectToLogin(getCurrentPageName());
-        return false;
-    }
+    const loggedOut = !isLoggedIn();
 
     const { colorVariants } = getProductOptions(product);
     const selectedColor = String(selections.selectedColorName || selections.selectedColor || selections.color || '').trim();
     const selectedColorValue = String(selections.selectedColorValue || selections.colorValue || '').trim();
     const selectedColorImage = String(selections.selectedColorImage || selections.colorImage || '').trim();
+    const selectedSku = String(selections.selectedSku || selections.sku || product.sku || '').trim();
+    const selectedPrice = Number(selections.selectedPrice || selections.price || product.salePrice || product.price || 0);
+    const selectedStock = selections.selectedStock === null || selections.selectedStock === undefined || selections.selectedStock === ''
+        ? null
+        : Number(selections.selectedStock);
 
     if (colorVariants.length && !selectedColor) {
         alert('Өнгөө сонгоно уу.');
@@ -995,6 +1475,11 @@ function addProductToCart(product, quantity = 1, selections = {}) {
     const existingItem = cart.find(item => getCartItemKey(item) === cartKey);
     const nextQuantity = Math.max(1, Number(quantity) || 1);
 
+    if ((product.stockStatus === 'out_of_stock') || (Number.isFinite(selectedStock) && selectedStock <= 0)) {
+        showToast('Энэ сонголт одоогоор дууссан байна.', 'error');
+        return false;
+    }
+
     if (existingItem) {
         existingItem.quantity = (Number(existingItem.quantity) || 1) + nextQuantity;
         existingItem.selectedColorName = selectedColor;
@@ -1002,15 +1487,18 @@ function addProductToCart(product, quantity = 1, selections = {}) {
         existingItem.selectedColorValue = selectedColorValue;
         existingItem.selectedColorImage = selectedColorImage;
         existingItem.image = selectedColorImage || existingItem.image;
+        existingItem.price = selectedPrice;
+        existingItem.sku = selectedSku;
         existingItem.cartKey = cartKey;
     } else {
         cart.push({
             id: productId,
             cartKey,
-            productCode: '',
+            productCode: selectedSku,
+            sku: selectedSku,
             name: product.name,
             category: product.category,
-            price: Number(product.price) || 0,
+            price: selectedPrice,
             image: selectedColorImage || getProductMainImage(product),
             selectedColorName: selectedColor,
             selectedColor,
@@ -1021,8 +1509,44 @@ function addProductToCart(product, quantity = 1, selections = {}) {
     }
 
     saveCartItems(cart);
+    if (loggedOut) {
+        showLoginPromptModal();
+        return false;
+    }
+
     showToast('Бүтээгдэхүүн сагсанд нэмэгдлээ.');
     return true;
+}
+
+function showLoginPromptModal(redirectTarget = getCurrentPageName()) {
+    let modal = document.getElementById('loginPromptModal');
+
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'loginPromptModal';
+        modal.className = 'auth-prompt-modal';
+        modal.innerHTML = `
+            <div class="auth-prompt-card" role="dialog" aria-modal="true">
+                <button class="auth-prompt-close" type="button" aria-label="Хаах">&times;</button>
+                <h3>Сагс хадгалагдлаа</h3>
+                <p>Захиалгаа үргэлжлүүлэхийн тулд нэвтэрнэ үү эсвэл шинэ бүртгэл үүсгэнэ үү.</p>
+                <div class="auth-prompt-actions">
+                    <a class="account-primary-btn" data-auth-login-link href="login.html?redirect=${escapeHtml(redirectTarget)}">Нэвтрэх</a>
+                    <a class="account-secondary-btn" href="signup.html">Бүртгүүлэх</a>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal || e.target.closest('.auth-prompt-close')) {
+                modal.classList.remove('show');
+            }
+        });
+    }
+
+    const loginLink = modal.querySelector('[data-auth-login-link]');
+    if (loginLink) loginLink.href = `login.html?redirect=${encodeURIComponent(redirectTarget)}`;
+    modal.classList.add('show');
 }
 
 function removeCartItem(cartItemKey) {
@@ -1073,6 +1597,23 @@ function updateAuthNavigation() {
     updateCartCount();
 }
 
+function updateActiveNavLinks() {
+    const currentPage = window.location.pathname.split('/').pop() || 'index.html';
+    const currentCategory = new URLSearchParams(window.location.search).get('category')?.trim() || '';
+
+    document.querySelectorAll('.nav-menu .nav-link, .nav-menu .nav-dropdown-link').forEach(link => {
+        const href = link.getAttribute('href') || '';
+        const linkUrl = new URL(href, window.location.href);
+        const linkPage = linkUrl.pathname.split('/').pop() || 'index.html';
+        const linkCategory = linkUrl.searchParams.get('category')?.trim() || '';
+        const isHomeLink = currentPage === 'index.html' && linkPage === 'index.html' && !href.includes('#');
+        const isProductsLink = currentPage === 'products.html' && linkPage === 'products.html' && !linkCategory;
+        const isCategoryLink = currentPage === 'products.html' && currentCategory && linkCategory === currentCategory;
+
+        link.classList.toggle('active', isHomeLink || isProductsLink || isCategoryLink);
+    });
+}
+
 async function setupProtectedPage() {
     if (document.body.dataset.protectedPage === 'true' && !isLoggedIn()) {
         await refreshAuthSession();
@@ -1109,6 +1650,28 @@ async function logoutUser() {
 function setupLoginForm() {
     const loginForm = document.getElementById('loginForm');
     if (!loginForm) return;
+    const params = new URLSearchParams(window.location.search);
+    const adminMode = params.get('admin') === '1' || params.get('redirect') === 'admin.html';
+
+    if (adminMode) {
+        document.querySelector('.login-form-container h2')?.replaceChildren(document.createTextNode('Админ нэвтрэх'));
+        document.querySelector('.login-form-container > p')?.replaceChildren(document.createTextNode('UNA admin эрхээр нэвтрэх'));
+        document.querySelector('.create-account')?.setAttribute('hidden', '');
+        document.querySelector('label[for="email"]')?.replaceChildren(document.createTextNode('Хэрэглэгчийн нэр'));
+        const identityInput = document.getElementById('email');
+        if (identityInput) {
+            identityInput.type = 'text';
+            identityInput.placeholder = 'admin';
+            identityInput.autocomplete = 'username';
+            identityInput.inputMode = 'text';
+        }
+    } else {
+        const identityInput = document.getElementById('email');
+        if (identityInput) {
+            identityInput.autocomplete = 'email';
+            identityInput.inputMode = 'email';
+        }
+    }
 
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -1117,21 +1680,79 @@ function setupLoginForm() {
         const password = document.getElementById('password').value;
 
         try {
-            const data = await requestJson(`${API_BASE}/login`, {
+            const data = await requestJson(`${API_BASE}${adminMode ? '/admin/login' : '/login'}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ email, password })
+                body: JSON.stringify(adminMode ? { username: email, password } : { email, password })
             });
 
-            saveToken(data.token);
-            alert(`Тавтай морил, ${data.user.fullname}!`);
+            if (adminMode) {
+                localStorage.setItem('unaAdminToken', data.token);
+            } else {
+                saveToken(data.token);
+            }
+            alert(`Тавтай морил, ${data.user.fullname || data.user.username || data.user.name || 'UNA'}!`);
             loginForm.reset();
-            const redirectTarget = new URLSearchParams(window.location.search).get('redirect') || 'index.html';
+            const redirectTarget = params.get('redirect') || (adminMode ? 'admin.html' : 'index.html');
             window.location.href = redirectTarget;
         } catch (error) {
             alert(error.message);
+        }
+    });
+}
+
+function setupPasswordResetForms() {
+    const forgotForm = document.getElementById('forgotPasswordForm');
+    const resetForm = document.getElementById('resetPasswordForm');
+
+    forgotForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const message = document.getElementById('forgotPasswordMessage');
+        const email = document.getElementById('forgotEmail')?.value.trim().toLowerCase() || '';
+
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            if (message) message.textContent = 'Зөв имэйл хаяг оруулна уу.';
+            return;
+        }
+
+        try {
+            const data = await requestJson(`${API_BASE}/api/auth/forgot-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
+            if (message) {
+                message.innerHTML = `${escapeHtml(data.message || 'Reset link үүслээ.')} ${data.resetUrl ? `<a href="${escapeHtml(data.resetUrl)}">Нууц үг солих</a>` : ''}`;
+            }
+        } catch (error) {
+            if (message) message.textContent = error.message;
+        }
+    });
+
+    resetForm?.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const message = document.getElementById('resetPasswordMessage');
+        const token = new URLSearchParams(window.location.search).get('token') || '';
+        const password = document.getElementById('resetPassword')?.value || '';
+        const confirmPassword = document.getElementById('resetConfirmPassword')?.value || '';
+
+        if (password !== confirmPassword) {
+            if (message) message.textContent = 'Нууц үг таарахгүй байна.';
+            return;
+        }
+
+        try {
+            const data = await requestJson(`${API_BASE}/api/auth/reset-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token, password })
+            });
+            if (message) message.innerHTML = `${escapeHtml(data.message || 'Нууц үг солигдлоо.')} <a href="login.html">Нэвтрэх</a>`;
+            resetForm.reset();
+        } catch (error) {
+            if (message) message.textContent = error.message;
         }
     });
 }
@@ -1274,6 +1895,7 @@ function renderCartPage() {
     const summaryElement = document.getElementById('cartSummary');
     const itemCountElement = document.getElementById('cartItemCount');
     const totalElement = document.getElementById('cartTotal');
+    const resultElement = document.getElementById('bankPaymentResult');
     const cart = getCartItems();
     const itemCount = cart.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
     const totalAmount = cart.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0);
@@ -1285,6 +1907,7 @@ function renderCartPage() {
     } else {
         emptyElement?.classList.add('hidden');
         summaryElement?.classList.remove('hidden');
+        resultElement?.classList.add('hidden');
         cartItemsElement.innerHTML = cart.map(item => {
             const optionLines = getCartOptionLines(item);
 
@@ -1310,24 +1933,50 @@ function renderCartPage() {
 
     if (itemCountElement) itemCountElement.textContent = String(itemCount);
     if (totalElement) totalElement.textContent = formatPrice(totalAmount);
+    renderCheckoutConfirmation();
+    fetchPaymentSettings().then(renderCheckoutPaymentInfo).catch(() => renderCheckoutPaymentInfo({}));
     updateCartCount();
 }
 
 async function checkoutCart() {
-    return checkoutCartWithMethod('bank_transfer');
+    return checkoutCartWithMethod(getSelectedPaymentMethod());
 }
 
 async function fetchPaymentSettings() {
-    return requestJson(`${API_BASE}/settings/payment`);
+    if (!paymentSettingsCache) {
+        paymentSettingsCache = await requestJson(`${API_BASE}/settings/payment`);
+    }
+
+    return paymentSettingsCache;
 }
 
 function getPaymentMethodLabel(method) {
     if (method === 'facebook_chat') return 'Facebook chat';
     if (method === 'bank_transfer') return 'Банкны шилжүүлэг';
+    if (method === 'cash_on_delivery') return 'Бэлэн төлөх';
+    if (method === 'qpay') return 'QPay';
     return method || '-';
 }
 
-function getCartOrderPayload(paymentMethod) {
+function getCheckoutDeliveryInfo() {
+    return {
+        fullname: document.getElementById('checkoutFullname')?.value.trim() || '',
+        phone: document.getElementById('checkoutPhone')?.value.trim() || '',
+        email: document.getElementById('checkoutEmail')?.value.trim() || '',
+        address: document.getElementById('checkoutAddress')?.value.trim() || '',
+        note: document.getElementById('checkoutNote')?.value.trim() || ''
+    };
+}
+
+function getSelectedPaymentMethod() {
+    return document.querySelector('input[name="checkoutPaymentMethod"]:checked')?.value || 'bank_transfer';
+}
+
+function getCheckoutReference() {
+    return document.getElementById('checkoutReference')?.value.trim() || '';
+}
+
+function getCartOrderPayload(paymentMethod, deliveryInfo = getCheckoutDeliveryInfo()) {
     const cart = getCartItems();
 
     if (cart.length === 0) {
@@ -1337,7 +1986,8 @@ function getCartOrderPayload(paymentMethod) {
 
     const items = cart.map(item => ({
         productId: item.id,
-        productCode: '',
+        productCode: item.sku || item.productCode || '',
+        sku: item.sku || item.productCode || '',
         name: item.name,
         price: item.price,
         quantity: item.quantity,
@@ -1353,41 +2003,113 @@ function getCartOrderPayload(paymentMethod) {
     return {
         items,
         totalAmount,
-        paymentMethod
+        paymentMethod,
+        channel: paymentMethod === 'facebook_chat' ? 'facebook' : paymentMethod,
+        transactionNote: getCheckoutReference(),
+        bankReference: getCheckoutReference(),
+        deliveryInfo,
+        customer: deliveryInfo
     };
 }
 
-function renderBankPaymentResult(order, settings) {
+function renderCheckoutConfirmation() {
+    const container = document.getElementById('checkoutConfirmation');
+    if (!container) return;
+
+    const cart = getCartItems();
+    const totalAmount = cart.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0);
+    const deliveryInfo = getCheckoutDeliveryInfo();
+    const paymentMethod = getSelectedPaymentMethod();
+
+    container.innerHTML = `
+        <div class="checkout-confirm-lines">
+            <span>Бараа</span><strong>${cart.length} төрөл · ${formatPrice(totalAmount)}</strong>
+            <span>Хүргэлт</span><strong>${escapeHtml(deliveryInfo.fullname || '-')}, ${escapeHtml(deliveryInfo.phone || '-')}</strong>
+            <span>Төлбөр</span><strong>${escapeHtml(getPaymentMethodLabel(paymentMethod))}</strong>
+        </div>
+    `;
+}
+
+function renderCheckoutPaymentInfo(settings = {}) {
+    const info = document.getElementById('checkoutPaymentInfo');
+    if (!info) return;
+
+    const method = getSelectedPaymentMethod();
+    info.classList.remove('hidden');
+
+    if (method === 'bank_transfer') {
+        info.innerHTML = `
+            <strong>Банкны мэдээлэл</strong>
+            <p>${escapeHtml(settings.bankName || 'Банкны мэдээлэл тохируулаагүй байна.')} · ${escapeHtml(settings.accountNumber || '-')}</p>
+            <p>${escapeHtml(settings.accountHolder || 'UNA Home & Furniture')}</p>
+        `;
+    } else if (method === 'facebook_chat') {
+        info.innerHTML = '<p>Захиалга баталгаажсаны дараа Messenger link нээгдэнэ.</p>';
+    } else if (method === 'qpay') {
+        info.innerHTML = `<p>${escapeHtml(settings.qpayInfo || 'QPay төлбөрийн мэдээлэл удахгүй нэмэгдэнэ.')}</p>`;
+    } else {
+        info.innerHTML = '<p>Бараа хүргэгдэх үед төлбөрөө төлнө.</p>';
+    }
+}
+
+function renderOrderSuccess(order, settings = {}, paymentMethod = 'bank_transfer') {
     const result = document.getElementById('bankPaymentResult');
     if (!result) return;
 
+    saveCartItems([]);
+    renderCartPage();
+    document.getElementById('cartSummary')?.classList.remove('hidden');
     result.classList.remove('hidden');
+    const messengerUrl = settings.messengerUrl || settings.facebookChatUrl || '';
+    const messengerSummary = `Захиалга: ${order.orderCode || ''}\nНийт: ${formatPrice(order.totalAmount || order.total || 0)}`;
     result.innerHTML = `
-        <span class="account-kicker">Банкны шилжүүлэг</span>
-        <h3>Захиалга үүслээ: ${escapeHtml(order.orderCode || '-')}</h3>
-        <div class="bank-info-grid">
-            <div><span>Банкны нэр</span><strong>${escapeHtml(settings.bankName || '-')}</strong></div>
-            <div><span>Дансны дугаар</span><strong>${escapeHtml(settings.accountNumber || '-')}</strong></div>
-            <div><span>Данс эзэмшигч</span><strong>${escapeHtml(settings.accountHolder || '-')}</strong></div>
-        </div>
-        <p class="transaction-code-message">Гүйлгээний утга дээр энэ кодыг бичнэ үү: <strong>${escapeHtml(order.transactionCode || '-')}</strong></p>
-        <button id="confirmBankCartClearBtn" class="account-primary-btn" type="button">Ойлголоо, сагс цэвэрлэх</button>
+        <span class="account-kicker">Step 4</span>
+        <h3>Таны захиалга амжилттай бүртгэгдлээ</h3>
+        <p>Захиалгын код: <strong>${escapeHtml(order.orderCode || '-')}</strong></p>
+        ${paymentMethod === 'bank_transfer' ? `
+            <div class="bank-info-grid">
+                <div><span>Банк</span><strong>${escapeHtml(settings.bankName || '-')}</strong></div>
+                <div><span>Данс</span><strong>${escapeHtml(settings.accountNumber || '-')}</strong></div>
+                <div><span>Эзэмшигч</span><strong>${escapeHtml(settings.accountHolder || '-')}</strong></div>
+            </div>
+            <p class="transaction-code-message">Гүйлгээний утга: <strong>${escapeHtml(order.orderCode || '-')}</strong></p>
+        ` : ''}
+        ${paymentMethod === 'facebook_chat' ? `
+            ${messengerUrl ? `<a class="account-primary-btn" href="${escapeHtml(messengerUrl)}" target="_blank" rel="noopener">Messenger нээх</a>` : '<p>Messenger link админ тохиргоонд ороогүй байна.</p>'}
+            <button class="account-secondary-btn" type="button" data-copy-order="${escapeHtml(messengerSummary)}">Order summary copy</button>
+        ` : ''}
+        <a class="account-primary-btn" href="products.html">Бүтээгдэхүүн үзэх</a>
     `;
-
-    document.getElementById('confirmBankCartClearBtn')?.addEventListener('click', () => {
-        saveCartItems([]);
-        renderCartPage();
-        result.classList.add('hidden');
-    });
 }
 
 async function checkoutCartWithMethod(paymentMethod) {
-    const payload = getCartOrderPayload(paymentMethod);
+    if (!isLoggedIn()) {
+        showLoginPromptModal('checkout.html');
+        return;
+    }
+
+    const deliveryInfo = getCheckoutDeliveryInfo();
+    if (!deliveryInfo.fullname || !deliveryInfo.phone || !deliveryInfo.address) {
+        showToast('Хүргэлтийн нэр, утас, хаягаа бөглөнө үү.', 'error');
+        return;
+    }
+
+    if (!/^[+\d][\d\s-]{5,}$/.test(deliveryInfo.phone)) {
+        showToast('Зөв утасны дугаар оруулна уу.', 'error');
+        return;
+    }
+
+    if (deliveryInfo.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(deliveryInfo.email)) {
+        showToast('Зөв имэйл хаяг оруулна уу.', 'error');
+        return;
+    }
+
+    const payload = getCartOrderPayload(paymentMethod, deliveryInfo);
     if (!payload) return;
 
     try {
         const settings = await fetchPaymentSettings();
-        const order = await requestAuthJson(`${API_BASE}/orders`, {
+        const order = await requestAuthJson(`${API_BASE}/api/orders`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -1395,26 +2117,18 @@ async function checkoutCartWithMethod(paymentMethod) {
             body: JSON.stringify(payload)
         });
 
+        renderOrderSuccess(order, settings, paymentMethod);
         if (paymentMethod === 'facebook_chat') {
-            saveCartItems([]);
-            renderCartPage();
-            showToast('Захиалга үүслээ. Facebook chat нээгдэж байна.');
-
-            if (settings.facebookChatUrl) {
-                window.open(settings.facebookChatUrl, '_blank', 'noopener');
-            }
-
-            return;
+            const messengerUrl = settings.messengerUrl || settings.facebookChatUrl || '';
+            if (messengerUrl) window.open(messengerUrl, '_blank', 'noopener');
         }
-
-        renderBankPaymentResult(order, settings);
     } catch (error) {
-        alert(error.message);
+        showToast(error.message, 'error');
     }
 }
 
 function setupCartPage() {
-    if (!document.querySelector('.cart-section')) return;
+    if (!document.querySelector('.cart-section') || document.querySelector('.checkout-page-section')) return;
 
     renderCartPage();
 
@@ -1431,9 +2145,81 @@ function setupCartPage() {
         if (action === 'remove') removeCartItem(productId);
     });
 
-    document.getElementById('checkoutBtn')?.addEventListener('click', checkoutCart);
-    document.getElementById('checkoutFacebookBtn')?.addEventListener('click', () => checkoutCartWithMethod('facebook_chat'));
-    document.getElementById('checkoutBankBtn')?.addEventListener('click', () => checkoutCartWithMethod('bank_transfer'));
+    document.getElementById('checkoutDeliveryForm')?.addEventListener('input', renderCheckoutConfirmation);
+    document.querySelectorAll('input[name="checkoutPaymentMethod"]').forEach(input => {
+        input.addEventListener('change', async () => {
+            renderCheckoutConfirmation();
+            renderCheckoutPaymentInfo(await fetchPaymentSettings().catch(() => ({})));
+        });
+    });
+    document.getElementById('confirmCheckoutBtn')?.addEventListener('click', checkoutCart);
+    document.getElementById('bankPaymentResult')?.addEventListener('click', async (e) => {
+        const copyButton = e.target.closest('[data-copy-order]');
+        if (!copyButton) return;
+        await navigator.clipboard?.writeText(copyButton.dataset.copyOrder || '');
+        showToast('Order summary copied.');
+    });
+}
+
+function renderCheckoutPage() {
+    const layout = document.getElementById('checkoutPageLayout');
+    const empty = document.getElementById('checkoutEmpty');
+    const itemsElement = document.getElementById('checkoutItems');
+    if (!layout || !itemsElement) return;
+
+    const cart = getCartItems();
+    const totalAmount = cart.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0);
+
+    if (!cart.length) {
+        layout.classList.add('hidden');
+        empty?.classList.remove('hidden');
+        return;
+    }
+
+    layout.classList.remove('hidden');
+    empty?.classList.add('hidden');
+    itemsElement.innerHTML = cart.map(item => {
+        const options = getCartOptionLines(item);
+        return `
+            <article class="cart-item">
+                <img src="${escapeHtml(getSafeProductImage(item.image))}" alt="${escapeHtml(item.name)}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
+                <div class="cart-item-info">
+                    <span>${escapeHtml(item.category || '-')}</span>
+                    <h3>${escapeHtml(item.name)}</h3>
+                    ${options.length ? `<div class="cart-item-options">${options.map(line => `<small>${escapeHtml(line)}</small>`).join('')}</div>` : ''}
+                    <strong>${formatPrice(item.price)} × ${Number(item.quantity) || 1}</strong>
+                </div>
+            </article>
+        `;
+    }).join('');
+
+    const totalLine = document.createElement('div');
+    totalLine.className = 'summary-row total';
+    totalLine.innerHTML = `<span>Нийт үнэ</span><strong>${formatPrice(totalAmount)}</strong>`;
+    itemsElement.appendChild(totalLine);
+    renderCheckoutConfirmation();
+}
+
+function setupCheckoutPage() {
+    if (!document.querySelector('.checkout-page-section')) return;
+
+    renderCheckoutPage();
+    document.getElementById('checkoutDeliveryForm')?.addEventListener('input', renderCheckoutConfirmation);
+    document.getElementById('checkoutReference')?.addEventListener('input', renderCheckoutConfirmation);
+    document.querySelectorAll('input[name="checkoutPaymentMethod"]').forEach(input => {
+        input.addEventListener('change', async () => {
+            renderCheckoutConfirmation();
+            renderCheckoutPaymentInfo(await fetchPaymentSettings().catch(() => ({})));
+        });
+    });
+    document.getElementById('confirmCheckoutBtn')?.addEventListener('click', checkoutCart);
+    fetchPaymentSettings().then(renderCheckoutPaymentInfo).catch(() => renderCheckoutPaymentInfo({}));
+    document.getElementById('bankPaymentResult')?.addEventListener('click', async (e) => {
+        const copyButton = e.target.closest('[data-copy-order]');
+        if (!copyButton) return;
+        await navigator.clipboard?.writeText(copyButton.dataset.copyOrder || '');
+        showToast('Order summary copied.');
+    });
 }
 
 function setupSignupForm() {
@@ -1502,6 +2288,7 @@ function setupPasswordToggles() {
 
 function setupNavigation() {
     updateAuthNavigation();
+    updateActiveNavLinks();
 
     document.querySelectorAll('.nav-logo').forEach(logo => {
         logo.addEventListener('click', () => {
@@ -1514,6 +2301,7 @@ function setupNavigation() {
             const navMenu = hamburger.closest('.nav-container')?.querySelector('.nav-menu');
             const navbar = hamburger.closest('.navbar');
             const isActive = navMenu?.classList.toggle('active') || false;
+            if (isActive && navMenu) navMenu.scrollTop = 0;
             hamburger.classList.toggle('active', isActive);
             navbar?.classList.toggle('nav-menu-open', isActive);
         });
@@ -1525,7 +2313,7 @@ function setupNavigation() {
         });
     });
 
-    document.querySelectorAll('.nav-menu .nav-link').forEach(link => {
+    document.querySelectorAll('.nav-menu .nav-link, .nav-menu .nav-dropdown-link').forEach(link => {
         link.addEventListener('click', () => {
             document.querySelectorAll('.nav-menu.active').forEach(menu => menu.classList.remove('active'));
             document.querySelectorAll('.hamburger.active').forEach(hamburger => hamburger.classList.remove('active'));
@@ -1556,21 +2344,44 @@ function setupNavbarScrollState() {
 
 function setupNavSearch() {
     const currentSearchTerm = new URLSearchParams(window.location.search).get('q')?.trim() || '';
+    let searchTimer = null;
 
     document.querySelectorAll('.nav-search').forEach(form => {
         const input = form.querySelector('input[type="search"]');
+        const isProductsPage = Boolean(document.querySelector('.products-grid'));
 
-        if (input && document.querySelector('.products-grid')) {
+        if (input && isProductsPage) {
             input.value = currentSearchTerm;
+            selectedSearchTerm = currentSearchTerm;
+            input.addEventListener('input', () => {
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(async () => {
+                    selectedSearchTerm = input.value.trim();
+                    const nextUrl = selectedSearchTerm ? `products.html?q=${encodeURIComponent(selectedSearchTerm)}` : 'products.html';
+                    window.history.replaceState({}, '', nextUrl);
+                    productsLoaded = false;
+                    await renderProducts();
+                }, 300);
+            });
         }
 
         form.addEventListener('submit', (e) => {
             const query = input?.value.trim() || '';
 
+            e.preventDefault();
             if (!query) {
-                e.preventDefault();
                 window.location.href = 'products.html';
+                return;
             }
+
+            if (isProductsPage) {
+                selectedSearchTerm = query;
+                productsLoaded = false;
+                renderProducts();
+                return;
+            }
+
+            window.location.href = `products.html?q=${encodeURIComponent(query)}`;
         });
     });
 }
@@ -1584,17 +2395,15 @@ function setupStaticActions() {
     });
 
     document.querySelectorAll('.forgot-password').forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            alert('Нууц үг сэргээх хэсэг удахгүй нэмэгдэх болно.');
-        });
+        link.setAttribute('href', 'forgot-password.html');
     });
 
     document.querySelectorAll('.terms-link').forEach(link => {
-        link.addEventListener('click', (e) => {
-            e.preventDefault();
-            alert('Үйлчилгээний нөхцөл болон нууцлалын бодлого удахгүй нэмэгдэх болно.');
-        });
+        if (link.textContent.includes('Нууцлал')) {
+            link.setAttribute('href', 'privacy.html');
+        } else {
+            link.setAttribute('href', 'terms.html');
+        }
     });
 
     document.querySelectorAll('.social-links a').forEach(link => {
@@ -1606,11 +2415,88 @@ function setupStaticActions() {
 
     const contactForm = document.getElementById('contactForm');
     if (contactForm) {
-        contactForm.addEventListener('submit', (e) => {
+        contactForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            alert('Таны зурвас амжилттай илгээгдлээ.');
-            contactForm.reset();
+            const formData = new FormData(contactForm);
+            const payload = {
+                name: String(formData.get('name') || '').trim(),
+                email: String(formData.get('email') || '').trim(),
+                phone: String(formData.get('phone') || '').trim(),
+                message: String(formData.get('message') || '').trim()
+            };
+
+            if (!payload.name || !payload.email || !payload.message) {
+                showToast('Нэр, имэйл, зурвасаа бөглөнө үү.', 'error');
+                return;
+            }
+
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(payload.email)) {
+                showToast('Зөв имэйл хаяг оруулна уу.', 'error');
+                return;
+            }
+
+            try {
+                await requestJson(`${API_BASE}/api/contact`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                showToast('Таны зурвас амжилттай илгээгдлээ.');
+                contactForm.reset();
+            } catch (error) {
+                showToast(error.message, 'error');
+            }
         });
+    }
+}
+
+async function hydrateContactInfo() {
+    const targets = {
+        '[data-contact-address]': 'storeAddress',
+        '[data-contact-phone]': 'contactPhone',
+        '[data-contact-email]': 'contactEmail',
+        '[data-contact-hours]': 'workingHours'
+    };
+
+    if (!document.querySelector(Object.keys(targets).join(','))) return;
+
+    try {
+        const settings = await fetchPaymentSettings();
+        Object.entries(targets).forEach(([selector, key]) => {
+            const element = document.querySelector(selector);
+            const wrapper = element?.closest('[data-contact-field]');
+            const fallback = element?.dataset.fallback || '';
+            const value = settings[key] || fallback;
+            if (element && value) {
+                element.textContent = value;
+                if (wrapper) wrapper.hidden = false;
+            } else if (wrapper) {
+                wrapper.hidden = true;
+            }
+        });
+        const map = document.querySelector('[data-contact-map]');
+        const iframe = map?.querySelector('iframe');
+        if (map && iframe && settings.storeAddress) {
+            iframe.src = `https://www.google.com/maps?q=${encodeURIComponent(settings.storeAddress)}&output=embed`;
+            map.hidden = false;
+        } else if (map) {
+            map.hidden = true;
+        }
+    } catch (error) {
+        Object.keys(targets).forEach(selector => {
+            const element = document.querySelector(selector);
+            const wrapper = element?.closest('[data-contact-field]');
+            const fallback = element?.dataset.fallback || '';
+            if (element && fallback) {
+                element.textContent = fallback;
+                if (wrapper) wrapper.hidden = false;
+            } else if (wrapper) {
+                wrapper.hidden = true;
+            }
+        });
+        document.querySelector('[data-contact-map]')?.setAttribute('hidden', '');
     }
 }
 
@@ -1632,6 +2518,17 @@ function setupHeroVideoAutoplay() {
     }
 }
 
+function setupHashSmoothScroll() {
+    if (window.location.hash !== '#services') return;
+
+    window.requestAnimationFrame(() => {
+        document.getElementById('services')?.scrollIntoView({
+            behavior: 'smooth',
+            block: 'start'
+        });
+    });
+}
+
 document.addEventListener('DOMContentLoaded', async () => {
     clearLegacyProductStorage();
 
@@ -1643,11 +2540,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     setupNavSearch();
     setupStaticActions();
     setupHeroVideoAutoplay();
+    setupHashSmoothScroll();
+    await hydrateContactInfo();
     setupPasswordToggles();
     setupLoginForm();
+    setupPasswordResetForms();
     setupSignupForm();
     setupAccountPage();
     setupCartPage();
+    setupCheckoutPage();
+    await setupProductDetailPage();
     setupProductControls();
     setupProductDetailModal();
     await renderProducts();

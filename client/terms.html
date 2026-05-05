@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="mn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Үйлчилгээний нөхцөл — UNA Home & Furniture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --cream: #FAF8F4;
+    --warm-white: #FFFFFF;
+    --ink: #1A1814;
+    --ink-muted: #5C5752;
+    --ink-faint: #9C9690;
+    --gold: #B8955A;
+    --gold-light: #E8D9C0;
+    --border: #E8E4DC;
+    --serif: 'Playfair Display', Georgia, serif;
+    --sans: 'DM Sans', system-ui, sans-serif;
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--cream);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-weight: 300;
+    line-height: 1.8;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(250,248,244,0.92);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 2rem;
+    display: flex; align-items: center; justify-content: space-between;
+    height: 64px;
+  }
+  .nav-logo {
+    font-family: var(--serif); font-size: 18px; font-weight: 400;
+    color: var(--ink); text-decoration: none; letter-spacing: 0.02em;
+  }
+  .nav-logo span { color: var(--gold); }
+  .nav-back {
+    font-size: 13px; color: var(--ink-muted); text-decoration: none;
+    display: flex; align-items: center; gap: 6px; transition: color 0.2s;
+  }
+  .nav-back:hover { color: var(--gold); }
+  .nav-back svg { width: 14px; height: 14px; }
+
+  .hero {
+    background: var(--ink);
+    padding: 5rem 2rem 4rem;
+    text-align: center;
+    position: relative; overflow: hidden;
+  }
+  .hero::before {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at 50% 100%, rgba(184,149,90,0.15) 0%, transparent 70%);
+  }
+  .hero-eyebrow {
+    font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+    color: var(--gold); margin-bottom: 1.25rem; font-weight: 500;
+  }
+  .hero h1 {
+    font-family: var(--serif); font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 400; color: #FAF8F4; line-height: 1.25;
+    margin-bottom: 1.25rem;
+  }
+  .hero-date {
+    font-size: 13px; color: rgba(250,248,244,0.4); letter-spacing: 0.06em;
+  }
+
+  .container {
+    max-width: 760px; margin: 0 auto;
+    padding: 4rem 2rem 6rem;
+  }
+
+  .toc {
+    background: var(--warm-white);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--gold);
+    border-radius: 4px;
+    padding: 1.75rem 2rem;
+    margin-bottom: 3.5rem;
+  }
+  .toc-title {
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink-faint); margin-bottom: 1rem; font-weight: 500;
+  }
+  .toc ol { padding-left: 1.25rem; }
+  .toc li { margin-bottom: 0.4rem; }
+  .toc a {
+    font-size: 14px; color: var(--ink-muted); text-decoration: none;
+    transition: color 0.2s;
+  }
+  .toc a:hover { color: var(--gold); }
+
+  .section { margin-bottom: 3rem; }
+  .section-number {
+    font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--gold); margin-bottom: 0.6rem; font-weight: 500;
+  }
+  .section h2 {
+    font-family: var(--serif); font-size: 1.5rem; font-weight: 400;
+    color: var(--ink); margin-bottom: 1.25rem; line-height: 1.3;
+  }
+  .section p { font-size: 15px; color: var(--ink-muted); margin-bottom: 1rem; }
+  .section ul, .section ol { padding-left: 1.5rem; margin-bottom: 1rem; }
+  .section li { font-size: 15px; color: var(--ink-muted); margin-bottom: 0.5rem; }
+  .section li strong { color: var(--ink); font-weight: 500; }
+
+  .divider { border: none; border-top: 1px solid var(--border); margin: 3rem 0; }
+
+  .highlight {
+    background: var(--gold-light);
+    border-radius: 4px; padding: 1.25rem 1.5rem; margin: 1.5rem 0;
+  }
+  .highlight p { font-size: 14px; color: #6B5230; margin: 0; }
+
+  .warning {
+    background: #FFF4EC;
+    border-left: 3px solid #D4793A;
+    border-radius: 0 4px 4px 0;
+    padding: 1.25rem 1.5rem; margin: 1.5rem 0;
+  }
+  .warning p { font-size: 14px; color: #7A4020; margin: 0; }
+
+  .contact-card {
+    background: var(--ink);
+    border-radius: 6px; padding: 2rem 2.5rem;
+    text-align: center; margin-top: 3rem;
+  }
+  .contact-card p { color: rgba(250,248,244,0.6); font-size: 14px; margin-bottom: 0.75rem; }
+  .contact-card a {
+    color: var(--gold); text-decoration: none; font-size: 15px;
+  }
+  .contact-card a:hover { text-decoration: underline; }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 2rem; text-align: center;
+    font-size: 12px; color: var(--ink-faint); letter-spacing: 0.04em;
+  }
+  footer a { color: var(--ink-faint); text-decoration: none; }
+  footer a:hover { color: var(--gold); }
+
+  @media (max-width: 600px) {
+    nav { padding: 0 1rem; }
+    .container { padding: 2.5rem 1.25rem 4rem; }
+    .hero { padding: 3.5rem 1.25rem 3rem; }
+    .toc { padding: 1.25rem; }
+    .contact-card { padding: 1.5rem; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="index.html">UNA Home <span>&</span> Furniture</a>
+  <a class="nav-back" href="index.html">
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 3L5 8l5 5"/></svg>
+    Нүүр хуудас руу буцах
+  </a>
+</nav>
+
+<div class="hero">
+  <p class="hero-eyebrow">Хуулийн баримт бичиг</p>
+  <h1>Үйлчилгээний нөхцөл</h1>
+  <p class="hero-date">Хамгийн сүүлд шинэчлэгдсэн: 2026 оны 1-р сарын 1</p>
+</div>
+
+<div class="container">
+
+  <div class="toc">
+    <p class="toc-title">Агуулга</p>
+    <ol>
+      <li><a href="#s1">Ерөнхий нөхцөл</a></li>
+      <li><a href="#s2">Бүртгэл болон нэвтрэлт</a></li>
+      <li><a href="#s3">Бүтээгдэхүүн болон үнэ</a></li>
+      <li><a href="#s4">Захиалга болон төлбөр</a></li>
+      <li><a href="#s5">Хүргэлтийн нөхцөл</a></li>
+      <li><a href="#s6">Буцаалт болон солилцоо</a></li>
+      <li><a href="#s7">Хориглогдсон үйлдлүүд</a></li>
+      <li><a href="#s8">Оюуны өмч</a></li>
+      <li><a href="#s9">Хариуцлагын хязгаарлалт</a></li>
+      <li><a href="#s10">Маргаан шийдвэрлэх</a></li>
+      <li><a href="#s11">Нөхцөлийн өөрчлөлт</a></li>
+      <li><a href="#s12">Холбоо барих</a></li>
+    </ol>
+  </div>
+
+  <div class="highlight">
+    <p>Та <strong>unafurniture.com</strong> сайтыг ашиглах, бүртгэл үүсгэх, эсвэл захиалга өгөх замаар энэхүү нөхцөлийг бүрэн зөвшөөрч байна. Нөхцөлийг зөвшөөрөхгүй бол үйлчилгээг ашиглахаас татгалзана уу.</p>
+  </div>
+
+  <div class="section" id="s1">
+    <p class="section-number">01</p>
+    <h2>Ерөнхий нөхцөл</h2>
+    <p>Энэхүү үйлчилгээний нөхцөл нь UNA Home & Furniture (цаашид "бид", "манай компани") болон манай вэбсайт unafurniture.com-ийг ашиглагч ("та", "хэрэглэгч") хооронд үүсэх харилцааг зохицуулна.</p>
+    <p>Манай үйлчилгээ нь Монгол Улсын хуулийн хүрээнд ажилладаг бөгөөд бүх харилцааны талд Монгол Улсын хууль тогтоомж хэрэглэгдэнэ.</p>
+  </div>
+
+  <hr class="divider">
+
+  <div class="section" id="s2">
+    <p class="section-number">02</p>
+    <h2>Бүртгэл болон нэвтрэлт</h2>
+    <p>Манай сайтад бүртгүүлэхдээ:</p>
+    <ul>
+      <li>Бодит, үнэн зөв мэдээлэл оруулах үүрэгтэй.</li>
+      <li>Нэвтрэх нэр болон нууц үгийн нууцлалыг өөрөө хадгалах хариуцлага хүлээнэ.</li>
+      <li>Нэг хүн зөвхөн нэг бүртгэл үүсгэх боломжтой.</li>
+      <li>Бүртгэлийг бусдад дамжуулах, хуваалцахыг хориглоно.</li>
+    </ul>
+    <p>Бүртгэлд зөвшөөрөлгүй хандалт илэрсэн тохиолдолд нэн даруй <a href="mailto:hello@unafurniture.com" style="color: var(--gold);">hello@unafurniture.com</a>-д мэдэгдэнэ үү.</p>
+  </div>
+
+  <hr class="divider">
+
+  <div class="section" id="s3">
+    <p class="section-number">03</p>
+    <h2>Бүтээгдэхүүн болон үнэ</h2>
+    <ul>
+      <li>Сайтад харагдах бүх үнэ нь Монгол төгрөгөөр (₮) илэрхийлэгдэнэ.</li>
+      <li>Бид дурын бүтээгдэхүүний үнийг урьдчилан мэдэгдэлгүйгээр өөрчлөх эрхтэй.</li>
+      <li>Бүтээгдэхүүний зураг, дүрслэл нь лавлагааны зорилготой бөгөөд бодит бүтээгдэхүүн бага зэрэг ялгаатай байж болно.</li>
+      <li>Захиалга баталгаажсаны дараа тухайн захиалгын үнэ тогтмол байна.</li>
+      <li>Зарим бүтээгдэхүүн нь нөөцийн хязгаарлалттай байж болно. Нөөц дуусвал захиалга цуцлагдаж, төлбөрийг буцаан олгоно.</li>
+    </ul>
+  </div>
+
+  <hr class="divider">
+
+  <div class="section" id="s4">
+    <p class="section-number">04</p>
+    <h2>Захиалга болон төлбөр</h2>
+    <p>Захиалга өгөх явц:</p>
+    <ol>
+      <li>Бүтээгдэхүүнийг сагсанд нэмж, checkout хуудас руу шилжинэ.</li>
+      <li>Хүргэлтийн хаяг болон холбоо барих мэдээллийг бөглөнө.</li>
+      <li>Манай банкны дансанд шилжүүлэг хийж, гүйлгээний лавлах кодыг оруулна.</li>
+      <li>Захиалга баталгаажсаны дараа имэйл мэдэгдэл хүлээн авна.</li>
+    </ol>
+    <div class="warning">
+      <p>Гүйлгээний лавлах код буруу эсвэл мэдэгдэлгүй шилжүүлэг хийгдсэн тохиолдолд захиалгын боловсруулалт удаашрах эсвэл цуцлагдах боломжтой. Төлбөрийн асуудал гарвал бидэнтэй холбоо барина уу.</p>
+    </div>
+    <p>Захиалга баталгаажсаны дараа бид таны захиалгыг <strong>1–2 ажлын өдрийн</strong> дотор баталгаажуулж, хүргэлтийн хугацааны талаар мэдэгдэл явуулна.</p>
+  </div>
+
+  <hr class="divider">
+
+  <div class="section" id="s5">
+    <p class="section-number">05</p>
+    <h2>Хүргэлтийн нөхцөл</h2>
+    <ul>
+      <li><strong>Хүргэлтийн хамрах хүрээ:</strong> Улаанбаатар хот болон хэлэлцээрийн үндсэн дээр орон нутгийг хамарна.</li>
+      <li><strong>Хүргэлтийн хугацаа:</strong> Улаанбаатар дотор 2–5 ажлын өдөр. Орон нутаг болон том хэмжээний тавилгын хувьд нэмэлт хугацаа шаардагдана.</li>
+      <li><strong>Хүргэлтийн төлбөр:</strong> Захиалгын дүн болон байршлаас хамааран тооцогдох бөгөөд checkout хуудсанд харагдана.</li>
+      <li><strong>Хүргэлт хийх боломжгүй тохиолдол:</strong> Буруу хаяг, холбоо барих боломжгүй байдлын улмаас хүргэлт амжилтгүй болбол дахин хүргэлтийн нэмэлт төлбөр тооцогдоно.</li>
+    </ul>
+  </div>
+
+  <hr class="divider">
+
+  <div class="section" id="s6">
+    <p class="section-number">06</p>
+    <h2>Буцаалт болон солилцоо</h2>
+    <p>Та дараах нөхцөлд захиалгаа буцааж эсвэл солих боломжтой:</p>
+    <ul>
+      <li><strong>Хүлээн авсанаас хойш 7 хоногийн дотор</strong> бүтээгдэхүүн гэмтэлтэй, хүргэгдсэн бол буцаалт хийгдэнэ.</li>
+      <li>Бүтээгдэхүүн нь анхны байдлаараа, ашиглагдаагүй, савлагаатай байх шаардлагатай.</li>
+      <li>Захиалгат (custom-made) бүтээгдэхүүнийг буцаах боломжгүй — зөвхөн үйлдвэрийн гэмтэлтэй тохиолдолд солино.</li>
+    </ul>
+    <div class="highlight">
+      <p>Буцаалт хийхийн өмнө заавал <a href="mailto:hello@unafurniture.com" style="color: #7A5A2A;">hello@unafurniture.com</a>-д захиалгын дугаар болон асуудлын тайлбарыг явуулна уу. Зөвшөөрөлгүй буцаалтыг хүлээн авахгүй.</p>
+    </div>
+    <p>Буцаалт зөвшөөрөгдсөн тохиолдолд төлбөрийг <strong>5–10 ажлын өдрийн</strong> дотор буцаан олгоно.</p>
+  </div>
+
+  <hr class="divider">
+
+  <div class="section" id="s7">
+    <p class="section-number">07</p>
+    <h2>Хориглогдсон үйлдлүүд</h2>
+    <p>Манай сайтыг ашиглахдаа дараах үйлдлийг хориглоно:</p>
+    <ul>
+      <li>Хуурамч мэдээллээр бүртгэл үүсгэх, бусдын мэдээллийг ашиглах</li>
+      <li>Системийн аюулгүй байдлыг зөрчих, хакерын оролдлого хийх</li>
+      <li>Автомат програм ашиглан сайтыг хэт ачааллах (bot, scraper)</li>
+      <li>Хуурамч захиалга өгч, төлбөр хийхгүй орхих</li>
+      <li>Манай агуулгыг зөвшөөрөлгүйгээр хуулбарлах, ашиглах</li>
+    </ul>
+    <p>Эдгээр нөхцөлийг зөрчсөн тохиолдолд бид таны бүртгэлийг урьдчилан мэдэгдэлгүйгээр хаах, шаардлагатай тохиолдолд эрх бүхий байгууллагад мэдэгдэх эрхтэй.</p>
+  </div>
+
+  <hr class="divider">
+
+  <div class="section" id="s8">
+    <p class="section-number">08</p>
+    <h2>Оюуны өмч</h2>
+    <p>Манай сайтын бүх агуулга — лого, зураг, текст, загвар — нь UNA Home & Furniture-ийн эсвэл зохих зөвшөөрлийн дагуу ашиглагдаж буй гуравдагч этгээдийн өмч юм.</p>
+    <p>Та манай агуулгыг зөвхөн хувийн, арилжааны бус зорилгоор ашиглах боломжтой. Ямар нэгэн агуулгыг хуулбарлах, дахин нийтлэх, худалдаалахын тулд бидний бичгэн зөвшөөрөл авах шаардлагатай.</p>
+  </div>
+
+  <hr class="divider">
+
+  <div class="section" id="s9">
+    <p class="section-number">09</p>
+    <h2>Хариуцлагын хязгаарлалт</h2>
+    <p>Монгол Улсын хуулиар зөвшөөрөгдөх хэмжээнд:</p>
+    <ul>
+      <li>Бид манай вэбсайтын тасалдал, технологийн алдаа, гуравдагч тал эсвэл байгалийн хүчин зүйлсийн улмаас үүссэн шууд бус хохирлыг хариуцахгүй.</li>
+      <li>Захиалга боловсруулах, хүргэлтийн саатал зэрэг хяналтаасаа гадуурх тохиолдолд хариуцлага хүлээхгүй.</li>
+      <li>Манай нийт хариуцлага тухайн захиалгын нийт дүнгээс хэтрэхгүй.</li>
+    </ul>
+  </div>
+
+  <hr class="divider">
+
+  <div class="section" id="s10">
+    <p class="section-number">10</p>
+    <h2>Маргаан шийдвэрлэх</h2>
+    <p>Манай үйлчилгээтэй холбоотой маргаан гарсан тохиолдолд:</p>
+    <ol>
+      <li>Эхлээд бидэнтэй шууд холбоо барьж асуудлыг шийдвэрлэхийг хичээнэ үү.</li>
+      <li>Шийдэл гараагүй тохиолдолд Монгол Улсын Хэрэглэгчийн эрхийг хамгаалах байгуулллагад хандах боломжтой.</li>
+      <li>Хуулийн маргаан нь Монгол Улсын шүүхийн харьяалалд хамаарна.</li>
+    </ol>
+  </div>
+
+  <hr class="divider">
+
+  <div class="section" id="s11">
+    <p class="section-number">11</p>
+    <h2>Нөхцөлийн өөрчлөлт</h2>
+    <p>Бид энэхүү нөхцөлийг цаг үе тутам шинэчилж болно. Томоохон өөрчлөлт орсон тохиолдолд бүртгэлтэй хэрэглэгчдэд имэйлээр мэдэгдэл явуулна. Өөрчлөлт нийтлэгдсэний дараа сайтыг үргэлжлүүлэн ашигласнаар та шинэ нөхцөлийг зөвшөөрч байна.</p>
+  </div>
+
+  <hr class="divider">
+
+  <div class="section" id="s12">
+    <p class="section-number">12</p>
+    <h2>Холбоо барих</h2>
+    <p>Үйлчилгээний нөхцөлтэй холбоотой асуулт байвал:</p>
+    <ul>
+      <li><strong>Имэйл:</strong> hello@unafurniture.com</li>
+      <li><strong>Вэбсайт:</strong> unafurniture.com</li>
+      <li><strong>Ажлын цаг:</strong> Даваа–Баасан 09:00–18:00, Бямба 10:00–16:00</li>
+    </ul>
+  </div>
+
+  <div class="contact-card">
+    <p>Асуулт, санал хүсэлт байвал бидэнтэй холбоо барина уу</p>
+    <a href="mailto:hello@unafurniture.com">hello@unafurniture.com</a>
+  </div>
+
+</div>
+
+<footer>
+  <p>© 2026 UNA Home & Furniture. Бүх эрх хуулиар хамгаалагдсан. &nbsp;·&nbsp;
+    <a href="privacy.html">Нууцлалын бодлого</a> &nbsp;·&nbsp;
+    <a href="terms.html">Үйлчилгээний нөхцөл</a>
+  </p>
+</footer>
+
+</body>
+</html>

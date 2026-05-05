@@ -1030,9 +1030,45 @@ tbody tr:last-child td {
 }
 
 .product-cell-description {
-    max-width: 360px;
+    width: 300px;
+    max-width: 320px;
     color: var(--text-light);
     line-height: 1.5;
+}
+
+.description-cell {
+    cursor: pointer;
+}
+
+.description-cell-text {
+    display: -webkit-box;
+    max-width: 320px;
+    overflow: hidden;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow-wrap: anywhere;
+    text-overflow: ellipsis;
+}
+
+.description-preview-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 6px 10px;
+    border: 1px solid rgba(201, 169, 97, 0.28);
+    border-radius: 999px;
+    background: rgba(201, 169, 97, 0.08);
+    color: var(--accent-gold);
+    font-family: inherit;
+    font-size: 0.78rem;
+    font-weight: 800;
+    cursor: pointer;
+}
+
+.description-preview-btn:hover {
+    background: var(--accent-gold);
+    color: var(--white);
 }
 
 .product-option-cell {
@@ -1752,13 +1788,32 @@ select {
 
 .color-variant-row-admin {
     display: grid;
-    grid-template-columns: 76px minmax(120px, 1fr) minmax(120px, 0.8fr) minmax(180px, 1.35fr) 42px;
+    grid-template-columns: 76px repeat(4, minmax(120px, 1fr)) 42px;
     gap: 12px;
     align-items: end;
     padding: 12px;
     border: 1px solid rgba(139, 125, 102, 0.2);
     border-radius: 12px;
     background: #F7F3EC;
+}
+
+.admin-checkbox-field {
+    min-height: 48px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 1px solid rgba(139, 125, 102, 0.2);
+    border-radius: 12px;
+    background: #FFFDF8;
+    color: var(--text-dark);
+    font-weight: 800;
+}
+
+.admin-checkbox-field input {
+    width: 18px;
+    height: 18px;
+    accent-color: var(--accent-gold);
 }
 
 .color-variant-preview-admin {
@@ -2251,6 +2306,22 @@ body {
     overflow-x: auto;
 }
 
+.admin-chart-canvas-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    margin-top: 24px;
+}
+
+.admin-chart-canvas-grid canvas {
+    width: 100% !important;
+    max-height: 220px;
+    padding: 12px;
+    border: 1px solid rgba(96, 72, 48, 0.12);
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.68);
+}
+
 .sales-bar-group {
     min-width: 74px;
     display: grid;
@@ -2327,6 +2398,8 @@ body {
     flex-direction: column;
     gap: 18px;
     min-width: 0;
+    min-height: 0;
+    overflow: hidden;
 }
 
 .admin-profile-card {
@@ -2344,6 +2417,13 @@ body {
     color: var(--admin-accent-dark);
     background: #F5ECDF;
     border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.notification-dot:hover {
+    background: #E8DCC8;
+    transform: translateY(-2px);
 }
 
 .notification-dot span {
@@ -2394,6 +2474,18 @@ body {
 .admin-calendar-card,
 .latest-orders-card {
     padding: 20px;
+}
+
+.admin-calendar-card {
+    flex: 0 0 auto;
+}
+
+.latest-orders-card {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
 }
 
 .right-panel-heading {
@@ -2464,10 +2556,25 @@ body {
 }
 
 .admin-latest-orders {
+    flex: 1 1 auto;
     display: grid;
+    align-content: start;
     gap: 12px;
+    min-height: 0;
     overflow-y: auto;
-    padding-right: 4px;
+    padding-right: 6px;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(184, 138, 70, 0.42) transparent;
+}
+
+.admin-latest-orders::-webkit-scrollbar {
+    width: 6px;
+}
+
+.admin-latest-orders::-webkit-scrollbar-thumb {
+    background: rgba(184, 138, 70, 0.42);
+    border-radius: 999px;
 }
 
 .latest-order-item {
@@ -2598,6 +2705,49 @@ body {
     border-radius: 14px;
 }
 
+.product-cell-description {
+    width: 300px;
+    max-width: 320px;
+    color: var(--admin-muted);
+    line-height: 1.45;
+}
+
+.description-cell {
+    cursor: pointer;
+}
+
+.description-cell-text {
+    display: -webkit-box;
+    max-width: 320px;
+    overflow: hidden;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow-wrap: anywhere;
+    text-overflow: ellipsis;
+}
+
+.description-preview-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    padding: 6px 10px;
+    border: 1px solid rgba(184, 138, 70, 0.26);
+    border-radius: 999px;
+    background: rgba(184, 138, 70, 0.08);
+    color: var(--admin-accent-dark);
+    font-family: inherit;
+    font-size: 0.76rem;
+    font-weight: 900;
+    cursor: pointer;
+    transition: all var(--transition);
+}
+
+.description-preview-btn:hover {
+    background: var(--admin-accent-dark);
+    color: #FFFFFF;
+}
+
 .admin-category-badge,
 .admin-code-badge,
 .order-status-badge {
@@ -2614,6 +2764,31 @@ body {
     color: var(--admin-warning);
     background: rgba(199, 149, 60, 0.12);
     border-color: rgba(199, 149, 60, 0.24);
+}
+
+.order-status-badge.available,
+.order-status-badge.paid,
+.order-status-badge.confirmed,
+.order-status-badge.delivered {
+    color: var(--admin-success);
+    background: rgba(75, 139, 89, 0.12);
+    border-color: rgba(75, 139, 89, 0.24);
+}
+
+.order-status-badge.unpaid,
+.order-status-badge.preorder {
+    color: var(--admin-warning);
+    background: rgba(199, 149, 60, 0.12);
+    border-color: rgba(199, 149, 60, 0.24);
+}
+
+.order-status-badge.failed,
+.order-status-badge.refunded,
+.order-status-badge.cancelled,
+.order-status-badge.out_of_stock {
+    color: var(--admin-danger);
+    background: rgba(166, 83, 69, 0.12);
+    border-color: rgba(166, 83, 69, 0.24);
 }
 
 .action-btn,
@@ -2726,6 +2901,105 @@ body {
     border: 1px solid var(--admin-line);
 }
 
+.description-modal-content {
+    width: min(100%, 720px);
+}
+
+.description-preview-content {
+    display: grid;
+    gap: 18px;
+}
+
+.description-preview-product {
+    display: grid;
+    grid-template-columns: 104px minmax(0, 1fr);
+    align-items: center;
+    gap: 16px;
+    padding: 14px;
+    border: 1px solid var(--admin-line);
+    border-radius: 20px;
+    background: #FFFDF8;
+}
+
+.description-preview-product img {
+    width: 104px;
+    height: 78px;
+    object-fit: cover;
+    border-radius: 16px;
+}
+
+.description-preview-product span,
+.description-preview-product strong {
+    display: block;
+    min-width: 0;
+}
+
+.description-preview-product span {
+    color: var(--admin-muted);
+    font-size: 0.8rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.description-preview-product strong {
+    overflow: hidden;
+    color: var(--admin-text);
+    font-size: 1.15rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.description-full-text {
+    max-height: 46vh;
+    overflow-y: auto;
+    padding: 18px;
+    color: var(--admin-muted);
+    background: #FFFDF8;
+    border: 1px solid var(--admin-line);
+    border-radius: 20px;
+    line-height: 1.75;
+    overflow-wrap: anywhere;
+    scrollbar-width: thin;
+}
+
+.description-full-text p {
+    margin: 0 0 14px;
+}
+
+.description-full-text p:last-child {
+    margin-bottom: 0;
+}
+
+.order-status-editor {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin: 18px 0;
+    padding: 16px;
+    border: 1px solid var(--admin-line);
+    border-radius: 18px;
+    background: #FFFDF8;
+}
+
+.order-status-editor label {
+    display: grid;
+    gap: 6px;
+    color: var(--admin-muted);
+    font-size: 0.82rem;
+    font-weight: 900;
+}
+
+.order-status-editor select {
+    border: 1px solid var(--admin-line);
+    border-radius: 12px;
+    padding: 10px 12px;
+    background: #FAF6EF;
+    color: var(--admin-text);
+    font-family: inherit;
+    font-weight: 800;
+}
+
 .product-form-admin {
     gap: 16px;
     padding-top: 18px;
@@ -2759,7 +3033,7 @@ body {
 }
 
 .color-variant-row-admin {
-    grid-template-columns: 88px minmax(130px, 1fr) minmax(120px, 0.75fr) minmax(190px, 1.2fr) 44px;
+    grid-template-columns: 88px repeat(4, minmax(130px, 1fr)) 44px;
     padding: 14px;
     border-color: var(--admin-line);
     border-radius: 20px;
@@ -2951,6 +3225,16 @@ body {
 
     .actions-section-admin {
         position: static;
+    }
+
+    .description-preview-product {
+        grid-template-columns: 1fr;
+    }
+
+    .description-preview-product img {
+        width: 100%;
+        height: auto;
+        aspect-ratio: 4 / 3;
     }
 }
 

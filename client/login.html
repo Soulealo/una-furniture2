@@ -11,59 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
 <link href="styles.css" rel="stylesheet"/>
-<style>
-
-.admin-button-container {
-    display: flex;
-    gap: 10px;
-    margin-top: 12px;
-    justify-content: center;
-}
-
-.admin-btn {
-    padding: 12px 24px;
-    background-color: var(--primary);
-    color: #fff;
-    border: 1px solid var(--primary);
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
-    font-family: 'Inter', 'Helvetica Neue', sans-serif;
-    cursor: pointer;
-    text-decoration: none;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    transition: all var(--transition);
-    box-shadow: none;
-    width: 100%;
-    justify-content: center;
-}
-
-.admin-btn:hover {
-    background-color: #3a1200;
-    border-color: #3a1200;
-    transform: translateY(-2px);
-    box-shadow: 0 10px 18px rgba(75, 23, 0, 0.16);
-}
-
-.admin-btn:active {
-    transform: translateY(0);
-}
-
-
-@media (max-width: 768px) {
-    .admin-button-container {
-        gap: 8px;
-        margin-top: 10px;
-    }
-    
-    .admin-btn {
-        padding: 10px 20px;
-        font-size: 13px;
-    }
-}
-</style>
+<link href="legal-modal.css" rel="stylesheet"/>
 </head>
 <body>
 
@@ -79,7 +27,42 @@
 <ul class="nav-menu">
 <li><a class="nav-link" href="index.html">Нүүр</a></li>
 
-<li><a class="nav-link" href="products.html">Бүтээгдэхүүн</a></li>
+<li class="nav-item-dropdown">
+<a class="nav-link nav-dropdown-toggle" href="products.html">Бүтээгдэхүүн <i class="fas fa-chevron-down" aria-hidden="true"></i></a>
+<div class="nav-dropdown-menu nav-dropdown-mega">
+                        <div class="nav-dropdown-section">
+                            <span class="nav-dropdown-heading">Орон зай</span>
+                            <a href="products.html?category=Зочны%20өрөө" class="nav-dropdown-link">Зочны өрөө</a>
+                            <a href="products.html?category=Унтлагын%20өрөө" class="nav-dropdown-link">Унтлагын өрөө</a>
+                            <a href="products.html?category=Гал%20тогоо" class="nav-dropdown-link">Гал тогоо</a>
+                            <a href="products.html?category=Оффис" class="nav-dropdown-link">Оффис</a>
+                            <a href="products.html?category=Захиалгат%20тавилга" class="nav-dropdown-link">Захиалгат тавилга</a>
+                        </div>
+                        <div class="nav-dropdown-section">
+                            <span class="nav-dropdown-heading">Тавилга</span>
+                            <a href="products.html?category=Буйдан%20%26%20сандал" class="nav-dropdown-link">Буйдан &amp; сандал</a>
+                            <a href="products.html?category=Ширээ%20%26%20шүүгээ" class="nav-dropdown-link">Ширээ &amp; шүүгээ</a>
+                            <a href="products.html?category=Гэрэлтүүлэг" class="nav-dropdown-link">Гэрэлтүүлэг</a>
+                            <a href="products.html?category=Текстиль" class="nav-dropdown-link">Текстиль</a>
+                        </div>
+                        <div class="nav-dropdown-section">
+                            <span class="nav-dropdown-heading">Гоёл чимэглэл</span>
+                            <a href="products.html?category=Ваар%20%26%20аяга" class="nav-dropdown-link">Ваар &amp; аяга</a>
+                            <a href="products.html?category=Tray%20%26%20tabletop" class="nav-dropdown-link">Tray &amp; tabletop</a>
+                            <a href="products.html?category=Лааны%20суурь" class="nav-dropdown-link">Лааны суурь</a>
+                            <a href="products.html?category=Хөшөө%20%26%20decor" class="nav-dropdown-link">Хөшөө &amp; decor</a>
+                            <a href="products.html?category=Зургийн%20жааз%20%26%20хайрцаг" class="nav-dropdown-link">Зургийн жааз &amp; хайрцаг</a>
+                        </div>
+                        <div class="nav-dropdown-section">
+                            <span class="nav-dropdown-heading">Хана ба гадна</span>
+                            <a href="products.html?category=Толь" class="nav-dropdown-link">Толь</a>
+                            <a href="products.html?category=Ханын%20чимэглэл" class="nav-dropdown-link">Ханын чимэглэл</a>
+                            <a href="products.html?category=Цаг" class="nav-dropdown-link">Цаг</a>
+                            <a href="products.html?category=Гадна%20орчин" class="nav-dropdown-link">Гадна орчин</a>
+                            <a href="products.html?category=Шинэ%20загварууд" class="nav-dropdown-link">Шинэ загварууд</a>
+                        </div>
+                    </div>
+                </li>
 <li><a class="nav-link" href="index.html#services">Үйлчилгээ</a></li>
 <li><a class="nav-link" href="index.html#contact">Холбоо барих</a></li>
 </ul>
@@ -108,7 +91,7 @@
 <label for="email">И-мэйл хаяг</label>
 <div class="input-wrapper">
 <i class="fas fa-envelope"></i>
-<input id="email" placeholder="you@example.com" required="" type="email"/>
+<input id="email" autocomplete="email" inputmode="email" placeholder="you@example.com" required="" type="text"/>
 </div>
 </div>
 <div class="form-group-login">
@@ -126,7 +109,7 @@
 <input name="remember" type="checkbox"/>
 <span>Намайг сана</span>
 </label>
-<a class="forgot-password" href="#">Нууц үг мартсан?</a>
+<a class="forgot-password" href="forgot-password.html">Нууц үг мартсан?</a>
 </div>
 <button class="login-submit-btn" type="submit">
                             Нэвтрэх
@@ -140,12 +123,6 @@
                         </a>
 </div>
 
-<div class="admin-button-container">
-<a href="admin.html" class="admin-btn">
-<i class="fas fa-lock"></i>
-Админ
-</a>
-</div>
 <div class="create-account">
 <p>Бүртгэл байхгүй юу? <a class="create-account-link" href="signup.html">Бүртгүүлэх</a></p>
 </div>
@@ -166,6 +143,10 @@
 <span class="logo-fallback">UNA Home &amp; Furniture</span>
 </div>
 <p>© 2026 UNA Home &amp; Furniture. Бүх эрх хуулиар хамгаалагдсан. | Таны гэрт тохирох ганц, төгс сонголт</p>
+<div class="footer-legal-links" id="footer-legal-links">
+<a href="privacy.html" data-legal-tab="privacy">Нууцлалын бодлого</a>
+<a href="terms.html" data-legal-tab="terms">Үйлчилгээний нөхцөл</a>
+</div>
 <div class="social-links">
 <a href="#"><i class="fab fa-facebook"></i></a>
 <a href="#"><i class="fab fa-instagram"></i></a>
@@ -173,6 +154,7 @@
 </div>
 </div>
 </footer>
+<script src="legal-modal.js"></script>
 <script src="script.js"></script>
 </body>
 </html>

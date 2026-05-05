@@ -1,7 +1,7 @@
 const jsonHeaders = {
     'content-type': 'application/json; charset=UTF-8',
     'access-control-allow-origin': '*',
-    'access-control-allow-methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'access-control-allow-methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
     'access-control-allow-headers': 'Content-Type, Authorization'
 };
 
@@ -10,17 +10,34 @@ const htmlRoutes = new Map([
     ['/admin', '/admin.html'],
     ['/products', '/products.html'],
     ['/product', '/products.html'],
+    ['/product-detail', '/product-detail.html'],
     ['/login', '/login.html'],
     ['/signup', '/signup.html'],
     ['/account', '/account.html'],
-    ['/cart', '/cart.html']
+    ['/cart', '/cart.html'],
+    ['/checkout', '/checkout.html'],
+    ['/forgot-password', '/forgot-password.html'],
+    ['/reset-password', '/reset-password.html'],
+    ['/terms', '/terms.html'],
+    ['/privacy', '/privacy.html']
 ]);
 
 const DEFAULT_PAYMENT_SETTINGS = {
     bankName: 'Khan Bank',
     accountNumber: '',
     accountHolder: 'UNA Home & Furniture',
-    facebookChatUrl: ''
+    facebookChatUrl: '',
+    messengerUrl: '',
+    deliveryFee: 0,
+    contactPhone: '',
+    contactEmail: '',
+    storeAddress: '',
+    workingHours: '',
+    facebookPageUrl: '',
+    warrantyNote: '',
+    returnPolicy: '',
+    qpayInfo: '',
+    estimatedDeliveryTime: ''
 };
 
 const GOOGLE_REDIRECT_URI = 'https://una-furniture.jntsnnrv.workers.dev/auth/google/callback';
@@ -29,6 +46,9 @@ const GOOGLE_STATE_COOKIE_NAME = 'una_google_oauth_state';
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 12;
 const GOOGLE_CLIENT_ID_SUFFIX = '.apps.googleusercontent.com';
 const ADMIN_ACCESS_ROLES = new Set(['admin', 'manager']);
+let coreSchemaReady = false;
+let productColorVariantsSchemaReady = false;
+let ecommerceSchemaReady = false;
 
 function responseHeaders(extraHeaders = {}) {
     const headers = new Headers(jsonHeaders);
@@ -140,6 +160,13 @@ function clearCookie(request, name) {
     return serializeCookie(request, name, '', { maxAge: 0 });
 }
 
+function authCookie(request, token) {
+    return serializeCookie(request, AUTH_COOKIE_NAME, token, {
+        maxAge: SESSION_MAX_AGE_SECONDS,
+        sameSite: 'Strict'
+    });
+}
+
 function redirect(location, extraHeaders = {}) {
     const headers = new Headers();
     headers.set('location', location);
@@ -164,6 +191,19 @@ function randomId(length = 16) {
     const bytes = new Uint8Array(length);
     crypto.getRandomValues(bytes);
     return base64UrlEncode(bytes);
+}
+
+function safeEqual(a, b) {
+    const left = String(a || '');
+    const right = String(b || '');
+    if (left.length !== right.length) return false;
+
+    let diff = 0;
+    for (let index = 0; index < left.length; index += 1) {
+        diff |= left.charCodeAt(index) ^ right.charCodeAt(index);
+    }
+
+    return diff === 0;
 }
 
 async function hashPassword(password) {
@@ -261,6 +301,15 @@ function getAdminOrderStatusId(pathname) {
     return match ? Number(match[1]) : null;
 }
 
+function getApiOrderId(pathname) {
+    const match = pathname.match(/^\/api\/orders\/(\d+)$/);
+    return match ? Number(match[1]) : null;
+}
+
+function getNormalizedProductPath(pathname) {
+    return pathname.startsWith('/api/products') ? pathname.slice(4) : pathname;
+}
+
 async function readJson(request) {
     try {
         return await request.json();
@@ -275,6 +324,17 @@ function parseJsonArray(value) {
         return Array.isArray(parsed) ? parsed : [];
     } catch (error) {
         return [];
+    }
+}
+
+function parseJsonObject(value) {
+    if (value && typeof value === 'object' && !Array.isArray(value)) return value;
+
+    try {
+        const parsed = JSON.parse(value || '{}');
+        return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? parsed : {};
+    } catch (error) {
+        return {};
     }
 }
 
@@ -327,12 +387,21 @@ function normalizeColorVariants(value) {
 
     return source
         .map((variant) => {
-            const colorValue = String(variant?.colorValue || variant?.color_value || variant?.color || variant?.value || '').trim();
+            const colorValue = String(variant?.colorHex || variant?.colorValue || variant?.color_value || variant?.color || variant?.value || '').trim();
+            const price = Number(variant?.price);
+            const salePrice = Number(variant?.salePrice || variant?.sale_price);
+            const stock = Number(variant?.stock);
             const normalized = {
-                name: String(variant?.name || '').trim(),
+                name: String(variant?.name || variant?.colorName || '').trim(),
+                colorName: String(variant?.name || variant?.colorName || '').trim(),
                 color: colorValue,
+                colorHex: colorValue,
                 colorValue,
-                image: String(variant?.image || variant?.imageUrl || '').trim()
+                image: String(variant?.image || variant?.imageUrl || '').trim(),
+                price: Number.isFinite(price) && price >= 0 ? price : null,
+                salePrice: Number.isFinite(salePrice) && salePrice >= 0 ? salePrice : null,
+                stock: Number.isFinite(stock) && stock >= 0 ? Math.round(stock) : null,
+                sku: String(variant?.sku || variant?.productCode || '').trim()
             };
             const id = Number(variant?.id);
 
@@ -346,14 +415,463 @@ function normalizeColorVariants(value) {
         });
 }
 
+async function addMissingColumns(env, tableName, columns) {
+    const existingColumns = await getTableColumns(env, tableName);
+
+    for (const [columnName, statement] of columns) {
+        if (!existingColumns.has(String(columnName).toLowerCase())) {
+            try {
+                await env.DB.prepare(statement).run();
+            } catch (error) {
+                if (!isDuplicateColumnError(error, columnName)) throw error;
+            }
+        }
+    }
+}
+
+async function ensureCoreSchema(env) {
+    if (coreSchemaReady) return;
+
+    await env.DB.prepare(
+        `CREATE TABLE IF NOT EXISTS products (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            price INTEGER DEFAULT 0,
+            salePrice INTEGER,
+            discountPercent INTEGER DEFAULT 0,
+            description TEXT,
+            category TEXT,
+            imageUrl TEXT,
+            imageUrls TEXT,
+            colors TEXT,
+            colorVariants TEXT,
+            sizes TEXT,
+            stock INTEGER DEFAULT 0,
+            stockStatus TEXT DEFAULT 'available',
+            sku TEXT,
+            width TEXT,
+            height TEXT,
+            depth TEXT,
+            material TEXT,
+            weight TEXT,
+            brand TEXT,
+            deliveryAvailable INTEGER DEFAULT 1,
+            assemblyRequired INTEGER DEFAULT 0,
+            warrantyNote TEXT,
+            deliveryNote TEXT,
+            createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+        )`
+    ).run();
+
+    await env.DB.prepare(
+        `CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            googleId TEXT,
+            username TEXT,
+            fullname TEXT,
+            name TEXT,
+            email TEXT UNIQUE,
+            avatar TEXT,
+            passwordHash TEXT,
+            phone TEXT,
+            address TEXT,
+            role TEXT DEFAULT 'user',
+            createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+            updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+        )`
+    ).run();
+
+    await env.DB.prepare(
+        `CREATE TABLE IF NOT EXISTS categories (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE,
+            createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+            updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+        )`
+    ).run();
+
+    await env.DB.prepare(
+        `CREATE TABLE IF NOT EXISTS orders (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            orderCode TEXT UNIQUE,
+            userId INTEGER,
+            items TEXT,
+            totalAmount INTEGER DEFAULT 0,
+            paymentMethod TEXT,
+            transactionCode TEXT,
+            status TEXT DEFAULT 'pending',
+            customerName TEXT,
+            email TEXT,
+            phone TEXT,
+            address TEXT,
+            deliveryInfo TEXT,
+            paymentStatus TEXT DEFAULT 'unpaid',
+            orderStatus TEXT DEFAULT 'pending',
+            channel TEXT,
+            transactionNote TEXT,
+            createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+            updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+        )`
+    ).run();
+
+    await env.DB.prepare(
+        `CREATE TABLE IF NOT EXISTS payment_settings (
+            id INTEGER PRIMARY KEY,
+            bankName TEXT,
+            accountNumber TEXT,
+            accountHolder TEXT,
+            facebookChatUrl TEXT,
+            messengerUrl TEXT,
+            deliveryFee INTEGER DEFAULT 0,
+            contactPhone TEXT,
+            contactEmail TEXT,
+            storeAddress TEXT,
+            workingHours TEXT,
+            facebookPageUrl TEXT,
+            warrantyNote TEXT,
+            returnPolicy TEXT,
+            qpayInfo TEXT,
+            estimatedDeliveryTime TEXT,
+            updatedAt TEXT
+        )`
+    ).run();
+
+    await env.DB.prepare(
+        `CREATE TABLE IF NOT EXISTS admin_settings (
+            id INTEGER PRIMARY KEY,
+            username TEXT UNIQUE,
+            email TEXT,
+            passwordHash TEXT,
+            createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+            updatedAt TEXT DEFAULT CURRENT_TIMESTAMP
+        )`
+    ).run();
+
+    await env.DB.prepare(
+        `CREATE TABLE IF NOT EXISTS product_images (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            productId INTEGER NOT NULL,
+            url TEXT NOT NULL,
+            position INTEGER NOT NULL DEFAULT 0,
+            createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (productId) REFERENCES products(id) ON DELETE CASCADE
+        )`
+    ).run();
+
+    await env.DB.prepare(
+        `CREATE TABLE IF NOT EXISTS order_items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            orderId INTEGER NOT NULL,
+            productId INTEGER,
+            productCode TEXT,
+            productName TEXT NOT NULL,
+            productPrice INTEGER DEFAULT 0,
+            quantity INTEGER DEFAULT 1,
+            imageUrl TEXT,
+            selectedColor TEXT,
+            selectedSize TEXT,
+            selectedColorValue TEXT,
+            selectedColorImage TEXT,
+            createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (orderId) REFERENCES orders(id) ON DELETE CASCADE
+        )`
+    ).run();
+
+    await addMissingColumns(env, 'products', [
+        ['imageUrls', 'ALTER TABLE products ADD COLUMN imageUrls TEXT'],
+        ['sizes', 'ALTER TABLE products ADD COLUMN sizes TEXT'],
+        ['stock', 'ALTER TABLE products ADD COLUMN stock INTEGER DEFAULT 0'],
+        ['colors', 'ALTER TABLE products ADD COLUMN colors TEXT'],
+        ['colorVariants', 'ALTER TABLE products ADD COLUMN colorVariants TEXT'],
+        ['salePrice', 'ALTER TABLE products ADD COLUMN salePrice INTEGER'],
+        ['discountPercent', 'ALTER TABLE products ADD COLUMN discountPercent INTEGER DEFAULT 0'],
+        ['stockStatus', "ALTER TABLE products ADD COLUMN stockStatus TEXT DEFAULT 'available'"],
+        ['sku', 'ALTER TABLE products ADD COLUMN sku TEXT'],
+        ['width', 'ALTER TABLE products ADD COLUMN width TEXT'],
+        ['height', 'ALTER TABLE products ADD COLUMN height TEXT'],
+        ['depth', 'ALTER TABLE products ADD COLUMN depth TEXT'],
+        ['material', 'ALTER TABLE products ADD COLUMN material TEXT'],
+        ['weight', 'ALTER TABLE products ADD COLUMN weight TEXT'],
+        ['brand', 'ALTER TABLE products ADD COLUMN brand TEXT'],
+        ['deliveryAvailable', 'ALTER TABLE products ADD COLUMN deliveryAvailable INTEGER DEFAULT 1'],
+        ['assemblyRequired', 'ALTER TABLE products ADD COLUMN assemblyRequired INTEGER DEFAULT 0'],
+        ['warrantyNote', 'ALTER TABLE products ADD COLUMN warrantyNote TEXT'],
+        ['deliveryNote', 'ALTER TABLE products ADD COLUMN deliveryNote TEXT'],
+        ['subCategory', 'ALTER TABLE products ADD COLUMN subCategory TEXT']
+    ]);
+
+    await addMissingColumns(env, 'users', [
+        ['googleId', 'ALTER TABLE users ADD COLUMN googleId TEXT'],
+        ['username', 'ALTER TABLE users ADD COLUMN username TEXT'],
+        ['fullname', 'ALTER TABLE users ADD COLUMN fullname TEXT'],
+        ['name', 'ALTER TABLE users ADD COLUMN name TEXT'],
+        ['email', 'ALTER TABLE users ADD COLUMN email TEXT'],
+        ['avatar', 'ALTER TABLE users ADD COLUMN avatar TEXT'],
+        ['passwordHash', 'ALTER TABLE users ADD COLUMN passwordHash TEXT'],
+        ['phone', 'ALTER TABLE users ADD COLUMN phone TEXT'],
+        ['address', 'ALTER TABLE users ADD COLUMN address TEXT'],
+        ['role', "ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'user'"],
+        ['createdAt', 'ALTER TABLE users ADD COLUMN createdAt TEXT'],
+        ['updatedAt', 'ALTER TABLE users ADD COLUMN updatedAt TEXT']
+    ]);
+
+    await addMissingColumns(env, 'orders', [
+        ['orderCode', 'ALTER TABLE orders ADD COLUMN orderCode TEXT'],
+        ['userId', 'ALTER TABLE orders ADD COLUMN userId INTEGER'],
+        ['items', 'ALTER TABLE orders ADD COLUMN items TEXT'],
+        ['totalAmount', 'ALTER TABLE orders ADD COLUMN totalAmount INTEGER DEFAULT 0'],
+        ['paymentMethod', 'ALTER TABLE orders ADD COLUMN paymentMethod TEXT'],
+        ['transactionCode', 'ALTER TABLE orders ADD COLUMN transactionCode TEXT'],
+        ['status', "ALTER TABLE orders ADD COLUMN status TEXT DEFAULT 'pending'"],
+        ['customerName', 'ALTER TABLE orders ADD COLUMN customerName TEXT'],
+        ['email', 'ALTER TABLE orders ADD COLUMN email TEXT'],
+        ['phone', 'ALTER TABLE orders ADD COLUMN phone TEXT'],
+        ['address', 'ALTER TABLE orders ADD COLUMN address TEXT'],
+        ['deliveryInfo', 'ALTER TABLE orders ADD COLUMN deliveryInfo TEXT'],
+        ['paymentStatus', "ALTER TABLE orders ADD COLUMN paymentStatus TEXT DEFAULT 'unpaid'"],
+        ['orderStatus', "ALTER TABLE orders ADD COLUMN orderStatus TEXT DEFAULT 'pending'"],
+        ['channel', 'ALTER TABLE orders ADD COLUMN channel TEXT'],
+        ['transactionNote', 'ALTER TABLE orders ADD COLUMN transactionNote TEXT'],
+        ['createdAt', 'ALTER TABLE orders ADD COLUMN createdAt TEXT'],
+        ['updatedAt', 'ALTER TABLE orders ADD COLUMN updatedAt TEXT']
+    ]);
+
+    await addMissingColumns(env, 'payment_settings', [
+        ['bankName', 'ALTER TABLE payment_settings ADD COLUMN bankName TEXT'],
+        ['accountNumber', 'ALTER TABLE payment_settings ADD COLUMN accountNumber TEXT'],
+        ['accountHolder', 'ALTER TABLE payment_settings ADD COLUMN accountHolder TEXT'],
+        ['facebookChatUrl', 'ALTER TABLE payment_settings ADD COLUMN facebookChatUrl TEXT'],
+        ['messengerUrl', 'ALTER TABLE payment_settings ADD COLUMN messengerUrl TEXT'],
+        ['deliveryFee', 'ALTER TABLE payment_settings ADD COLUMN deliveryFee INTEGER DEFAULT 0'],
+        ['contactPhone', 'ALTER TABLE payment_settings ADD COLUMN contactPhone TEXT'],
+        ['contactEmail', 'ALTER TABLE payment_settings ADD COLUMN contactEmail TEXT'],
+        ['storeAddress', 'ALTER TABLE payment_settings ADD COLUMN storeAddress TEXT'],
+        ['workingHours', 'ALTER TABLE payment_settings ADD COLUMN workingHours TEXT'],
+        ['facebookPageUrl', 'ALTER TABLE payment_settings ADD COLUMN facebookPageUrl TEXT'],
+        ['warrantyNote', 'ALTER TABLE payment_settings ADD COLUMN warrantyNote TEXT'],
+        ['returnPolicy', 'ALTER TABLE payment_settings ADD COLUMN returnPolicy TEXT'],
+        ['qpayInfo', 'ALTER TABLE payment_settings ADD COLUMN qpayInfo TEXT'],
+        ['estimatedDeliveryTime', 'ALTER TABLE payment_settings ADD COLUMN estimatedDeliveryTime TEXT'],
+        ['updatedAt', 'ALTER TABLE payment_settings ADD COLUMN updatedAt TEXT']
+    ]);
+
+    await addMissingColumns(env, 'admin_settings', [
+        ['username', 'ALTER TABLE admin_settings ADD COLUMN username TEXT'],
+        ['email', 'ALTER TABLE admin_settings ADD COLUMN email TEXT'],
+        ['passwordHash', 'ALTER TABLE admin_settings ADD COLUMN passwordHash TEXT'],
+        ['createdAt', 'ALTER TABLE admin_settings ADD COLUMN createdAt TEXT'],
+        ['updatedAt', 'ALTER TABLE admin_settings ADD COLUMN updatedAt TEXT']
+    ]);
+
+    await addMissingColumns(env, 'order_items', [
+        ['productId', 'ALTER TABLE order_items ADD COLUMN productId INTEGER'],
+        ['productCode', 'ALTER TABLE order_items ADD COLUMN productCode TEXT'],
+        ['productName', 'ALTER TABLE order_items ADD COLUMN productName TEXT'],
+        ['productPrice', 'ALTER TABLE order_items ADD COLUMN productPrice INTEGER DEFAULT 0'],
+        ['quantity', 'ALTER TABLE order_items ADD COLUMN quantity INTEGER DEFAULT 1'],
+        ['imageUrl', 'ALTER TABLE order_items ADD COLUMN imageUrl TEXT'],
+        ['selectedColor', 'ALTER TABLE order_items ADD COLUMN selectedColor TEXT'],
+        ['selectedSize', 'ALTER TABLE order_items ADD COLUMN selectedSize TEXT'],
+        ['selectedColorValue', 'ALTER TABLE order_items ADD COLUMN selectedColorValue TEXT'],
+        ['selectedColorImage', 'ALTER TABLE order_items ADD COLUMN selectedColorImage TEXT'],
+        ['createdAt', 'ALTER TABLE order_items ADD COLUMN createdAt TEXT']
+    ]);
+
+    await env.DB.prepare("INSERT OR IGNORE INTO categories (name, createdAt, updatedAt) VALUES ('Uncategorized', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)").run();
+    await env.DB.prepare(
+        `INSERT OR IGNORE INTO payment_settings
+            (id, bankName, accountNumber, accountHolder, facebookChatUrl, messengerUrl, deliveryFee, updatedAt)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+    ).bind(
+        1,
+        DEFAULT_PAYMENT_SETTINGS.bankName,
+        DEFAULT_PAYMENT_SETTINGS.accountNumber,
+        DEFAULT_PAYMENT_SETTINGS.accountHolder,
+        DEFAULT_PAYMENT_SETTINGS.facebookChatUrl,
+        DEFAULT_PAYMENT_SETTINGS.messengerUrl,
+        DEFAULT_PAYMENT_SETTINGS.deliveryFee,
+        new Date().toISOString()
+    ).run();
+
+    await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_product_images_product_position ON product_images (productId, position, id)').run();
+    await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items (orderId)').run();
+    await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_orders_user_created ON orders (userId, createdAt)').run();
+    await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_orders_code ON orders (orderCode)').run();
+    await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_products_category ON products (category)').run();
+    await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_users_email ON users (email)').run();
+    await env.DB.prepare("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_id ON users (googleId) WHERE googleId IS NOT NULL AND googleId <> ''").run();
+    await env.DB.prepare('CREATE INDEX IF NOT EXISTS idx_users_role ON users (role)').run();
+
+    coreSchemaReady = true;
+}
+
+async function ensureEcommerceSchema(env) {
+    if (ecommerceSchemaReady) return;
+
+    await ensureCoreSchema(env);
+
+    await env.DB.prepare(
+        `CREATE TABLE IF NOT EXISTS payment_settings (
+            id INTEGER PRIMARY KEY,
+            bankName TEXT,
+            accountNumber TEXT,
+            accountHolder TEXT,
+            facebookChatUrl TEXT,
+            updatedAt TEXT
+        )`
+    ).run();
+
+    await addMissingColumns(env, 'products', [
+        ['imageUrls', 'ALTER TABLE products ADD COLUMN imageUrls TEXT'],
+        ['sizes', 'ALTER TABLE products ADD COLUMN sizes TEXT'],
+        ['stock', 'ALTER TABLE products ADD COLUMN stock INTEGER DEFAULT 0'],
+        ['colors', 'ALTER TABLE products ADD COLUMN colors TEXT'],
+        ['colorVariants', 'ALTER TABLE products ADD COLUMN colorVariants TEXT'],
+        ['sku', 'ALTER TABLE products ADD COLUMN sku TEXT'],
+        ['width', 'ALTER TABLE products ADD COLUMN width TEXT'],
+        ['height', 'ALTER TABLE products ADD COLUMN height TEXT'],
+        ['depth', 'ALTER TABLE products ADD COLUMN depth TEXT'],
+        ['material', 'ALTER TABLE products ADD COLUMN material TEXT'],
+        ['weight', 'ALTER TABLE products ADD COLUMN weight TEXT'],
+        ['brand', 'ALTER TABLE products ADD COLUMN brand TEXT'],
+        ['deliveryAvailable', 'ALTER TABLE products ADD COLUMN deliveryAvailable INTEGER DEFAULT 1'],
+        ['assemblyRequired', 'ALTER TABLE products ADD COLUMN assemblyRequired INTEGER DEFAULT 0'],
+        ['salePrice', 'ALTER TABLE products ADD COLUMN salePrice INTEGER'],
+        ['discountPercent', 'ALTER TABLE products ADD COLUMN discountPercent INTEGER DEFAULT 0'],
+        ['stockStatus', "ALTER TABLE products ADD COLUMN stockStatus TEXT DEFAULT 'available'"],
+        ['warrantyNote', 'ALTER TABLE products ADD COLUMN warrantyNote TEXT'],
+        ['deliveryNote', 'ALTER TABLE products ADD COLUMN deliveryNote TEXT']
+    ]);
+
+    await ensureProductColorVariantsTable(env);
+    await addMissingColumns(env, 'product_color_variants', [
+        ['price', 'ALTER TABLE product_color_variants ADD COLUMN price INTEGER'],
+        ['sale_price', 'ALTER TABLE product_color_variants ADD COLUMN sale_price INTEGER'],
+        ['stock', 'ALTER TABLE product_color_variants ADD COLUMN stock INTEGER'],
+        ['sku', 'ALTER TABLE product_color_variants ADD COLUMN sku TEXT']
+    ]);
+
+    await addMissingColumns(env, 'orders', [
+        ['customerName', 'ALTER TABLE orders ADD COLUMN customerName TEXT'],
+        ['email', 'ALTER TABLE orders ADD COLUMN email TEXT'],
+        ['phone', 'ALTER TABLE orders ADD COLUMN phone TEXT'],
+        ['address', 'ALTER TABLE orders ADD COLUMN address TEXT'],
+        ['deliveryInfo', 'ALTER TABLE orders ADD COLUMN deliveryInfo TEXT'],
+        ['paymentStatus', "ALTER TABLE orders ADD COLUMN paymentStatus TEXT DEFAULT 'unpaid'"],
+        ['orderStatus', "ALTER TABLE orders ADD COLUMN orderStatus TEXT DEFAULT 'pending'"],
+        ['channel', 'ALTER TABLE orders ADD COLUMN channel TEXT'],
+        ['transactionNote', 'ALTER TABLE orders ADD COLUMN transactionNote TEXT']
+    ]);
+
+    await addMissingColumns(env, 'payment_settings', [
+        ['messengerUrl', 'ALTER TABLE payment_settings ADD COLUMN messengerUrl TEXT'],
+        ['deliveryFee', 'ALTER TABLE payment_settings ADD COLUMN deliveryFee INTEGER DEFAULT 0'],
+        ['contactPhone', 'ALTER TABLE payment_settings ADD COLUMN contactPhone TEXT'],
+        ['contactEmail', 'ALTER TABLE payment_settings ADD COLUMN contactEmail TEXT'],
+        ['storeAddress', 'ALTER TABLE payment_settings ADD COLUMN storeAddress TEXT'],
+        ['workingHours', 'ALTER TABLE payment_settings ADD COLUMN workingHours TEXT'],
+        ['facebookPageUrl', 'ALTER TABLE payment_settings ADD COLUMN facebookPageUrl TEXT'],
+        ['warrantyNote', 'ALTER TABLE payment_settings ADD COLUMN warrantyNote TEXT'],
+        ['returnPolicy', 'ALTER TABLE payment_settings ADD COLUMN returnPolicy TEXT'],
+        ['qpayInfo', 'ALTER TABLE payment_settings ADD COLUMN qpayInfo TEXT'],
+        ['estimatedDeliveryTime', 'ALTER TABLE payment_settings ADD COLUMN estimatedDeliveryTime TEXT']
+    ]);
+
+    await env.DB.prepare(
+        `CREATE TABLE IF NOT EXISTS contact_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            email TEXT,
+            phone TEXT,
+            message TEXT NOT NULL,
+            status TEXT DEFAULT 'new',
+            createdAt TEXT DEFAULT CURRENT_TIMESTAMP
+        )`
+    ).run();
+
+    await env.DB.prepare(
+        `CREATE TABLE IF NOT EXISTS password_reset_tokens (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            userId INTEGER NOT NULL,
+            tokenHash TEXT NOT NULL UNIQUE,
+            expiresAt TEXT NOT NULL,
+            usedAt TEXT,
+            createdAt TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+        )`
+    ).run();
+
+    ecommerceSchemaReady = true;
+}
+
 function isMissingColumnError(error, columnName) {
     const message = String(error?.message || '').toLowerCase();
     return message.includes('no such column') && message.includes(String(columnName).toLowerCase());
 }
 
+function isDuplicateColumnError(error, columnName) {
+    const message = String(error?.message || '').toLowerCase();
+    return message.includes('duplicate column') && message.includes(String(columnName).toLowerCase());
+}
+
 function isMissingTableError(error, tableName) {
     const message = String(error?.message || '').toLowerCase();
     return message.includes('no such table') && message.includes(String(tableName).toLowerCase());
+}
+
+async function getTableColumns(env, tableName) {
+    try {
+        const { results } = await env.DB.prepare(`PRAGMA table_info(${tableName})`).all();
+        return new Set((results || []).map((row) => String(row.name || '').toLowerCase()));
+    } catch (error) {
+        return new Set();
+    }
+}
+
+async function ensureProductColorVariantsTable(env) {
+    if (productColorVariantsSchemaReady) return;
+
+    await env.DB.prepare(
+        `CREATE TABLE IF NOT EXISTS product_color_variants (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            product_id INTEGER NOT NULL,
+            name TEXT NOT NULL,
+            color_value TEXT,
+            image TEXT,
+            sort_order INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
+        )`
+    ).run();
+
+    const columns = await getTableColumns(env, 'product_color_variants');
+    const missingColumns = [
+        ['color_value', 'ALTER TABLE product_color_variants ADD COLUMN color_value TEXT'],
+        ['image', 'ALTER TABLE product_color_variants ADD COLUMN image TEXT'],
+        ['sort_order', 'ALTER TABLE product_color_variants ADD COLUMN sort_order INTEGER DEFAULT 0'],
+        ['created_at', 'ALTER TABLE product_color_variants ADD COLUMN created_at TEXT'],
+        ['updated_at', 'ALTER TABLE product_color_variants ADD COLUMN updated_at TEXT'],
+        ['price', 'ALTER TABLE product_color_variants ADD COLUMN price INTEGER'],
+        ['sale_price', 'ALTER TABLE product_color_variants ADD COLUMN sale_price INTEGER'],
+        ['stock', 'ALTER TABLE product_color_variants ADD COLUMN stock INTEGER'],
+        ['sku', 'ALTER TABLE product_color_variants ADD COLUMN sku TEXT']
+    ];
+
+    for (const [columnName, statement] of missingColumns) {
+        if (!columns.has(columnName)) {
+            await env.DB.prepare(statement).run();
+        }
+    }
+
+    await env.DB.prepare(
+        'CREATE INDEX IF NOT EXISTS idx_product_color_variants_product_order ON product_color_variants (product_id, sort_order, id)'
+    ).run();
+    await env.DB.prepare(
+        'CREATE INDEX IF NOT EXISTS idx_product_color_variants_product_name ON product_color_variants (product_id, name)'
+    ).run();
+
+    productColorVariantsSchemaReady = true;
 }
 
 function isHttpUrl(value) {
@@ -391,6 +909,21 @@ function normalizeImages(body = {}) {
     return [...new Set(source.map((image) => String(image || '').trim()).filter(Boolean))];
 }
 
+function cleanBoolean(value, defaultValue = false) {
+    if (value === true || value === 1 || value === '1') return true;
+    if (value === false || value === 0 || value === '0') return false;
+    const normalized = String(value ?? '').trim().toLowerCase();
+    if (['true', 'yes', 'on'].includes(normalized)) return true;
+    if (['false', 'no', 'off'].includes(normalized)) return false;
+    return defaultValue;
+}
+
+function cleanOptionalNumber(value) {
+    if (value === undefined || value === null || value === '') return null;
+    const numberValue = Number(value);
+    return Number.isFinite(numberValue) && numberValue >= 0 ? numberValue : null;
+}
+
 function cleanProductInput(body = {}) {
     const images = normalizeImages(body);
     const customId = body.id || body.productId || body.customId;
@@ -407,11 +940,26 @@ function cleanProductInput(body = {}) {
         price: Number(body.price),
         description: String(body.description || '').trim(),
         category: String(body.category || body.categoryName || body.categoryId || '').trim(),
+        subCategory: String(body.subCategory || '').trim(),
         images,
         colors,
         colorVariants,
         sizes: normalizeOptionList(body.sizes),
-        stock: Number(body.stock || 0)
+        stock: Number(body.stock || 0),
+        sku: String(body.sku || body.productCode || '').trim(),
+        width: String(body.width || body.dimensions?.width || '').trim(),
+        height: String(body.height || body.dimensions?.height || '').trim(),
+        depth: String(body.depth || body.dimensions?.depth || '').trim(),
+        material: String(body.material || '').trim(),
+        weight: String(body.weight || '').trim(),
+        brand: String(body.brand || body.manufacturer || '').trim(),
+        deliveryAvailable: cleanBoolean(body.deliveryAvailable, true),
+        assemblyRequired: cleanBoolean(body.assemblyRequired, false),
+        salePrice: cleanOptionalNumber(body.salePrice),
+        discountPercent: cleanOptionalNumber(body.discountPercent) || 0,
+        stockStatus: String(body.stockStatus || '').trim() || (Number(body.stock || 0) > 0 ? 'available' : 'out_of_stock'),
+        warrantyNote: String(body.warrantyNote || '').trim(),
+        deliveryNote: String(body.deliveryNote || '').trim()
     };
 }
 
@@ -423,14 +971,16 @@ function validateProduct(product, allowCustomId = false) {
     if (!Number.isFinite(product.price) || product.price <= 0) return 'Product price must be greater than 0.';
     if (!product.category) return 'Product category is required.';
     if (!product.images.length) return 'At least one product image URL is required.';
-    if (product.images.some((image) => !isHttpUrl(image))) return 'Every product image must be a valid http or https URL.';
-    if (product.colorVariants.some((variant) => !variant.name || !variant.color || !variant.image)) {
-        return 'Every color variant must include a name, color value, and image.';
+    if (product.images.some((image) => !isAllowedImageReference(image))) return 'Every product image must be a valid URL or supported image path.';
+    if (product.colorVariants.some((variant) => !variant.name || !variant.image)) {
+        return 'Every color variant must include a name and image.';
     }
     if (product.colorVariants.some((variant) => !isAllowedImageReference(variant.image))) {
         return 'Every color variant image must be a valid URL or supported image path.';
     }
     if (!Number.isFinite(product.stock) || product.stock < 0) return 'Product stock must be 0 or greater.';
+    if (product.salePrice !== null && product.salePrice > product.price) return 'Sale price cannot be greater than product price.';
+    if (!['available', 'preorder', 'out_of_stock'].includes(product.stockStatus)) return 'Stock status is invalid.';
     return '';
 }
 
@@ -449,11 +999,33 @@ function toProductResponse(row) {
         id: String(row.id),
         name: row.name || '',
         price: Number(row.price) || 0,
+        salePrice: row.salePrice === null || row.salePrice === undefined ? null : Number(row.salePrice) || null,
+        discountPercent: Number(row.discountPercent) || 0,
         description: row.description || '',
         category: row.category || 'Uncategorized',
         categoryName: row.category || 'Uncategorized',
+        subCategory: row.subCategory || '',
+        sku: row.sku || '',
+        productCode: row.sku || '',
+        dimensions: {
+            width: row.width || '',
+            height: row.height || '',
+            depth: row.depth || ''
+        },
+        width: row.width || '',
+        height: row.height || '',
+        depth: row.depth || '',
+        material: row.material || '',
+        weight: row.weight || '',
+        brand: row.brand || '',
+        deliveryAvailable: cleanBoolean(row.deliveryAvailable, true),
+        assemblyRequired: cleanBoolean(row.assemblyRequired, false),
+        stockStatus: row.stockStatus || (Number(row.stock) > 0 ? 'available' : 'out_of_stock'),
+        warrantyNote: row.warrantyNote || '',
+        deliveryNote: row.deliveryNote || '',
         imageUrl: imageUrls[0] || '',
         imageUrls,
+        galleryImages: imageUrls,
         images: imageUrls,
         colors,
         colorVariants: legacyColorVariants,
@@ -466,13 +1038,22 @@ function toProductResponse(row) {
 function toColorVariantResponse(row) {
     const colorValue = String(row.color_value || row.colorValue || row.color || '').trim();
     const id = Number(row.id);
+    const price = row.price === null || row.price === undefined ? null : Number(row.price);
+    const salePrice = row.sale_price === null || row.sale_price === undefined ? null : Number(row.sale_price);
+    const stock = row.stock === null || row.stock === undefined ? null : Number(row.stock);
 
     return {
         ...(Number.isInteger(id) && id > 0 ? { id } : {}),
         name: String(row.name || '').trim(),
+        colorName: String(row.name || '').trim(),
         color: colorValue,
+        colorHex: colorValue,
         colorValue,
-        image: String(row.image || '').trim()
+        image: String(row.image || '').trim(),
+        price: Number.isFinite(price) && price >= 0 ? price : null,
+        salePrice: Number.isFinite(salePrice) && salePrice >= 0 ? salePrice : null,
+        stock: Number.isFinite(stock) && stock >= 0 ? Math.round(stock) : null,
+        sku: String(row.sku || '').trim()
     };
 }
 
@@ -513,12 +1094,14 @@ async function getProductColorVariants(env, productIds) {
     const uniqueIds = [...new Set(productIds.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0))];
     if (!uniqueIds.length) return new Map();
 
+    await ensureProductColorVariantsTable(env);
+
     const placeholders = uniqueIds.map(() => '?').join(', ');
     let results;
 
     try {
         ({ results } = await env.DB.prepare(
-            `SELECT id, product_id, name, color_value, image, sort_order
+            `SELECT id, product_id, name, color_value, image, price, sale_price, stock, sku, sort_order
              FROM product_color_variants
              WHERE product_id IN (${placeholders})
              ORDER BY product_id, sort_order, id`
@@ -572,23 +1155,23 @@ async function syncProductColorVariants(env, productId, variants) {
     const colorVariants = normalizeColorVariants(variants)
         .filter((variant) => variant.name || variant.image);
 
-    try {
-        await env.DB.prepare('DELETE FROM product_color_variants WHERE product_id = ?').bind(productId).run();
-    } catch (error) {
-        if (isMissingTableError(error, 'product_color_variants')) return;
-        throw error;
-    }
+    await ensureProductColorVariantsTable(env);
+    await env.DB.prepare('DELETE FROM product_color_variants WHERE product_id = ?').bind(productId).run();
 
     const now = new Date().toISOString();
 
     for (const [index, variant] of colorVariants.entries()) {
         await env.DB.prepare(
-            'INSERT INTO product_color_variants (product_id, name, color_value, image, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+            'INSERT INTO product_color_variants (product_id, name, color_value, image, price, sale_price, stock, sku, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
         ).bind(
             productId,
             variant.name,
             variant.colorValue || variant.color,
             variant.image,
+            variant.price === null ? null : Math.round(variant.price),
+            variant.salePrice === null ? null : Math.round(variant.salePrice),
+            variant.stock === null ? null : Math.round(variant.stock),
+            variant.sku || '',
             index,
             now,
             now
@@ -615,25 +1198,44 @@ function toUserResponse(row) {
 }
 
 function toOrderResponse(row) {
+    const deliveryInfo = parseJsonObject(row.deliveryInfo);
+    const orderStatus = row.orderStatus || row.status || 'pending';
+    const paymentStatus = row.paymentStatus || (row.status === 'paid' ? 'paid' : 'unpaid');
+
     return {
         id: String(row.id),
         orderCode: row.orderCode || '',
         userId: row.userId ? String(row.userId) : '',
         username: row.username || '',
-        customerName: row.customerName || row.fullname || '',
-        email: row.email || '',
-        phone: row.phone || '',
-        address: row.address || '',
+        customerName: row.customerName || deliveryInfo.fullname || row.fullname || '',
+        email: row.email || deliveryInfo.email || '',
+        phone: row.phone || deliveryInfo.phone || '',
+        address: row.address || deliveryInfo.address || '',
+        deliveryInfo,
+        customer: {
+            fullname: row.customerName || deliveryInfo.fullname || row.fullname || '',
+            name: row.customerName || deliveryInfo.fullname || row.fullname || '',
+            email: row.email || deliveryInfo.email || '',
+            phone: row.phone || deliveryInfo.phone || '',
+            address: row.address || deliveryInfo.address || ''
+        },
         items: parseJsonArray(row.items),
         totalAmount: Number(row.totalAmount) || 0,
+        total: Number(row.totalAmount) || 0,
         paymentMethod: row.paymentMethod || 'bank_transfer',
+        channel: row.channel || row.paymentMethod || '',
+        paymentStatus,
+        orderStatus,
         transactionCode: row.transactionCode || '',
-        status: row.status || 'pending',
+        transactionNote: row.transactionNote || row.transactionCode || '',
+        status: orderStatus,
         createdAt: row.createdAt || ''
     };
 }
 
 async function ensureAdminSettings(env) {
+    await ensureCoreSchema(env);
+
     let row = await env.DB.prepare('SELECT * FROM admin_settings WHERE id = 1').first();
 
     if (!row) {
@@ -774,7 +1376,7 @@ async function loginAdmin(request, env) {
                 email: settings.email || '',
                 role: 'admin'
             }
-        });
+        }, 200, { 'Set-Cookie': authCookie(request, token) });
     }
 
     const adminUser = await findAdminUserByLogin(env, username);
@@ -789,7 +1391,7 @@ async function loginAdmin(request, env) {
     return json({
         token,
         user: toUserResponse(adminUser)
-    });
+    }, 200, { 'Set-Cookie': authCookie(request, token) });
 }
 
 async function getAdminSession(request, env) {
@@ -807,6 +1409,7 @@ async function getAdminSession(request, env) {
 async function getAdminProfile(request, env) {
     const { session, error } = await requireAdmin(request, env);
     if (error) return error;
+    await ensureCoreSchema(env);
 
     if (session.userId) {
         const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(session.userId).first();
@@ -821,6 +1424,7 @@ async function getAdminProfile(request, env) {
 async function updateAdminProfile(request, env) {
     const { session, error } = await requireAdmin(request, env);
     if (error) return error;
+    await ensureCoreSchema(env);
 
     const body = await readJson(request);
     const username = String(body.username || '').trim().toLowerCase();
@@ -857,6 +1461,7 @@ async function updateAdminProfile(request, env) {
 async function changeAdminPassword(request, env) {
     const { session, error } = await requireAdmin(request, env);
     if (error) return error;
+    await ensureCoreSchema(env);
 
     const body = await readJson(request);
     const currentPassword = String(body.currentPassword || '');
@@ -896,6 +1501,7 @@ async function changeAdminPassword(request, env) {
 async function createAdminAccount(request, env) {
     const { error } = await requireAdminCreator(request, env);
     if (error) return error;
+    await ensureCoreSchema(env);
 
     const input = cleanAdminAccountInput(await readJson(request));
     const validationError = validateAdminAccountInput(input);
@@ -1034,6 +1640,8 @@ async function fetchGoogleProfile(accessToken) {
 }
 
 async function findOrCreateGoogleUser(env, profile) {
+    await ensureCoreSchema(env);
+
     const googleId = String(profile.sub || '').trim();
     const email = String(profile.email || '').trim().toLowerCase();
     const name = String(profile.name || profile.given_name || email.split('@')[0] || '').trim();
@@ -1106,7 +1714,7 @@ async function startGoogleLogin(request, env) {
     authUrl.searchParams.set('prompt', 'select_account');
 
     return redirect(authUrl.toString(), {
-        'Set-Cookie': serializeCookie(request, GOOGLE_STATE_COOKIE_NAME, state, { maxAge: 10 * 60 })
+        'Set-Cookie': serializeCookie(request, GOOGLE_STATE_COOKIE_NAME, state, { maxAge: 10 * 60, sameSite: 'Lax' })
     });
 }
 
@@ -1121,7 +1729,7 @@ async function handleGoogleCallback(request, env) {
     const expectedState = getCookie(request, GOOGLE_STATE_COOKIE_NAME);
 
     if (error) return fail('Google login was cancelled.', 400);
-    if (!code || !state || !expectedState || state !== expectedState) {
+    if (!code || !state || !expectedState || !safeEqual(state, expectedState)) {
         return fail('Google login state is invalid or expired.', 400);
     }
 
@@ -1138,7 +1746,7 @@ async function handleGoogleCallback(request, env) {
 
     return redirect('/account.html', {
         'Set-Cookie': [
-            serializeCookie(request, AUTH_COOKIE_NAME, token, { maxAge: SESSION_MAX_AGE_SECONDS }),
+            authCookie(request, token),
             clearCookie(request, GOOGLE_STATE_COOKIE_NAME)
         ]
     });
@@ -1148,6 +1756,7 @@ async function authMe(request, env) {
     const session = await verifyToken(request, env);
     if (!session) return json(null);
 
+    await ensureCoreSchema(env);
     const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(session.userId).first();
     if (!user) return json(null);
 
@@ -1164,6 +1773,8 @@ function logoutAuth(request) {
 }
 
 async function registerUser(request, env) {
+    await ensureCoreSchema(env);
+
     const body = await readJson(request);
     const fullname = String(body.fullname || '').trim();
     const email = String(body.email || '').trim().toLowerCase();
@@ -1187,6 +1798,8 @@ async function registerUser(request, env) {
 }
 
 async function loginUser(request, env) {
+    await ensureCoreSchema(env);
+
     const body = await readJson(request);
     const email = String(body.email || body.username || '').trim().toLowerCase();
     const password = String(body.password || '');
@@ -1200,7 +1813,9 @@ async function loginUser(request, env) {
 
     const token = await createUserSessionToken(env, user, 'user');
 
-    return json({ token, user: toUserResponse(user) });
+    return json({ token, user: toUserResponse(user) }, 200, {
+        'Set-Cookie': authCookie(request, token)
+    });
 }
 
 async function currentUser(request, env) {
@@ -1208,6 +1823,7 @@ async function currentUser(request, env) {
     if (error) return error;
     if (session.role === 'admin') return json({ username: session.username, email: session.email || '', role: 'admin' });
 
+    await ensureCoreSchema(env);
     const user = await env.DB.prepare('SELECT * FROM users WHERE id = ?').bind(session.userId).first();
     if (!user) return fail('User not found.', 404);
 
@@ -1218,6 +1834,7 @@ async function updateCurrentUser(request, env) {
     const { session, error } = await requireAuth(request, env);
     if (error) return error;
     if (session.role === 'admin') return fail('Admin profile is managed in Admin Account.', 400);
+    await ensureCoreSchema(env);
 
     const body = await readJson(request);
     const fullname = String(body.fullname || '').trim();
@@ -1237,6 +1854,7 @@ async function changeUserPassword(request, env) {
     const { session, error } = await requireAuth(request, env);
     if (error) return error;
     if (session.role === 'admin') return fail('Use the admin password form.', 400);
+    await ensureCoreSchema(env);
 
     const body = await readJson(request);
     const oldPassword = String(body.oldPassword || '');
@@ -1254,12 +1872,13 @@ async function changeUserPassword(request, env) {
     return json({ message: 'Password changed.' });
 }
 
-async function listProducts(env) {
+async function listProducts(request, env) {
+    await ensureEcommerceSchema(env);
     let results;
 
     try {
         ({ results } = await env.DB.prepare(
-            'SELECT id, name, price, description, category, imageUrl, imageUrls, colors, colorVariants, sizes, stock, createdAt FROM products ORDER BY datetime(createdAt) DESC, id DESC'
+            'SELECT * FROM products ORDER BY datetime(createdAt) DESC, id DESC'
         ).all());
     } catch (error) {
         if (!isMissingColumnError(error, 'colorVariants')) {
@@ -1275,17 +1894,36 @@ async function listProducts(env) {
         }
     }
 
-    const products = await attachProductColorVariants(env, await attachProductImages(env, results || []));
+    const url = new URL(request.url);
+    const searchTerm = String(url.searchParams.get('q') || '').trim().toLowerCase();
+    const featuredOnly = url.searchParams.get('featured') === 'true';
+    let products = await attachProductColorVariants(env, await attachProductImages(env, results || []));
+
+    if (searchTerm) {
+        products = products.filter(product => [
+            product.name,
+            product.description,
+            product.category,
+            product.sku,
+            product.brand
+        ].some(value => String(value || '').toLowerCase().includes(searchTerm)));
+    }
+
+    if (featuredOnly) {
+        const featuredProducts = products.filter(product => product.featured === true || product.isFeatured === true || Number(product.featured) === 1);
+        products = featuredProducts.length ? featuredProducts : products.slice(0, 4);
+    }
 
     return json(products);
 }
 
 async function getProduct(env, id) {
+    await ensureEcommerceSchema(env);
     let row;
 
     try {
         row = await env.DB.prepare(
-            'SELECT id, name, price, description, category, imageUrl, imageUrls, colors, colorVariants, sizes, stock, createdAt FROM products WHERE id = ?'
+            'SELECT * FROM products WHERE id = ?'
         ).bind(id).first();
     } catch (error) {
         if (!isMissingColumnError(error, 'colorVariants')) {
@@ -1310,6 +1948,7 @@ async function createProduct(request, env) {
     const { error } = await requireAdmin(request, env);
     if (error) return error;
 
+    await ensureEcommerceSchema(env);
     const product = cleanProductInput(await readJson(request));
     const validationMessage = validateProduct(product, true);
     if (validationMessage) return fail(validationMessage, 400);
@@ -1326,16 +1965,44 @@ async function createProduct(request, env) {
     const colorVariants = JSON.stringify(product.colorVariants);
     const legacyColors = JSON.stringify(product.colorVariants.length ? product.colorVariants : product.colors);
     const sizes = JSON.stringify(product.sizes);
+    const productValues = [
+        product.name,
+        Math.round(product.price),
+        product.salePrice === null ? null : Math.round(product.salePrice),
+        Math.round(product.discountPercent || 0),
+        product.description,
+        product.category,
+        product.subCategory,
+        imageUrl,
+        imageUrls,
+        colors,
+        colorVariants,
+        sizes,
+        Math.round(product.stock),
+        product.stockStatus,
+        product.sku,
+        product.width,
+        product.height,
+        product.depth,
+        product.material,
+        product.weight,
+        product.brand,
+        product.deliveryAvailable ? 1 : 0,
+        product.assemblyRequired ? 1 : 0,
+        product.warrantyNote,
+        product.deliveryNote,
+        createdAt
+    ];
     const query = product.id === null
-        ? 'INSERT INTO products (name, price, description, category, imageUrl, imageUrls, colors, colorVariants, sizes, stock, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-        : 'INSERT INTO products (id, name, price, description, category, imageUrl, imageUrls, colors, colorVariants, sizes, stock, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+        ? 'INSERT INTO products (name, price, salePrice, discountPercent, description, category, subCategory, imageUrl, imageUrls, colors, colorVariants, sizes, stock, stockStatus, sku, width, height, depth, material, weight, brand, deliveryAvailable, assemblyRequired, warrantyNote, deliveryNote, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
+        : 'INSERT INTO products (id, name, price, salePrice, discountPercent, description, category, subCategory, imageUrl, imageUrls, colors, colorVariants, sizes, stock, stockStatus, sku, width, height, depth, material, weight, brand, deliveryAvailable, assemblyRequired, warrantyNote, deliveryNote, createdAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
     const statement = env.DB.prepare(query);
     let result;
 
     try {
         result = product.id === null
-            ? await statement.bind(product.name, Math.round(product.price), product.description, product.category, imageUrl, imageUrls, colors, colorVariants, sizes, Math.round(product.stock), createdAt).run()
-            : await statement.bind(product.id, product.name, Math.round(product.price), product.description, product.category, imageUrl, imageUrls, colors, colorVariants, sizes, Math.round(product.stock), createdAt).run();
+            ? await statement.bind(...productValues).run()
+            : await statement.bind(product.id, ...productValues).run();
     } catch (error) {
         if (!isMissingColumnError(error, 'colorVariants') && !isMissingColumnError(error, 'colors')) throw error;
 
@@ -1370,6 +2037,7 @@ async function updateProduct(request, env, id) {
     const { error } = await requireAdmin(request, env);
     if (error) return error;
 
+    await ensureEcommerceSchema(env);
     const body = await readJson(request);
     const product = cleanProductInput(body);
     const shouldSyncColorVariants = Object.prototype.hasOwnProperty.call(body, 'colorVariants')
@@ -1381,18 +2049,33 @@ async function updateProduct(request, env, id) {
 
     try {
         result = await env.DB.prepare(
-            'UPDATE products SET name = ?, price = ?, description = ?, category = ?, imageUrl = ?, imageUrls = ?, colors = ?, colorVariants = ?, sizes = ?, stock = ? WHERE id = ?'
+            'UPDATE products SET name = ?, price = ?, salePrice = ?, discountPercent = ?, description = ?, category = ?, subCategory = ?, imageUrl = ?, imageUrls = ?, colors = ?, colorVariants = ?, sizes = ?, stock = ?, stockStatus = ?, sku = ?, width = ?, height = ?, depth = ?, material = ?, weight = ?, brand = ?, deliveryAvailable = ?, assemblyRequired = ?, warrantyNote = ?, deliveryNote = ? WHERE id = ?'
         ).bind(
             product.name,
             Math.round(product.price),
+            product.salePrice === null ? null : Math.round(product.salePrice),
+            Math.round(product.discountPercent || 0),
             product.description,
             product.category,
+            product.subCategory,
             product.images[0] || '',
             JSON.stringify(product.images),
             JSON.stringify(product.colors),
             JSON.stringify(product.colorVariants),
             JSON.stringify(product.sizes),
             Math.round(product.stock),
+            product.stockStatus,
+            product.sku,
+            product.width,
+            product.height,
+            product.depth,
+            product.material,
+            product.weight,
+            product.brand,
+            product.deliveryAvailable ? 1 : 0,
+            product.assemblyRequired ? 1 : 0,
+            product.warrantyNote,
+            product.deliveryNote,
             id
         ).run();
     } catch (error) {
@@ -1442,11 +2125,8 @@ async function updateProduct(request, env, id) {
 }
 
 async function deleteProduct(env, id) {
-    try {
-        await env.DB.prepare('DELETE FROM product_color_variants WHERE product_id = ?').bind(id).run();
-    } catch (error) {
-        if (!isMissingTableError(error, 'product_color_variants')) throw error;
-    }
+    await ensureProductColorVariantsTable(env);
+    await env.DB.prepare('DELETE FROM product_color_variants WHERE product_id = ?').bind(id).run();
 
     await env.DB.prepare('DELETE FROM product_images WHERE productId = ?').bind(id).run();
     const result = await env.DB.prepare('DELETE FROM products WHERE id = ?').bind(id).run();
@@ -1528,6 +2208,7 @@ async function deleteCategory(request, env, id) {
 }
 
 async function getPaymentSettings(env) {
+    await ensureEcommerceSchema(env);
     let settings = await env.DB.prepare('SELECT * FROM payment_settings WHERE id = 1').first();
 
     if (!settings) {
@@ -1540,8 +2221,21 @@ async function getPaymentSettings(env) {
     return {
         bankName: settings.bankName || '',
         accountNumber: settings.accountNumber || '',
+        bankAccount: settings.accountNumber || '',
         accountHolder: settings.accountHolder || '',
-        facebookChatUrl: settings.facebookChatUrl || ''
+        bankAccountHolder: settings.accountHolder || '',
+        facebookChatUrl: settings.facebookChatUrl || settings.messengerUrl || '',
+        messengerUrl: settings.messengerUrl || settings.facebookChatUrl || '',
+        deliveryFee: Number(settings.deliveryFee) || 0,
+        contactPhone: settings.contactPhone || '',
+        contactEmail: settings.contactEmail || '',
+        storeAddress: settings.storeAddress || '',
+        workingHours: settings.workingHours || '',
+        facebookPageUrl: settings.facebookPageUrl || '',
+        warrantyNote: settings.warrantyNote || '',
+        returnPolicy: settings.returnPolicy || '',
+        qpayInfo: settings.qpayInfo || '',
+        estimatedDeliveryTime: settings.estimatedDeliveryTime || ''
     };
 }
 
@@ -1552,15 +2246,48 @@ async function updatePaymentSettings(request, env) {
     const body = await readJson(request);
     const settings = {
         bankName: String(body.bankName || '').trim(),
-        accountNumber: String(body.accountNumber || '').trim(),
-        accountHolder: String(body.accountHolder || '').trim(),
-        facebookChatUrl: String(body.facebookChatUrl || '').trim()
+        accountNumber: String(body.accountNumber || body.bankAccount || '').trim(),
+        accountHolder: String(body.accountHolder || body.bankAccountHolder || '').trim(),
+        facebookChatUrl: String(body.facebookChatUrl || body.messengerUrl || '').trim(),
+        messengerUrl: String(body.messengerUrl || body.facebookChatUrl || '').trim(),
+        deliveryFee: Math.max(0, Math.round(Number(body.deliveryFee) || 0)),
+        contactPhone: String(body.contactPhone || '').trim(),
+        contactEmail: String(body.contactEmail || '').trim(),
+        storeAddress: String(body.storeAddress || '').trim(),
+        workingHours: String(body.workingHours || '').trim(),
+        facebookPageUrl: String(body.facebookPageUrl || '').trim(),
+        warrantyNote: String(body.warrantyNote || '').trim(),
+        returnPolicy: String(body.returnPolicy || '').trim(),
+        qpayInfo: String(body.qpayInfo || '').trim(),
+        estimatedDeliveryTime: String(body.estimatedDeliveryTime || '').trim()
     };
 
     await getPaymentSettings(env);
     await env.DB.prepare(
-        'UPDATE payment_settings SET bankName = ?, accountNumber = ?, accountHolder = ?, facebookChatUrl = ?, updatedAt = ? WHERE id = 1'
-    ).bind(settings.bankName, settings.accountNumber, settings.accountHolder, settings.facebookChatUrl, new Date().toISOString()).run();
+        `UPDATE payment_settings
+         SET bankName = ?, accountNumber = ?, accountHolder = ?, facebookChatUrl = ?, messengerUrl = ?,
+             deliveryFee = ?, contactPhone = ?, contactEmail = ?, storeAddress = ?, workingHours = ?,
+             facebookPageUrl = ?, warrantyNote = ?, returnPolicy = ?, qpayInfo = ?, estimatedDeliveryTime = ?,
+             updatedAt = ?
+         WHERE id = 1`
+    ).bind(
+        settings.bankName,
+        settings.accountNumber,
+        settings.accountHolder,
+        settings.facebookChatUrl,
+        settings.messengerUrl,
+        settings.deliveryFee,
+        settings.contactPhone,
+        settings.contactEmail,
+        settings.storeAddress,
+        settings.workingHours,
+        settings.facebookPageUrl,
+        settings.warrantyNote,
+        settings.returnPolicy,
+        settings.qpayInfo,
+        settings.estimatedDeliveryTime,
+        new Date().toISOString()
+    ).run();
 
     return json(settings);
 }
@@ -1574,7 +2301,7 @@ function dateCode(date = new Date()) {
 
 function generateOrderCode() {
     const suffix = String(Math.floor(100000 + Math.random() * 900000));
-    return `UNA-${dateCode()}-${suffix}`;
+    return `UNA-${new Date().getUTCFullYear()}-${suffix}`;
 }
 
 async function insertOrderWithUniqueCode(env, orderValues) {
@@ -1585,7 +2312,11 @@ async function insertOrderWithUniqueCode(env, orderValues) {
 
         try {
             const result = await env.DB.prepare(
-                'INSERT INTO orders (orderCode, userId, items, totalAmount, paymentMethod, transactionCode, status, createdAt, updatedAt) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+                `INSERT INTO orders
+                    (orderCode, userId, items, totalAmount, paymentMethod, transactionCode, status,
+                     customerName, email, phone, address, deliveryInfo, paymentStatus, orderStatus, channel, transactionNote,
+                     createdAt, updatedAt)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
             ).bind(
                 orderCode,
                 orderValues.userId,
@@ -1594,6 +2325,15 @@ async function insertOrderWithUniqueCode(env, orderValues) {
                 orderValues.paymentMethod,
                 orderCode,
                 orderValues.status,
+                orderValues.customerName,
+                orderValues.email,
+                orderValues.phone,
+                orderValues.address,
+                orderValues.deliveryInfo,
+                orderValues.paymentStatus,
+                orderValues.orderStatus,
+                orderValues.channel || orderValues.paymentMethod || '',
+                orderValues.transactionNote || orderCode,
                 orderValues.createdAt,
                 orderValues.updatedAt
             ).run();
@@ -1610,15 +2350,26 @@ async function insertOrderWithUniqueCode(env, orderValues) {
 async function createOrder(request, env) {
     const { session, error } = await requireAuth(request, env);
     if (error) return error;
-    if (session.role === 'admin') return fail('Use a customer account to place orders.', 400);
+    if (session.role !== 'user') return fail('Use a customer account to place orders.', 400);
 
+    await ensureEcommerceSchema(env);
     const body = await readJson(request);
     const items = Array.isArray(body.items) ? body.items : [];
     const paymentMethod = String(body.paymentMethod || 'bank_transfer');
-    const allowedPaymentMethods = new Set(['bank_transfer', 'facebook_chat']);
+    const transactionNote = String(body.transactionNote || body.bankReference || body.referenceCode || body.transferReference || '').trim();
+    const channel = String(body.channel || (paymentMethod === 'facebook_chat' ? 'facebook' : paymentMethod)).trim();
+    const allowedPaymentMethods = new Set(['bank_transfer', 'facebook_chat', 'cash_on_delivery', 'qpay']);
+    const deliveryInfo = {
+        fullname: String(body.deliveryInfo?.fullname || body.customer?.fullname || body.customerName || session.fullname || '').trim(),
+        phone: String(body.deliveryInfo?.phone || body.customer?.phone || '').trim(),
+        email: String(body.deliveryInfo?.email || body.customer?.email || session.email || '').trim(),
+        address: String(body.deliveryInfo?.address || body.customer?.address || '').trim(),
+        note: String(body.deliveryInfo?.note || body.note || '').trim()
+    };
 
     if (!items.length) return fail('Order items are required.', 400);
     if (!allowedPaymentMethods.has(paymentMethod)) return fail('Invalid payment method.', 400);
+    if (!deliveryInfo.fullname || !deliveryInfo.phone || !deliveryInfo.address) return fail('Delivery name, phone, and address are required.', 400);
 
     const cleanItems = [];
     for (const item of items) {
@@ -1631,7 +2382,7 @@ async function createOrder(request, env) {
         let product;
 
         try {
-            product = await env.DB.prepare('SELECT id, name, price, category, imageUrl, imageUrls, colors, colorVariants, stock FROM products WHERE id = ?').bind(productId).first();
+            product = await env.DB.prepare('SELECT * FROM products WHERE id = ?').bind(productId).first();
         } catch (error) {
             if (!isMissingColumnError(error, 'colorVariants')) {
                 if (!isMissingColumnError(error, 'colors')) throw error;
@@ -1643,6 +2394,7 @@ async function createOrder(request, env) {
         }
 
         if (!product) return fail(`Product ${productId} is no longer available.`, 409);
+        if (product.stockStatus === 'out_of_stock') return fail(`${product.name} is out of stock.`, 409);
         if (Number(product.stock) > 0 && quantity > Number(product.stock)) return fail(`Not enough stock for ${product.name}.`, 409);
 
         const [productResponse] = await attachProductColorVariants(env, await attachProductImages(env, [product]));
@@ -1659,18 +2411,23 @@ async function createOrder(request, env) {
 
         if (productResponse.colorVariants.length && !selectedColor && !selectedColorValue) return fail(`Please choose a color for ${product.name}.`, 400);
         if ((selectedColor || selectedColorValue) && productResponse.colorVariants.length && !selectedVariant) return fail(`Selected color is not available for ${product.name}.`, 400);
+        if (selectedVariant?.stock !== null && selectedVariant?.stock !== undefined && quantity > Number(selectedVariant.stock)) {
+            return fail(`${selectedVariant.name || product.name} color is out of stock.`, 409);
+        }
 
         const productImages = productResponse.images;
+        const unitPrice = Number(selectedVariant?.salePrice || selectedVariant?.price || productResponse.salePrice || product.price || 0);
         cleanItems.push({
             productId: String(product.id),
-            productCode: '',
+            productCode: selectedVariant?.sku || productResponse.sku || '',
             name: product.name,
-            price: Number(product.price || 0),
+            price: unitPrice,
             quantity,
             image: selectedVariant?.image || selectedColorImage || productImages[0] || String(item.image || '').trim(),
             selectedColor: selectedVariant?.name || selectedColor,
             selectedColorValue: selectedVariant?.colorValue || selectedVariant?.color || selectedColorValue,
-            selectedColorImage: selectedVariant?.image || selectedColorImage
+            selectedColorImage: selectedVariant?.image || selectedColorImage,
+            sku: selectedVariant?.sku || productResponse.sku || ''
         });
     }
 
@@ -1682,6 +2439,15 @@ async function createOrder(request, env) {
         items: JSON.stringify(cleanItems),
         totalAmount,
         paymentMethod,
+        customerName: deliveryInfo.fullname,
+        email: deliveryInfo.email,
+        phone: deliveryInfo.phone,
+        address: deliveryInfo.address,
+        deliveryInfo: JSON.stringify(deliveryInfo),
+        paymentStatus: 'unpaid',
+        orderStatus: 'pending',
+        channel,
+        transactionNote,
         status: 'pending',
         createdAt,
         updatedAt: createdAt
@@ -1746,6 +2512,7 @@ async function listMyOrders(request, env) {
     const { session, error } = await requireAuth(request, env);
     if (error) return error;
     if (session.role === 'admin') return json([]);
+    await ensureEcommerceSchema(env);
 
     const { results } = await env.DB.prepare('SELECT * FROM orders WHERE userId = ? ORDER BY datetime(createdAt) DESC, id DESC')
         .bind(session.userId).all();
@@ -1755,9 +2522,16 @@ async function listMyOrders(request, env) {
 async function listAdminOrders(request, env) {
     const { error } = await requireAdmin(request, env);
     if (error) return error;
+    await ensureEcommerceSchema(env);
 
     const { results } = await env.DB.prepare(
-        'SELECT orders.*, users.username, users.fullname, users.email, users.phone, users.address FROM orders LEFT JOIN users ON users.id = orders.userId ORDER BY datetime(orders.createdAt) DESC, orders.id DESC'
+        `SELECT orders.*, users.username, users.fullname,
+                COALESCE(NULLIF(orders.email, ''), users.email) AS email,
+                COALESCE(NULLIF(orders.phone, ''), users.phone) AS phone,
+                COALESCE(NULLIF(orders.address, ''), users.address) AS address
+         FROM orders
+         LEFT JOIN users ON users.id = orders.userId
+         ORDER BY datetime(orders.createdAt) DESC, orders.id DESC`
     ).all();
     return json((results || []).map(toOrderResponse));
 }
@@ -1765,9 +2539,16 @@ async function listAdminOrders(request, env) {
 async function getAdminOrder(request, env, id) {
     const { error } = await requireAdmin(request, env);
     if (error) return error;
+    await ensureEcommerceSchema(env);
 
     const row = await env.DB.prepare(
-        'SELECT orders.*, users.username, users.fullname, users.email, users.phone, users.address FROM orders LEFT JOIN users ON users.id = orders.userId WHERE orders.id = ?'
+        `SELECT orders.*, users.username, users.fullname,
+                COALESCE(NULLIF(orders.email, ''), users.email) AS email,
+                COALESCE(NULLIF(orders.phone, ''), users.phone) AS phone,
+                COALESCE(NULLIF(orders.address, ''), users.address) AS address
+         FROM orders
+         LEFT JOIN users ON users.id = orders.userId
+         WHERE orders.id = ?`
     ).bind(id).first();
 
     if (!row) return fail('Order not found.', 404);
@@ -1779,23 +2560,219 @@ async function updateAdminOrderStatus(request, env, id) {
     if (error) return error;
 
     const body = await readJson(request);
-    const status = String(body.status || '').trim();
-    const allowed = new Set(['pending', 'paid', 'confirmed', 'cancelled']);
+    await ensureEcommerceSchema(env);
+    const status = String(body.orderStatus || body.status || '').trim();
+    const paymentStatus = String(body.paymentStatus || '').trim();
+    const allowed = new Set(['pending', 'paid', 'complete', 'confirmed', 'delivered', 'cancelled']);
+    const paymentAllowed = new Set(['', 'unpaid', 'paid', 'failed', 'refunded']);
     if (!allowed.has(status)) return fail('Invalid order status.', 400);
+    if (!paymentAllowed.has(paymentStatus)) return fail('Invalid payment status.', 400);
 
-    const result = await env.DB.prepare('UPDATE orders SET status = ?, updatedAt = ? WHERE id = ?')
-        .bind(status, new Date().toISOString(), id).run();
+    const nextPaymentStatus = paymentStatus || (status === 'paid' || status === 'complete' ? 'paid' : '');
+    const result = await env.DB.prepare(
+        `UPDATE orders
+         SET status = ?, orderStatus = ?, paymentStatus = COALESCE(NULLIF(?, ''), paymentStatus), updatedAt = ?
+         WHERE id = ?`
+    ).bind(status, status, nextPaymentStatus, new Date().toISOString(), id).run();
     if (!result.meta.changes) return fail('Order not found.', 404);
 
     return getAdminOrder(request, env, id);
 }
 
+async function createContactMessage(request, env) {
+    await ensureEcommerceSchema(env);
+    const body = await readJson(request);
+    const name = String(body.name || body.fullname || '').trim();
+    const email = String(body.email || '').trim();
+    const phone = String(body.phone || '').trim();
+    const message = String(body.message || '').trim();
+
+    if (!name || !email || !message) return fail('Name, email, and message are required.', 400);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail('Valid email is required.', 400);
+
+    const createdAt = new Date().toISOString();
+    const result = await env.DB.prepare(
+        'INSERT INTO contact_messages (name, email, phone, message, status, createdAt) VALUES (?, ?, ?, ?, ?, ?)'
+    ).bind(name, email, phone, message, 'new', createdAt).run();
+
+    return json({
+        id: String(result.meta.last_row_id),
+        name,
+        email,
+        phone,
+        message,
+        status: 'new',
+        createdAt
+    }, 201);
+}
+
+async function listAdminContactMessages(request, env) {
+    const { error } = await requireAdmin(request, env);
+    if (error) return error;
+    await ensureEcommerceSchema(env);
+
+    const { results } = await env.DB.prepare('SELECT * FROM contact_messages ORDER BY datetime(createdAt) DESC, id DESC').all();
+    return json((results || []).map((row) => ({
+        id: String(row.id),
+        name: row.name || '',
+        email: row.email || '',
+        phone: row.phone || '',
+        message: row.message || '',
+        status: row.status || 'new',
+        createdAt: row.createdAt || ''
+    })));
+}
+
 async function listAdminUsers(request, env) {
     const { error } = await requireAdmin(request, env);
     if (error) return error;
+    await ensureCoreSchema(env);
 
     const { results } = await env.DB.prepare('SELECT * FROM users ORDER BY datetime(createdAt) DESC, id DESC').all();
     return json((results || []).map(toUserResponse));
+}
+
+async function uploadAdminAsset(request, env) {
+    const { error } = await requireAdmin(request, env);
+    if (error) return error;
+
+    const bucket = env.R2_BUCKET || env.UPLOAD_BUCKET || env.ASSETS_BUCKET;
+    const contentType = request.headers.get('content-type') || '';
+
+    if (contentType.includes('application/json')) {
+        const body = await readJson(request);
+        const filename = String(body.filename || 'product-image').replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '') || 'product-image';
+        const key = `products/${Date.now()}-${randomId(6)}-${filename}`;
+        const expiresAt = Math.floor(Date.now() / 1000) + 10 * 60;
+        const signature = await hmac(`${key}.${expiresAt}`, getJwtSecret(env));
+        const url = new URL(request.url);
+        url.pathname = '/api/upload/direct';
+        url.search = new URLSearchParams({ key, exp: String(expiresAt), sig: signature }).toString();
+        const baseUrl = String(env.R2_PUBLIC_URL || env.UPLOAD_PUBLIC_URL || '').replace(/\/+$/, '');
+
+        return json({
+            uploadUrl: url.toString(),
+            publicUrl: baseUrl ? `${baseUrl}/${key}` : `/uploads/${key}`
+        });
+    }
+
+    if (!bucket?.put) return fail('R2 upload bucket is not configured.', 501);
+
+    const formData = await request.formData();
+    const file = formData.get('file');
+    if (!file || typeof file === 'string') return fail('Image file is required.', 400);
+    if (!String(file.type || '').startsWith('image/')) return fail('Only image uploads are allowed.', 400);
+    if (Number(file.size || 0) > 8 * 1024 * 1024) return fail('Image must be smaller than 8MB.', 400);
+
+    const rawName = String(file.name || 'product-image').replace(/[^\w.-]+/g, '-').replace(/^-+|-+$/g, '') || 'product-image';
+    const key = `products/${Date.now()}-${randomId(6)}-${rawName}`;
+    await bucket.put(key, file.stream(), {
+        httpMetadata: { contentType: file.type || 'application/octet-stream' }
+    });
+
+    const baseUrl = String(env.R2_PUBLIC_URL || env.UPLOAD_PUBLIC_URL || '').replace(/\/+$/, '');
+    return json({
+        key,
+        publicUrl: baseUrl ? `${baseUrl}/${key}` : `/uploads/${key}`
+    }, 201);
+}
+
+async function uploadDirectAsset(request, env) {
+    const bucket = env.R2_BUCKET || env.UPLOAD_BUCKET || env.ASSETS_BUCKET;
+    if (!bucket?.put) return fail('R2 upload bucket is not configured.', 501);
+    if (request.method !== 'PUT') return fail('Upload method must be PUT.', 405);
+
+    const url = new URL(request.url);
+    const key = String(url.searchParams.get('key') || '').trim();
+    const exp = Number(url.searchParams.get('exp') || 0);
+    const sig = String(url.searchParams.get('sig') || '').trim();
+    if (!key || !exp || !sig || exp < Math.floor(Date.now() / 1000)) return fail('Upload URL is invalid or expired.', 403);
+
+    const expectedSig = await hmac(`${key}.${exp}`, getJwtSecret(env));
+    if (!safeEqual(sig, expectedSig)) return fail('Upload signature is invalid.', 403);
+
+    await bucket.put(key, request.body, {
+        httpMetadata: { contentType: request.headers.get('content-type') || 'application/octet-stream' }
+    });
+
+    const baseUrl = String(env.R2_PUBLIC_URL || env.UPLOAD_PUBLIC_URL || '').replace(/\/+$/, '');
+    return json({
+        key,
+        publicUrl: baseUrl ? `${baseUrl}/${key}` : `/uploads/${key}`
+    }, 201);
+}
+
+async function getAnalyticsSummary(request, env) {
+    const { error } = await requireAdmin(request, env);
+    if (error) return error;
+    await ensureEcommerceSchema(env);
+
+    const { results } = await env.DB.prepare(
+        `SELECT substr(createdAt, 1, 10) AS day,
+                COUNT(*) AS orderCount,
+                COALESCE(SUM(totalAmount), 0) AS revenue
+         FROM orders
+         GROUP BY day
+         ORDER BY day DESC
+         LIMIT 14`
+    ).all();
+
+    const daily = (results || []).reverse().map(row => ({
+        date: row.day,
+        orderCount: Number(row.orderCount) || 0,
+        revenue: Number(row.revenue) || 0
+    }));
+
+    return json({ daily });
+}
+
+async function forgotPassword(request, env) {
+    await ensureEcommerceSchema(env);
+    const body = await readJson(request);
+    const email = String(body.email || '').trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail('Valid email is required.', 400);
+
+    const user = await env.DB.prepare('SELECT id FROM users WHERE email = ?').bind(email).first();
+    if (user) {
+        const token = randomId(32);
+        const tokenHash = await sha256(token);
+        const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+        await env.DB.prepare('INSERT INTO password_reset_tokens (userId, tokenHash, expiresAt, createdAt) VALUES (?, ?, ?, ?)')
+            .bind(user.id, tokenHash, expiresAt, new Date().toISOString()).run();
+
+        return json({
+            message: 'Password reset instructions are ready.',
+            resetUrl: `/reset-password.html?token=${encodeURIComponent(token)}`
+        });
+    }
+
+    return json({ message: 'If the email exists, reset instructions will be sent.' });
+}
+
+async function resetPassword(request, env) {
+    await ensureEcommerceSchema(env);
+    const body = await readJson(request);
+    const token = String(body.token || '').trim();
+    const password = String(body.password || body.newPassword || '');
+    if (!token) return fail('Reset token is required.', 400);
+    if (password.length < 6) return fail('Password must be at least 6 characters.', 400);
+
+    const tokenHash = await sha256(token);
+    const row = await env.DB.prepare(
+        `SELECT * FROM password_reset_tokens
+         WHERE tokenHash = ? AND usedAt IS NULL AND datetime(expiresAt) > datetime('now')
+         ORDER BY id DESC LIMIT 1`
+    ).bind(tokenHash).first();
+
+    if (!row) return fail('Reset token is invalid or expired.', 400);
+
+    const now = new Date().toISOString();
+    await env.DB.prepare('UPDATE users SET passwordHash = ?, updatedAt = ? WHERE id = ?')
+        .bind(await hashPassword(password), now, row.userId).run();
+    await env.DB.prepare('UPDATE password_reset_tokens SET usedAt = ? WHERE id = ?')
+        .bind(now, row.id).run();
+
+    return json({ message: 'Password has been reset.' });
 }
 
 async function fallbackToAssets(request, env) {
@@ -1817,10 +2794,12 @@ export default {
 
         const url = new URL(request.url);
         const { pathname } = url;
-        const productId = getProductId(pathname);
+        const productPathname = getNormalizedProductPath(pathname);
+        const productId = getProductId(productPathname);
         const categoryId = getCategoryId(pathname);
         const adminOrderId = getAdminOrderId(pathname);
         const adminOrderStatusId = getAdminOrderStatusId(pathname);
+        const apiOrderId = getApiOrderId(pathname);
 
         try {
             if (request.method === 'GET' && wantsHtml(request) && htmlRoutes.has(pathname)) {
@@ -1829,6 +2808,8 @@ export default {
 
             if (pathname === '/register' && request.method === 'POST') return registerUser(request, env);
             if (pathname === '/login' && request.method === 'POST') return loginUser(request, env);
+            if (pathname === '/api/auth/forgot-password' && request.method === 'POST') return forgotPassword(request, env);
+            if (pathname === '/api/auth/reset-password' && request.method === 'POST') return resetPassword(request, env);
             if (pathname === '/auth/google' && request.method === 'GET') return startGoogleLogin(request, env);
             if (pathname === '/auth/google/callback' && request.method === 'GET') return handleGoogleCallback(request, env);
             if (pathname === '/auth/me' && request.method === 'GET') return authMe(request, env);
@@ -1838,6 +2819,7 @@ export default {
             if (pathname === '/change-password' && request.method === 'POST') return changeUserPassword(request, env);
 
             if (pathname === '/admin/login' && request.method === 'POST') return loginAdmin(request, env);
+            if (pathname === '/admin/logout' && request.method === 'POST') return logoutAuth(request);
             if (pathname === '/admin/session' && request.method === 'GET') return getAdminSession(request, env);
             if (pathname === '/admin/me' && request.method === 'GET') return getAdminProfile(request, env);
             if (pathname === '/admin/me' && request.method === 'PUT') return updateAdminProfile(request, env);
@@ -1848,14 +2830,20 @@ export default {
             if (pathname === '/settings/payment' && request.method === 'GET') return json(await getPaymentSettings(env));
             if (pathname === '/admin/settings/payment' && request.method === 'PUT') return updatePaymentSettings(request, env);
 
-            if (pathname === '/orders' && request.method === 'POST') return createOrder(request, env);
+            if ((pathname === '/orders' || pathname === '/api/orders') && request.method === 'POST') return createOrder(request, env);
             if (pathname === '/orders/my' && request.method === 'GET') return listMyOrders(request, env);
+            if ((pathname === '/contact-messages' || pathname === '/api/contact') && request.method === 'POST') return createContactMessage(request, env);
             if (pathname === '/admin/orders' && request.method === 'GET') return listAdminOrders(request, env);
+            if (pathname === '/admin/contact-messages' && request.method === 'GET') return listAdminContactMessages(request, env);
             if (adminOrderId && request.method === 'GET') return getAdminOrder(request, env, adminOrderId);
             if (adminOrderStatusId && request.method === 'PUT') return updateAdminOrderStatus(request, env, adminOrderStatusId);
+            if (apiOrderId && request.method === 'PATCH') return updateAdminOrderStatus(request, env, apiOrderId);
+            if (pathname === '/api/upload' && request.method === 'POST') return uploadAdminAsset(request, env);
+            if (pathname === '/api/upload/direct' && request.method === 'PUT') return uploadDirectAsset(request, env);
+            if (pathname === '/api/analytics/summary' && request.method === 'GET') return getAnalyticsSummary(request, env);
 
-            if (pathname === '/products' && request.method === 'GET') return listProducts(env);
-            if (pathname === '/products' && request.method === 'POST') return createProduct(request, env);
+            if ((pathname === '/products' || pathname === '/api/products') && request.method === 'GET') return listProducts(request, env);
+            if ((pathname === '/products' || pathname === '/api/products') && request.method === 'POST') return createProduct(request, env);
             if (productId && request.method === 'GET') return getProduct(env, productId);
             if (productId && request.method === 'PUT') return updateProduct(request, env, productId);
             if (productId && request.method === 'DELETE') {

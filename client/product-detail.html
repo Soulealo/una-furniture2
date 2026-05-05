@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Сагс - UNA Home & Furniture</title>
+    <title>Бүтээгдэхүүний дэлгэрэнгүй - UNA Home & Furniture</title>
     <link rel="icon" href="data:,">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -11,24 +11,17 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
 </head>
-<body data-page="cart">
+<body class="products-page product-detail-page">
     <nav class="navbar">
         <div class="nav-container">
-            <a href="index.html" class="nav-logo">
+            <a class="nav-logo" href="index.html">
                 <img class="site-logo-img" src="assets/logo/new-logo.png" alt="UNA Furniture Logo" onerror="this.hidden=true;this.nextElementSibling.classList.add('logo-fallback-visible');">
                 <span class="logo-fallback">UNA Home & Furniture</span>
             </a>
-
-            <div class="hamburger">
-                <span></span>
-                <span></span>
-                <span></span>
-            </div>
-
             <ul class="nav-menu">
-                <li><a href="index.html" class="nav-link">Нүүр</a></li>
+                <li><a class="nav-link" href="index.html">Нүүр</a></li>
                 <li class="nav-item-dropdown">
-                    <a href="products.html" class="nav-link nav-dropdown-toggle">Бүтээгдэхүүн <i class="fas fa-chevron-down" aria-hidden="true"></i></a>
+                    <a class="nav-link nav-dropdown-toggle active" href="products.html">Бүтээгдэхүүн <i class="fas fa-chevron-down" aria-hidden="true"></i></a>
                     <div class="nav-dropdown-menu nav-dropdown-mega">
                         <div class="nav-dropdown-section">
                             <span class="nav-dropdown-heading">Орон зай</span>
@@ -63,57 +56,34 @@
                         </div>
                     </div>
                 </li>
-                <li><a href="index.html#services" class="nav-link">Үйлчилгээ</a></li>
-                <li><a href="index.html#contact" class="nav-link">Холбоо барих</a></li>
+                <li><a class="nav-link" href="index.html#services">Үйлчилгээ</a></li>
+                <li><a class="nav-link" href="index.html#contact">Холбоо барих</a></li>
             </ul>
-
+            <form class="nav-search" action="products.html" method="get" role="search">
+                <label class="sr-only" for="detailSearch">Бүтээгдэхүүн хайх</label>
+                <i class="fas fa-search" aria-hidden="true"></i>
+                <input id="detailSearch" type="search" name="q" placeholder="Хайх">
+            </form>
             <div class="nav-right">
-                <i class="fas fa-user"></i>
-                <a href="login.html" class="login-btn">Нэвтрэх</a>
+                <a class="nav-account-link nav-icon-link" href="login.html" aria-label="Нэвтрэх"><i class="fas fa-user"></i></a>
+                <a class="nav-cart-link nav-icon-link" href="cart.html" aria-label="Сагс"><i class="fas fa-shopping-cart"></i><strong data-cart-count>0</strong></a>
             </div>
+            <div class="hamburger" aria-label="Цэс нээх" role="button" tabindex="0"><span></span><span></span><span></span></div>
         </div>
     </nav>
 
-    <section class="cart-hero">
-        <div class="hero-overlay"></div>
-        <div class="hero-content">
-            <h1 class="hero-title">Сагс</h1>
-            <p class="hero-subtitle">Сонгосон тавилга болон интерьер бүтээгдэхүүн</p>
-        </div>
-    </section>
-
-    <section class="cart-section">
-        <div class="container">
-            <div class="cart-layout">
-                <div class="cart-items-panel">
-                    <div class="cart-header-row">
-                        <span class="account-kicker">Таны сонголт</span>
-                        <h2>Сагсанд байгаа бүтээгдэхүүн</h2>
-                    </div>
-                    <div id="cartEmpty" class="cart-empty hidden">
-                        <i class="fas fa-shopping-cart"></i>
-                        <p>Таны сагс хоосон байна</p>
-                        <a href="products.html" class="account-primary-btn">Бүтээгдэхүүн үзэх</a>
-                    </div>
-                    <div id="cartItems" class="cart-items"></div>
-                </div>
-
-                <aside id="cartSummary" class="cart-summary">
-                    <span class="account-kicker">Төлбөрийн дүн</span>
-                    <h3>Захиалгын нийт</h3>
-                    <div class="summary-row">
-                        <span>Бүтээгдэхүүн</span>
-                        <strong id="cartItemCount">0</strong>
-                    </div>
-                    <div class="summary-row total">
-                        <span>Нийт үнэ</span>
-                        <strong id="cartTotal">₮0</strong>
-                    </div>
-                    <a id="goCheckoutBtn" href="checkout.html" class="checkout-btn">Захиалга үргэлжлүүлэх</a>
-                </aside>
+    <main class="product-detail-page-main">
+        <section class="container product-detail-page-shell" id="productDetailPageRoot">
+            <p class="empty-products-message">Бүтээгдэхүүний мэдээлэл уншиж байна...</p>
+        </section>
+        <section class="container related-products-section">
+            <div class="section-heading">
+                <span class="products-kicker">UNA Home & Furniture</span>
+                <h2 class="section-title">Төстэй бүтээгдэхүүн</h2>
             </div>
-        </div>
-    </section>
+            <div id="relatedProductsGrid" class="related-products-grid"></div>
+        </section>
+    </main>
 
     <footer class="footer">
         <div class="container">
@@ -129,7 +99,6 @@
             </div>
         </div>
     </footer>
-
     <script src="script.js"></script>
 </body>
 </html>
