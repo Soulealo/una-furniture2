@@ -16,9 +16,9 @@
   --una-stone:      #6E6359;
   --una-line:       #D9D1C2;
 
-  --una-serif: 'Playfair Display', 'Times New Roman', Georgia, serif;
+  --una-serif: 'Inter', 'Helvetica Neue', Arial, sans-serif;
   --una-sans:  'Inter', 'Helvetica Neue', Arial, sans-serif;
-  --una-mono:  'JetBrains Mono', 'Courier New', monospace;
+  --una-mono:  'Inter', 'Helvetica Neue', Arial, sans-serif;
 
   --una-t: 0.32s cubic-bezier(.2,.7,.2,1);
 
@@ -112,7 +112,6 @@ a { transition: color var(--una-t); }
 }
 .logo-fallback {
   font-family: var(--una-serif);
-  font-style: italic;
   font-size: 1.75rem;
   font-weight: 400;
   color: var(--una-ink);
@@ -273,6 +272,20 @@ a { transition: color var(--una-t); }
   box-shadow: 0 20px 60px rgba(26,23,20,.1) !important;
   border-radius: 0 !important;
 }
+
+/* Mega menu — position relative to .nav-menu (the nav links row),
+   not the individual nav item, so it doesn't clip off the left edge */
+.nav-menu { position: relative; }
+.nav-menu .nav-item-dropdown { position: static; }
+.nav-dropdown-menu.nav-dropdown-mega {
+  left: 0 !important;
+  transform: translateY(10px) !important;
+}
+.nav-menu .nav-item-dropdown:hover .nav-dropdown-menu.nav-dropdown-mega,
+.nav-menu .nav-item-dropdown:focus-within .nav-dropdown-menu.nav-dropdown-mega {
+  transform: translateY(0) !important;
+}
+
 .nav-dropdown-heading {
   font-family: var(--una-mono);
   font-size: .6rem;
@@ -393,7 +406,6 @@ a { transition: color var(--una-t); }
 .section-title {
   font-family: var(--una-serif) !important;
   font-weight: 400 !important;
-  font-style: italic !important;
   font-size: clamp(1.9rem, 4vw, 3.4rem) !important;
   letter-spacing: -.01em !important;
   line-height: 1.08 !important;
@@ -447,7 +459,6 @@ a { transition: color var(--una-t); }
 }
 .trust-card h3 {
   font-family: var(--una-serif);
-  font-style: italic;
   font-size: 1.1rem;
   font-weight: 400;
   color: var(--una-ink);
@@ -729,7 +740,6 @@ a { transition: color var(--una-t); }
 .service-card h3,
 .services .service-card h3 {
   font-family: var(--una-serif) !important;
-  font-style: italic !important;
   font-size: 1.3rem !important;
   font-weight: 400 !important;
   color: var(--una-ink) !important;
@@ -773,7 +783,6 @@ a { transition: color var(--una-t); }
 }
 .footer-brand .logo-fallback {
   font-family: var(--una-serif);
-  font-style: italic;
   font-size: 1.6rem;
   font-weight: 400;
   color: var(--una-bone);
@@ -949,13 +958,11 @@ label {
 }
 .login-branding .logo-fallback {
   font-family: var(--una-serif);
-  font-style: italic;
   font-size: 1.8rem;
   color: var(--una-bone);
 }
 .login-branding > p {
   font-family: var(--una-serif);
-  font-style: italic;
   font-size: 1.45rem;
   font-weight: 300;
   color: rgba(241,236,227,.6);
@@ -977,7 +984,6 @@ label {
 }
 .login-form-container h2 {
   font-family: var(--una-serif);
-  font-style: italic;
   font-size: 2.4rem;
   font-weight: 400;
   color: var(--una-ink);
@@ -1151,7 +1157,6 @@ label {
 }
 .cart-hero .hero-title {
   font-family: var(--una-serif) !important;
-  font-style: italic !important;
   font-weight: 400 !important;
   font-size: clamp(2.5rem,5vw,4.5rem) !important;
   text-transform: none !important;
@@ -1188,7 +1193,6 @@ label {
 }
 .cart-header-row h2 {
   font-family: var(--una-serif);
-  font-style: italic;
   font-size: 1.9rem;
   font-weight: 400;
 }
@@ -1268,7 +1272,6 @@ label {
 .cart-summary h3, .order-summary h3,
 .cart-summary h2, .order-summary h2 {
   font-family: var(--una-serif);
-  font-style: italic;
   font-size: 1.4rem;
   font-weight: 400;
   margin-bottom: 24px;
@@ -1466,7 +1469,6 @@ label {
 }
 .checkout-hero h1 {
   font-family: var(--una-serif);
-  font-style: italic;
   font-size: clamp(2.5rem, 5vw, 4rem);
   font-weight: 400;
   color: var(--una-bone);
@@ -1484,7 +1486,6 @@ label {
 .checkout-form-title,
 .checkout-section h2 {
   font-family: var(--una-serif);
-  font-style: italic;
   font-weight: 400;
   font-size: 1.9rem;
   color: var(--una-ink);
@@ -1509,7 +1510,6 @@ label {
 .account-section { padding: 60px 0 100px; }
 .account-section h1, .account-title {
   font-family: var(--una-serif);
-  font-style: italic;
   font-weight: 400;
   font-size: 2.2rem;
   color: var(--una-ink);
@@ -1533,7 +1533,6 @@ label {
 }
 .account-card h3 {
   font-family: var(--una-serif);
-  font-style: italic;
   font-size: 1.2rem;
   font-weight: 400;
   margin-bottom: 20px;
@@ -1575,7 +1574,6 @@ label {
 .forgot-form-wrapper h2,
 .reset-form-wrapper h2 {
   font-family: var(--una-serif);
-  font-style: italic;
   font-size: 2.2rem;
   font-weight: 400;
   letter-spacing: -.01em;
@@ -1632,7 +1630,6 @@ label {
 .legal-section { padding: 80px 0; }
 .legal-section h1, .legal-title {
   font-family: var(--una-serif);
-  font-style: italic;
   font-weight: 400;
   font-size: 2.6rem;
   color: var(--una-ink);
@@ -1640,7 +1637,6 @@ label {
 }
 .legal-section h2 {
   font-family: var(--una-serif);
-  font-style: italic;
   font-size: 1.5rem;
   font-weight: 400;
   color: var(--una-ink);
