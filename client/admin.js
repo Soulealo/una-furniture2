@@ -127,6 +127,8 @@ function setupEventListeners() {
     const productForm = document.getElementById('productForm');
     if (productForm) {
         productForm.addEventListener('submit', handleProductFormSubmit);
+        productForm.addEventListener('input', renderProductFormPreview);
+        productForm.addEventListener('change', renderProductFormPreview);
     }
 
     const productsTableBody = document.getElementById('productsTableBody');
@@ -691,9 +693,9 @@ function formatOrderItemsSummary(items, maxItems = 2) {
     if (!orderItems.length) return '-';
 
     const visibleItems = orderItems.slice(0, maxItems).map(item => {
-        const color = item.selectedColor || item.selectedColorName || item.color || '';
-        const colorText = color ? ` (${color})` : '';
-        return `${item.name || item.productName || 'Бүтээгдэхүүн'}${colorText} × ${Number(item.quantity) || 1}`;
+        const variation = item.selectedVariation || item.selectedVariationName || item.selectedColor || item.selectedColorName || item.color || '';
+        const variationText = variation ? ` (${variation})` : '';
+        return `${item.name || item.productName || 'Бүтээгдэхүүн'}${variationText} × ${Number(item.quantity) || 1}`;
     });
     const extraCount = orderItems.length - visibleItems.length;
 
@@ -787,6 +789,10 @@ function formatOptionList(value) {
 }
 
 function normalizeColorVariants(value) {
+    return normalizeProductVariations(value);
+}
+
+function normalizeProductVariations(value) {
     let source = value;
 
     if (typeof value === 'string') {
@@ -806,16 +812,21 @@ function normalizeColorVariants(value) {
 
     return source
         .map(variant => {
-            const colorValue = String(variant?.colorHex || variant?.colorValue || variant?.color_value || variant?.color || variant?.value || '').trim();
+            const variationValue = String(variant?.value || variant?.optionValue || variant?.variationValue || variant?.colorHex || variant?.colorValue || variant?.color_value || variant?.color || '').trim();
             const price = Number(variant?.price);
             const salePrice = Number(variant?.salePrice || variant?.sale_price);
             const stock = Number(variant?.stock);
+            const name = String(variant?.name || variant?.variationName || variant?.colorName || '').trim();
             const normalized = {
-                name: String(variant?.name || variant?.colorName || '').trim(),
-                colorName: String(variant?.name || variant?.colorName || '').trim(),
-                color: colorValue,
-                colorHex: colorValue,
-                colorValue,
+                name,
+                variationName: name,
+                value: variationValue,
+                optionValue: variationValue,
+                variationValue,
+                colorName: name,
+                color: variationValue,
+                colorHex: variationValue,
+                colorValue: variationValue,
                 image: String(variant?.image || variant?.imageUrl || '').trim(),
                 price: Number.isFinite(price) && price >= 0 ? price : '',
                 salePrice: Number.isFinite(salePrice) && salePrice >= 0 ? salePrice : '',
@@ -827,7 +838,7 @@ function normalizeColorVariants(value) {
             if (Number.isInteger(id) && id > 0) normalized.id = id;
             return normalized;
         })
-        .filter(variant => variant.name || variant.color || variant.image);
+        .filter(variant => variant.name || variant.value || variant.image);
 }
 
 function shortenText(text, maxLength = 120) {
@@ -853,10 +864,16 @@ function formatAdminLongText(text) {
 function normalizeProduct(product, index = 0) {
     const numericPrice = Number(product?.price);
     const numericStock = Number(product?.stock);
-    const savedColorVariants = normalizeColorVariants(product?.colorVariants);
-    const legacyColorVariants = savedColorVariants.length ? savedColorVariants : normalizeColorVariants(product?.colors);
+    const savedProductVariations = normalizeProductVariations(product?.productVariations || product?.variations);
+    const savedColorVariants = normalizeProductVariations(product?.colorVariants);
+    const legacyColorVariants = savedProductVariations.length
+        ? savedProductVariations
+        : savedColorVariants.length
+            ? savedColorVariants
+            : normalizeProductVariations(product?.colors);
     const colors = normalizeOptionList(product?.colors ?? product?.colorsText);
-    const colorVariants = legacyColorVariants;
+    const productVariations = legacyColorVariants;
+    const colorVariants = productVariations;
 
     return {
         id: product?.id ? String(product.id) : String(index + 1),
@@ -901,9 +918,12 @@ function normalizeProduct(product, index = 0) {
             ? product.images.map(image => String(image || '').trim()).filter(Boolean)
             : String(product?.imageUrl || product?.image || '').trim() ? [String(product?.imageUrl || product?.image || '').trim()] : [],
         colors,
+        productVariations,
+        variations: productVariations,
         colorVariants,
         colorsText: formatOptionList(colors),
-        colorVariantsText: colorVariants.map(variant => variant.name || variant.colorValue || variant.color || 'Variant').join(', '),
+        productVariationsText: productVariations.map(variant => variant.name || variant.value || variant.colorValue || variant.color || 'Variant').join(', '),
+        colorVariantsText: productVariations.map(variant => variant.name || variant.value || variant.colorValue || variant.color || 'Variant').join(', '),
         stock: Number.isFinite(numericStock) ? numericStock : 0,
         createdAt: product?.createdAt
     };
@@ -928,6 +948,7 @@ async function openAddProductModal() {
     document.getElementById('productAssemblyRequired').checked = false;
     renderImagePreview();
     renderColorVariantRows([]);
+    renderProductFormPreview();
     document.getElementById('productModal').classList.add('show');
 }
 
@@ -972,7 +993,8 @@ async function openEditProductModal(productId) {
     document.getElementById('productDeliveryNote').value = product.deliveryNote || '';
     document.getElementById('productImages').value = product.images.join('\n');
     renderImagePreview();
-    renderColorVariantRows(product.colorVariants);
+    renderColorVariantRows(product.productVariations || product.colorVariants);
+    renderProductFormPreview();
     document.getElementById('productModal').classList.add('show');
 }
 
@@ -982,6 +1004,7 @@ function closeProductModal() {
     document.getElementById('productForm').reset();
     renderImagePreview();
     renderColorVariantRows([]);
+    renderProductFormPreview();
 }
 
 function renderImagePreview() {
@@ -993,6 +1016,7 @@ function renderImagePreview() {
     preview.innerHTML = previewImages.map((image, index) => (
         `<img src="${escapeHtml(getSafeProductImage(image))}" alt="Зургийн урьдчилсан харагдац ${index + 1}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">`
     )).join('');
+    renderProductFormPreview();
 }
 
 function getProductImageUrlsFromForm() {
@@ -1040,6 +1064,7 @@ async function handleProductImageUpload(e) {
         const current = textarea.value.trim();
         textarea.value = current ? `${current}\n${publicUrl}` : publicUrl;
         renderImagePreview();
+        renderProductFormPreview();
     } catch (error) {
         alert(error.message);
     } finally {
@@ -1076,19 +1101,19 @@ function createColorVariantRow(variant = {}) {
     row.className = 'color-variant-row-admin';
     row.innerHTML = `
         <div class="color-variant-preview-admin">
-            <img src="${escapeHtml(getSafeProductImage(variant.image))}" alt="${escapeHtml(variant.name || 'Color variant')}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
+            <img src="${escapeHtml(getSafeProductImage(variant.image))}" alt="${escapeHtml(variant.name || 'Product variation')}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
         </div>
         <div class="form-group-admin">
-            <label>Color name</label>
-            <input type="text" class="color-variant-name" placeholder="Black" value="${escapeHtml(variant.name || '')}">
+            <label>Variation name</label>
+            <input type="text" class="color-variant-name" placeholder="Two seat / Walnut / Large" value="${escapeHtml(variant.name || '')}">
         </div>
         <div class="form-group-admin">
-            <label>Color value</label>
-            <input type="text" class="color-variant-value" placeholder="#222222 or Black" value="${escapeHtml(variant.colorValue || variant.color || '')}">
+            <label>Option value</label>
+            <input type="text" class="color-variant-value" placeholder="2-seat / walnut / L" value="${escapeHtml(variant.value || variant.colorValue || variant.color || '')}">
         </div>
         <div class="form-group-admin color-variant-image-field-admin">
             <label>Image URL</label>
-            <input type="text" class="color-variant-image" placeholder="https://example.com/black-sofa.jpg эсвэл black-sofa.jpg" value="${escapeHtml(variant.image || '')}">
+            <input type="text" class="color-variant-image" placeholder="https://example.com/variant.jpg эсвэл variant.jpg" value="${escapeHtml(variant.image || '')}">
         </div>
         <div class="form-group-admin">
             <label>Variant price</label>
@@ -1106,7 +1131,7 @@ function createColorVariantRow(variant = {}) {
             <label>SKU</label>
             <input type="text" class="color-variant-sku" placeholder="SOFA-BLK-001" value="${escapeHtml(variant.sku || '')}">
         </div>
-        <button type="button" class="color-variant-remove-btn" data-color-variant-action="remove" aria-label="Remove color variant">
+        <button type="button" class="color-variant-remove-btn" data-color-variant-action="remove" aria-label="Remove product variation">
             <i class="fas fa-trash"></i>
         </button>
     `;
@@ -1119,9 +1144,10 @@ function renderColorVariantRows(variants = []) {
     if (!list) return;
 
     list.innerHTML = '';
-    normalizeColorVariants(variants).forEach(variant => {
+    normalizeProductVariations(variants).forEach(variant => {
         list.appendChild(createColorVariantRow(variant));
     });
+    renderProductFormPreview();
 }
 
 function addColorVariantRow(variant = {}) {
@@ -1129,6 +1155,7 @@ function addColorVariantRow(variant = {}) {
     if (!list) return;
 
     list.appendChild(createColorVariantRow(variant));
+    renderProductFormPreview();
 }
 
 function getColorVariantsFromForm() {
@@ -1137,6 +1164,10 @@ function getColorVariantsFromForm() {
     return [...(list?.querySelectorAll('.color-variant-row-admin') || [])]
         .map(row => ({
             name: row.querySelector('.color-variant-name')?.value.trim() || '',
+            variationName: row.querySelector('.color-variant-name')?.value.trim() || '',
+            value: row.querySelector('.color-variant-value')?.value.trim() || '',
+            optionValue: row.querySelector('.color-variant-value')?.value.trim() || '',
+            variationValue: row.querySelector('.color-variant-value')?.value.trim() || '',
             color: row.querySelector('.color-variant-value')?.value.trim() || '',
             colorValue: row.querySelector('.color-variant-value')?.value.trim() || '',
             colorHex: row.querySelector('.color-variant-value')?.value.trim() || '',
@@ -1150,7 +1181,7 @@ function getColorVariantsFromForm() {
 }
 
 function handleColorVariantInput(e) {
-    const input = e.target.closest('.color-variant-image, .color-variant-name');
+    const input = e.target.closest('.color-variant-image, .color-variant-name, .color-variant-value, .color-variant-price, .color-variant-sale-price, .color-variant-stock, .color-variant-sku');
     if (!input) return;
 
     const row = input.closest('.color-variant-row-admin');
@@ -1160,8 +1191,10 @@ function handleColorVariantInput(e) {
 
     if (image) {
         image.src = getSafeProductImage(imageValue);
-        image.alt = nameValue || 'Color variant';
+        image.alt = nameValue || 'Product variation';
     }
+
+    renderProductFormPreview();
 }
 
 function handleColorVariantClick(e) {
@@ -1169,6 +1202,78 @@ function handleColorVariantClick(e) {
     if (!removeButton) return;
 
     removeButton.closest('.color-variant-row-admin')?.remove();
+    renderProductFormPreview();
+}
+
+function getProductFormDraft() {
+    const categorySelect = document.getElementById('productCategory');
+    const subCategorySelect = document.getElementById('productSubCategory');
+    const images = getProductImageUrlsFromForm();
+    const price = Number(document.getElementById('productPrice')?.value || 0);
+    const salePrice = Number(document.getElementById('productSalePrice')?.value || 0);
+    const stock = Number(document.getElementById('productStock')?.value || 0);
+    const productVariations = getColorVariantsFromForm();
+    const category = categorySelect?.options?.[categorySelect.selectedIndex]?.textContent || categorySelect?.value || 'Category';
+
+    return {
+        name: document.getElementById('productName')?.value.trim() || 'Product name',
+        description: document.getElementById('productDescription')?.value.trim() || 'Product description preview',
+        category,
+        subCategory: subCategorySelect?.value || '',
+        price: Number.isFinite(price) && price > 0 ? price : 0,
+        salePrice: Number.isFinite(salePrice) && salePrice > 0 ? salePrice : null,
+        stock: Number.isFinite(stock) && stock >= 0 ? stock : 0,
+        stockStatus: document.getElementById('productStockStatus')?.value || 'available',
+        sku: document.getElementById('productSku')?.value.trim() || '',
+        images,
+        imageUrl: images[0] || '',
+        productVariations
+    };
+}
+
+function renderProductFormPreview() {
+    const preview = document.getElementById('productFormPreview');
+    if (!preview) return;
+
+    const product = getProductFormDraft();
+    const image = getSafeProductImage(product.imageUrl || product.productVariations.find(variant => variant.image)?.image);
+    const displayPrice = product.salePrice || product.price;
+    const variants = product.productVariations.slice(0, 4);
+    const overflowCount = product.productVariations.length - variants.length;
+
+    preview.innerHTML = `
+        <article class="admin-preview-card">
+            <div class="admin-preview-image">
+                <img src="${escapeHtml(image)}" alt="${escapeHtml(product.name)}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
+            </div>
+            <div class="admin-preview-body">
+                <div class="admin-preview-tags">
+                    <span>${escapeHtml(product.category)}</span>
+                    ${product.subCategory ? `<span>${escapeHtml(product.subCategory)}</span>` : ''}
+                    <span>${escapeHtml(product.stockStatus)}</span>
+                </div>
+                <h4>${escapeHtml(product.name)}</h4>
+                <p>${escapeHtml(shortenText(product.description, 120))}</p>
+                <div class="admin-preview-price">
+                    ${product.salePrice ? `<small>${formatPrice(product.price)}</small>` : ''}
+                    <strong>${formatPrice(displayPrice || product.price)}</strong>
+                </div>
+                <div class="admin-preview-meta">
+                    <span>Stock: ${Number(product.stock) || 0}</span>
+                    ${product.sku ? `<span>SKU: ${escapeHtml(product.sku)}</span>` : ''}
+                </div>
+                <div class="admin-preview-variations">
+                    ${variants.length ? variants.map(variant => `
+                        <span>
+                            ${escapeHtml(variant.name || 'Variation')}
+                            ${variant.value ? `<small>${escapeHtml(variant.value)}</small>` : ''}
+                        </span>
+                    `).join('') : '<span>No variations</span>'}
+                    ${overflowCount > 0 ? `<span>+${overflowCount}</span>` : ''}
+                </div>
+            </div>
+        </article>
+    `;
 }
 
 async function renderProductCategoryOptions(selectedCategory = '', selectedSubCategory = '') {
@@ -1189,9 +1294,11 @@ async function renderProductCategoryOptions(selectedCategory = '', selectedSubCa
     // Setup change handler for cascading
     select.onchange = () => {
         updateSubCategoryOptions(select.value, '');
+        renderProductFormPreview();
     };
 
     updateSubCategoryOptions(selectedCategory, selectedSubCategory);
+    renderProductFormPreview();
 }
 
 function updateSubCategoryOptions(mainCategory, selectedSubCategory) {
@@ -1217,6 +1324,8 @@ function updateSubCategoryOptions(mainCategory, selectedSubCategory) {
     if (!selectedSubCategory || !subs.includes(selectedSubCategory)) {
         subSelect.value = subs[0];
     }
+
+    renderProductFormPreview();
 }
 
 async function handleProductFormSubmit(e) {
@@ -1226,8 +1335,9 @@ async function handleProductFormSubmit(e) {
     const originalButtonText = saveButton.textContent;
     const name = document.getElementById('productName').value.trim();
     const description = document.getElementById('productDescription').value.trim();
-    const colorVariants = getColorVariantsFromForm();
-    const colors = colorVariants.map(variant => variant.name || variant.colorValue || variant.color).filter(Boolean);
+    const productVariations = getColorVariantsFromForm();
+    const colorVariants = productVariations;
+    const colors = productVariations.map(variant => variant.name || variant.value || variant.colorValue || variant.color).filter(Boolean);
     const price = Number(document.getElementById('productPrice').value);
     const salePriceInput = document.getElementById('productSalePrice').value;
     const salePrice = salePriceInput ? Number(salePriceInput) : null;
@@ -1270,13 +1380,18 @@ async function handleProductFormSubmit(e) {
         return;
     }
 
-    if (colorVariants.some(variant => !variant.name || !variant.image)) {
-        alert('Color variant бүрт нэр болон зурагны URL/зам оруулна уу.');
+    if (productVariations.some(variant => !variant.name || !variant.image)) {
+        alert('Product variation бүрт нэр болон зурагны URL/зам оруулна уу.');
         return;
     }
 
-    if (colorVariants.some(variant => !isValidImageReference(variant.image))) {
-        alert('Color variant image нь http(s) URL эсвэл дэмжигдэх image path байх ёстой.');
+    if (productVariations.some(variant => !isValidImageReference(variant.image))) {
+        alert('Product variation image нь http(s) URL эсвэл дэмжигдэх image path байх ёстой.');
+        return;
+    }
+
+    if (productVariations.some(variant => variant.salePrice !== null && variant.price !== null && variant.salePrice > variant.price)) {
+        alert('Variation sale price нь variation price-аас их байж болохгүй.');
         return;
     }
 
@@ -1294,6 +1409,7 @@ async function handleProductFormSubmit(e) {
             category,
             subCategory,
             colors,
+            productVariations,
             colorVariants,
             images,
             imageUrl: images[0] || '',
@@ -1384,7 +1500,7 @@ async function loadProductsTable() {
                 </button>
             </td>
             <td><span class="admin-category-badge">${escapeHtml(product.category)}${product.subCategory ? ' › ' + escapeHtml(product.subCategory) : ''}</span></td>
-            <td class="product-option-cell">${escapeHtml(product.colorVariantsText || product.colorsText || '-')}</td>
+            <td class="product-option-cell">${escapeHtml(product.productVariationsText || product.colorVariantsText || product.colorsText || '-')}</td>
             <td>${Number(product.stock) || 0}</td>
             <td class="product-cell-price">${formatPrice(product.price)}</td>
             <td><span class="order-status-badge ${escapeHtml(product.stockStatus || 'available')}">${escapeHtml(product.stockStatus || 'available')}</span></td>
@@ -2056,8 +2172,8 @@ async function viewOrderDetails(orderId) {
             <div class="order-items-list">
                 ${normalizeOrderItems(order.items).map(item => {
                     const options = [
-                        (item.selectedColor || item.selectedColorName) ? `Өнгө: ${item.selectedColor || item.selectedColorName}` : '',
-                        item.selectedColorValue ? `Утга: ${item.selectedColorValue}` : ''
+                        (item.selectedVariation || item.selectedVariationName || item.selectedColor || item.selectedColorName) ? `Сонголт: ${item.selectedVariation || item.selectedVariationName || item.selectedColor || item.selectedColorName}` : '',
+                        (item.selectedVariationValue || item.selectedColorValue) ? `Утга: ${item.selectedVariationValue || item.selectedColorValue}` : ''
                     ].filter(Boolean);
 
                     return `

@@ -9,22 +9,19 @@
 <link href="https://fonts.googleapis.com" rel="preconnect"/>
 <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,300;1,400;1,500&amp;display=swap" rel="stylesheet"/>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
 <link href="styles.css" rel="stylesheet"/>
-    <link href="una-design.css" rel="stylesheet"/>
 </head>
 <body class="products-page">
 
 <nav class="navbar">
 <div class="nav-container">
-<a class="nav-logo" href="index.html">
-<img class="site-logo-img" src="assets/logo/new-logo.png" alt="UNA Furniture Logo" onerror="this.hidden=true;this.nextElementSibling.classList.add('logo-fallback-visible');">
-<span class="logo-fallback">UNA Home &amp; Furniture</span>
-</a>
+<div class="nav-left">
 <ul class="nav-menu">
-<li><a class="nav-link" href="index.html">Нүүр</a></li>
+<li><a class="nav-link" href="index.html">НҮҮР</a></li>
 <li class="nav-item-dropdown">
-<a class="nav-link nav-dropdown-toggle" href="products.html">Бүтээгдэхүүн <i class="fas fa-chevron-down" aria-hidden="true"></i></a>
+<a class="nav-link nav-dropdown-toggle" href="products.html">БҮТЭЭГДЭХҮҮН <i class="fas fa-chevron-down" aria-hidden="true"></i></a>
 <div class="nav-dropdown-menu nav-dropdown-mega">
                         <div class="nav-dropdown-section">
                             <span class="nav-dropdown-heading">Орон зай</span>
@@ -59,15 +56,33 @@
                         </div>
                     </div>
                 </li>
-<li><a class="nav-link" href="index.html#services">Үйлчилгээ</a></li>
-<li><a class="nav-link" href="index.html#contact">Холбоо барих</a></li>
+<li><a href="index.html#journal" class="nav-link">СЭТГҮҮЛ</a></li>
 </ul>
-<form class="nav-search" action="products.html" method="get" role="search">
-<label class="sr-only" for="productsSearch">Бүтээгдэхүүн хайх</label>
-<i class="fas fa-search" aria-hidden="true"></i>
-<input id="productsSearch" type="search" name="q" placeholder="Хайх"/>
-</form>
+</div>
+
+<div class="nav-center">
+<a class="nav-logo" href="index.html">
+<span class="logo-text-mark"><span class="logo-wordmark">Una</span><span class="logo-sub">Home &amp; Furniture &nbsp;&middot;&nbsp; Est. 2026</span></span>
+<span class="logo-fallback">UNA Home &amp; Furniture</span>
+</a>
+</div>
+
 <div class="nav-right">
+<ul class="nav-menu">
+<li style="position: relative;">
+<a href="#" class="nav-link" onclick="event.preventDefault(); this.nextElementSibling.classList.toggle('active'); this.nextElementSibling.querySelector('input').focus();">ХАЙХ</a>
+<div class="search-form-wrapper">
+<form class="search-form-inner" action="products.html" method="get" role="search">
+<input type="search" name="q" placeholder="Хайх..." required>
+<button type="submit" aria-label="Хайх"><i class="fas fa-search"></i></button>
+</form>
+</div>
+</li>
+<li><a class="nav-link" href="index.html#services">ҮЙЛЧИЛГЭЭ</a></li>
+<li><a class="nav-link" href="index.html#contact">ХОЛБОО БАРИХ</a></li>
+</ul>
+
+<div class="nav-icons">
 <a class="nav-account-link nav-icon-link" href="login.html" aria-label="Нэвтрэх">
 <i class="fas fa-user"></i>
 </a>
@@ -82,40 +97,66 @@
 </div>
 </nav>
 
-<section class="products">
-<div class="container products-container">
-<header class="products-header">
-<span class="products-kicker">UNA Home &amp; Furniture</span>
-<h1 class="section-title">Тавилга болон интерьер цуглуулга</h1>
-<p class="section-subtitle">Орчин үеийн загвартай, өндөр чанарын тавилгын шилдэг сонголтууд</p>
+<header class="page-head">
+<div class="container">
+<div class="crumbs" id="productsCrumbs">
+<span>Una</span><span>/</span><span>Бүтээгдэхүүн</span>
+</div>
+<h1>Тавилга болон<br>интерьер.</h1>
+<p class="lede">Орчин үеийн загвартай, өндөр чанарын тавилгын шилдэг сонголтууд. Гар хийц буйдан, царс ширээ, гар нэхмэл хивс.</p>
+</div>
 </header>
-<div id="categories" class="products-controls">
-<div class="category-filter-group">
-<span class="products-control-label">Ангилал</span>
-<div class="category-filter-buttons"></div>
-<div class="subcategory-filter-buttons"></div>
-</div>
-<div class="sort-filter-group">
-<label class="products-control-label" for="productSort">Эрэмбэлэх</label>
-<select id="productSort" class="product-sort-select">
-<option value="default">Үндсэн</option>
-<option value="price-asc">Үнэ: багаас их</option>
-<option value="price-desc">Үнэ: ихээс бага</option>
-<option value="name-asc">Нэр A-Z</option>
-<option value="name-desc">Нэр Z-A</option>
-</select>
-</div>
-<p id="productsResultCount" class="products-result-count" aria-live="polite"></p>
-</div>
 
-<div class="products-grid"></div>
-</div>
+<section class="products-layout-section">
+  <button class="sidebar-mobile-toggle" id="sidebarToggle" aria-label="Шүүлтүүр нээх/хаах" aria-expanded="false" aria-controls="filtersPanel">
+    <i class="fas fa-sliders-h"></i> Шүүлтүүр
+  </button>
+  <div class="products-layout container">
+
+    <!-- ── SIDEBAR ──────────────────────────────── -->
+    <aside class="shop-sidebar" id="filtersPanel">
+
+      <div class="sidebar-group" id="sidebarGroupCategory">
+        <div class="sidebar-group-header">
+          <span class="sidebar-group-title">АНГИЛАЛ</span>
+          <button class="sidebar-collapse-btn" data-target="sidebarBodyCategory" aria-label="Нуух/Харуулах">–</button>
+        </div>
+        <div class="sidebar-group-body" id="sidebarBodyCategory">
+          <div class="category-filter-buttons"></div>
+        </div>
+      </div>
+
+      <div class="sidebar-divider"></div>
+
+    </aside>
+
+    <!-- ── MAIN CONTENT ──────────────────────────── -->
+    <div class="products-content">
+
+      <div class="shop-toolbar">
+        <p class="shop-toolbar-count" id="productsResultCount" aria-live="polite"></p>
+        <div class="shop-toolbar-right">
+          <span class="shop-sort-label">ЭРЭМБЭЛЭХ:</span>
+          <select id="productSort" class="shop-sort-select">
+            <option value="default">Үндсэн</option>
+            <option value="price-asc">Үнэ — багаас их</option>
+            <option value="price-desc">Үнэ — ихээс бага</option>
+            <option value="name-asc">Нэр A-Z</option>
+            <option value="name-desc">Нэр Z-A</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="products-grid"></div>
+
+    </div>
+  </div>
 </section>
 <footer class="footer">
 <div class="container">
 <div class="footer-layout">
 <div class="footer-brand">
-<img class="footer-logo-img" src="assets/logo/new-logo.png" alt="UNA Furniture Logo" onerror="this.hidden=true;this.nextElementSibling.classList.add('logo-fallback-visible');">
+<img class="footer-logo-img" src="assets/logo/logo-dark.png" alt="UNA Furniture Logo" onerror="this.hidden=true;this.nextElementSibling.classList.add('logo-fallback-visible');">
 <span class="logo-fallback">UNA Home &amp; Furniture</span>
 <p>Таны гэрт дулаан уур амьсгал, өдөр бүрийн тав тух, цэвэр загварыг авчрах тавилгын сонголт.</p>
 </div>
@@ -134,8 +175,9 @@
 <a href="products.html?category=Захиалгат%20тавилга">Захиалгат тавилга</a>
 </div>
 <div class="footer-contact">
-<h3>Холбоо</h3>
-<p>hello@unafurniture.com</p>
+<h3>Холбоо барих</h3>
+<p><a href="tel:+97650552919">+976 5055 2919</a></p>
+<p>una.furniture@outlook.com</p>
 <p>Улаанбаатар, Монгол Улс</p>
 <div class="social-links" aria-label="Сошиал холбоос">
 <a href="#" aria-label="Facebook"><i class="fab fa-facebook"></i></a>
@@ -154,5 +196,29 @@
 </div>
 </footer>
 <script src="script.js"></script>
+<script>
+  /* ── Sidebar UI: collapse groups ─────────────────────── */
+  document.querySelectorAll('.sidebar-collapse-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.dataset.target;
+      const body = targetId ? document.getElementById(targetId) : btn.closest('.sidebar-group')?.querySelector('.sidebar-group-body');
+      if (!body) return;
+      const isCollapsed = body.classList.toggle('collapsed');
+      btn.textContent = isCollapsed ? '+' : '–';
+      btn.setAttribute('aria-expanded', String(!isCollapsed));
+    });
+  });
+
+  /* ── Mobile sidebar toggle ───────────────────────────── */
+  const sidebarToggleBtn = document.getElementById('sidebarToggle');
+  const sidebarPanel = document.getElementById('filtersPanel');
+  if (sidebarToggleBtn && sidebarPanel) {
+    sidebarToggleBtn.addEventListener('click', () => {
+      const isOpen = sidebarPanel.classList.toggle('sidebar-open');
+      sidebarToggleBtn.setAttribute('aria-expanded', String(isOpen));
+      sidebarToggleBtn.textContent = isOpen ? '✕ Хаах' : '☰ Шүүлтүүр';
+    });
+  }
+</script>
 </body>
 </html>

@@ -1,0 +1,13 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "una-static",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "http.server", "--directory", "client"],
+      "port": 8765,
+      "autoPort": true,
+      "env": {}
+    }
+  ]
+}

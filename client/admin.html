@@ -7,7 +7,8 @@
     <link rel="icon" href="data:,">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,300;1,400;1,500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="admin-styles.css">
@@ -51,7 +52,7 @@
         <div class="login-container-admin">
             <div class="login-header-admin">
                 <div class="admin-logo">
-                    <img class="brand-logo-img" src="assets/logo/new-logo.png" alt="UNA Furniture Logo" onerror="this.hidden=true;this.nextElementSibling.classList.add('logo-fallback-visible');">
+                    <img class="brand-logo-img" src="assets/logo/logo-dark.png" alt="UNA Furniture Logo" onerror="this.hidden=true;this.nextElementSibling.classList.add('logo-fallback-visible');">
                     <span class="logo-fallback">UNA Home & Furniture</span>
                 </div>
                 <p>Админ Самбар</p>
@@ -91,7 +92,7 @@
     <div id="dashboardScreen" class="dashboard-screen">
         <aside class="admin-sidebar">
             <a href="index.html" class="admin-sidebar-brand">
-                <img class="site-logo-img" src="assets/logo/new-logo.png" alt="UNA Furniture Logo" onerror="this.hidden=true;this.nextElementSibling.classList.add('logo-fallback-visible');">
+                <img class="site-logo-img" src="assets/logo/logo-dark.png" alt="UNA Furniture Logo" onerror="this.hidden=true;this.nextElementSibling.classList.add('logo-fallback-visible');">
                 <span class="logo-fallback">UNA Home & Furniture</span>
                 <small>Admin Dashboard</small>
             </a>
@@ -284,7 +285,7 @@
                                 <th>Нэр</th>
                                 <th>Тайлбар</th>
                                 <th>Ангилал</th>
-                                <th>Өнгө</th>
+                                <th>Сонголт</th>
                                 <th>Үлдэгдэл</th>
                                 <th>Үнэ</th>
                                 <th>Status</th>
@@ -725,11 +726,11 @@
                 <section class="product-form-section-admin">
                     <div class="form-section-heading-admin">
                         <div>
-                            <h3>Color Variants</h3>
-                            <p>Өнгө тус бүрийн нэр, өнгөний утга, зурагны URL-г оруулна.</p>
+                            <h3>Product Variations</h3>
+                            <p>Size, material, finish, color, bundle зэрэг сонголт бүрийн нэр, утга, зураг, үнэ, үлдэгдлийг оруулна.</p>
                         </div>
                         <button type="button" id="addColorVariantBtn" class="admin-btn-secondary color-variant-add-btn">
-                            <i class="fas fa-plus"></i> Add Color Variant
+                            <i class="fas fa-plus"></i> Add Variation
                         </button>
                     </div>
                     <div id="colorVariantsList" class="color-variants-list-admin"></div>
@@ -742,6 +743,16 @@
                         <label for="productDescription">Тайлбар *</label>
                         <textarea id="productDescription" placeholder="Бүтээгдэхүүний дэлгэрэнгүй тайлбар" rows="5" required></textarea>
                     </div>
+                </section>
+
+                <section class="product-form-section-admin product-preview-section-admin">
+                    <div class="form-section-heading-admin">
+                        <div>
+                            <h3>Product Preview</h3>
+                            <p>Public product card дээр харагдах үндсэн мэдээллийн live preview.</p>
+                        </div>
+                    </div>
+                    <div id="productFormPreview" class="product-form-preview-admin" aria-live="polite"></div>
                 </section>
 
                 <div class="form-actions-admin product-form-section-admin actions-section-admin">

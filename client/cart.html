@@ -7,70 +7,92 @@
     <link rel="icon" href="data:,">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,300;1,400;1,500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="una-design.css">
 </head>
 <body data-page="cart">
     <nav class="navbar">
         <div class="nav-container">
-            <a href="index.html" class="nav-logo">
-                <img class="site-logo-img" src="assets/logo/new-logo.png" alt="UNA Furniture Logo" onerror="this.hidden=true;this.nextElementSibling.classList.add('logo-fallback-visible');">
-                <span class="logo-fallback">UNA Home & Furniture</span>
-            </a>
-
-            <div class="hamburger">
-                <span></span>
-                <span></span>
-                <span></span>
+            <div class="nav-left">
+                <ul class="nav-menu">
+                    <li><a class="nav-link" href="index.html">НҮҮР</a></li>
+                    <li class="nav-item-dropdown">
+                        <a class="nav-link nav-dropdown-toggle" href="products.html">БҮТЭЭГДЭХҮҮН <i class="fas fa-chevron-down" aria-hidden="true"></i></a>
+                        <div class="nav-dropdown-menu nav-dropdown-mega">
+                            <div class="nav-dropdown-section">
+                                <span class="nav-dropdown-heading">Орон зай</span>
+                                <a href="products.html?category=%D0%9E%D1%80%D0%BE%D0%BD%20%D0%B7%D0%B0%D0%B9&sub=%D0%97%D0%BE%D1%87%D0%BD%D1%8B%20%D3%A9%D1%80%D3%A9%D3%A9" class="nav-dropdown-link">Зочны өрөө</a>
+                                <a href="products.html?category=%D0%9E%D1%80%D0%BE%D0%BD%20%D0%B7%D0%B0%D0%B9&sub=%D0%A3%D0%BD%D1%82%D0%BB%D0%B0%D0%B3%D1%8B%D0%BD%20%D3%A9%D1%80%D3%A9%D3%A9" class="nav-dropdown-link">Унтлагын өрөө</a>
+                                <a href="products.html?category=%D0%9E%D1%80%D0%BE%D0%BD%20%D0%B7%D0%B0%D0%B9&sub=%D0%93%D0%B0%D0%BB%20%D1%82%D0%BE%D0%B3%D0%BE%D0%BE" class="nav-dropdown-link">Гал тогоо</a>
+                                <a href="products.html?category=%D0%9E%D1%80%D0%BE%D0%BD%20%D0%B7%D0%B0%D0%B9&sub=%D0%90%D0%B6%D0%BB%D1%8B%D0%BD%20%D3%A9%D1%80%D3%A9%D3%A9" class="nav-dropdown-link">Ажлын өрөө</a>
+                                <a href="products.html?category=%D0%9E%D1%80%D0%BE%D0%BD%20%D0%B7%D0%B0%D0%B9&sub=%D0%97%D0%B0%D1%85%D0%B8%D0%B0%D0%BB%D0%B3%D0%B0%D1%82%20%D1%82%D0%B0%D0%B2%D0%B8%D0%BB%D0%B3%D0%B0" class="nav-dropdown-link">Захиалгат тавилга</a>
+                            </div>
+                            <div class="nav-dropdown-section">
+                                <span class="nav-dropdown-heading">Тавилга</span>
+                                <a href="products.html?category=%D0%A2%D0%B0%D0%B2%D0%B8%D0%BB%D0%B3%D0%B0&sub=%D0%91%D1%83%D0%B9%D0%B4%D0%B0%D0%BD%20%D0%B1%D0%B0%20%D1%81%D0%B0%D0%BD%D0%B4%D0%B0%D0%BB" class="nav-dropdown-link">Буйдан ба сандал</a>
+                                <a href="products.html?category=%D0%A2%D0%B0%D0%B2%D0%B8%D0%BB%D0%B3%D0%B0&sub=%D0%A8%D0%B8%D1%80%D1%8D%D1%8D%20%D0%B1%D0%B0%20%D1%88%D2%AF%D2%AF%D0%B3%D1%8D%D1%8D" class="nav-dropdown-link">Ширээ ба шүүгээ</a>
+                                <a href="products.html?category=%D0%A2%D0%B0%D0%B2%D0%B8%D0%BB%D0%B3%D0%B0&sub=%D0%93%D1%8D%D1%80%D1%8D%D0%BB%D1%82%D2%AF%D2%AF%D0%BB%D1%8D%D0%B3" class="nav-dropdown-link">Гэрэлтүүлэг</a>
+                                <a href="products.html?category=%D0%A2%D0%B0%D0%B2%D0%B8%D0%BB%D0%B3%D0%B0&sub=%D0%94%D0%B0%D0%B0%D0%B2%D1%83%D1%83%D0%BD%20%D1%8D%D0%B4%D0%BB%D1%8D%D0%BB" class="nav-dropdown-link">Даавуун эдлэл</a>
+                            </div>
+                            <div class="nav-dropdown-section">
+                                <span class="nav-dropdown-heading">Гоёл чимэглэл</span>
+                                <a href="products.html?category=%D0%93%D0%BE%D1%91%D0%BB%20%D1%87%D0%B8%D0%BC%D1%8D%D0%B3%D0%BB%D1%8D%D0%BB&sub=%D0%92%D0%B0%D0%B0%D1%80%20%D0%B1%D0%B0%20%D0%B0%D1%8F%D0%B3%D0%B0" class="nav-dropdown-link">Ваар ба аяга</a>
+                                <a href="products.html?category=%D0%93%D0%BE%D1%91%D0%BB%20%D1%87%D0%B8%D0%BC%D1%8D%D0%B3%D0%BB%D1%8D%D0%BB&sub=%D0%A2%D0%B0%D0%B2%D0%B8%D1%83%D1%80%20%D0%B1%D0%B0%20%D1%88%D0%B8%D1%80%D1%8D%D1%8D%D0%BD%D0%B8%D0%B9%20%D1%85%D1%8D%D1%80%D1%8D%D0%B3%D0%BB%D1%8D%D0%BB" class="nav-dropdown-link">Тавиур ба ширээний хэрэглэл</a>
+                                <a href="products.html?category=%D0%93%D0%BE%D1%91%D0%BB%20%D1%87%D0%B8%D0%BC%D1%8D%D0%B3%D0%BB%D1%8D%D0%BB&sub=%D0%9B%D0%B0%D0%B0%D0%BD%D1%8B%20%D1%81%D1%83%D1%83%D1%80%D1%8C" class="nav-dropdown-link">Лааны суурь</a>
+                                <a href="products.html?category=%D0%93%D0%BE%D1%91%D0%BB%20%D1%87%D0%B8%D0%BC%D1%8D%D0%B3%D0%BB%D1%8D%D0%BB&sub=%D0%A7%D0%B8%D0%BC%D1%8D%D0%B3%D0%BB%D1%8D%D0%BB%D0%B8%D0%B9%D0%BD%20%D1%85%D3%A9%D1%88%D3%A9%D3%A9%20%D0%B1%D0%B0%20%D1%8D%D0%B4%D0%BB%D1%8D%D0%BB" class="nav-dropdown-link">Чимэглэлийн хөшөө ба эдлэл</a>
+                                <a href="products.html?category=%D0%93%D0%BE%D1%91%D0%BB%20%D1%87%D0%B8%D0%BC%D1%8D%D0%B3%D0%BB%D1%8D%D0%BB&sub=%D0%97%D1%83%D1%80%D0%B3%D0%B8%D0%B9%D0%BD%20%D0%B6%D0%B0%D0%B0%D0%B7%20%D0%B1%D0%B0%20%D1%85%D0%B0%D0%B9%D1%80%D1%86%D0%B0%D0%B3" class="nav-dropdown-link">Зургийн жааз ба хайрцаг</a>
+                            </div>
+                            <div class="nav-dropdown-section">
+                                <span class="nav-dropdown-heading">Хана ба гадна</span>
+                                <a href="products.html?category=%D0%A5%D0%B0%D0%BD%D0%B0%20%D0%B1%D0%B0%20%D0%B3%D0%B0%D0%B4%D0%BD%D0%B0&sub=%D0%A2%D0%BE%D0%BB%D1%8C" class="nav-dropdown-link">Толь</a>
+                                <a href="products.html?category=%D0%A5%D0%B0%D0%BD%D0%B0%20%D0%B1%D0%B0%20%D0%B3%D0%B0%D0%B4%D0%BD%D0%B0&sub=%D0%A5%D0%B0%D0%BD%D1%8B%D0%BD%20%D1%87%D0%B8%D0%BC%D1%8D%D0%B3%D0%BB%D1%8D%D0%BB" class="nav-dropdown-link">Ханын чимэглэл</a>
+                                <a href="products.html?category=%D0%A5%D0%B0%D0%BD%D0%B0%20%D0%B1%D0%B0%20%D0%B3%D0%B0%D0%B4%D0%BD%D0%B0&sub=%D0%A6%D0%B0%D0%B3" class="nav-dropdown-link">Цаг</a>
+                                <a href="products.html?category=%D0%A5%D0%B0%D0%BD%D0%B0%20%D0%B1%D0%B0%20%D0%B3%D0%B0%D0%B4%D0%BD%D0%B0&sub=%D0%93%D0%B0%D0%B4%D0%BD%D0%B0%20%D0%BE%D1%80%D1%87%D0%BD%D1%8B%20%D1%82%D0%B0%D0%B2%D0%B8%D0%BB%D0%B3%D0%B0" class="nav-dropdown-link">Гадна орчны тавилга</a>
+                                <a href="products.html?category=%D0%A5%D0%B0%D0%BD%D0%B0%20%D0%B1%D0%B0%20%D0%B3%D0%B0%D0%B4%D0%BD%D0%B0&sub=%D0%A8%D0%B8%D0%BD%D1%8D%20%D0%B7%D0%B0%D0%B3%D0%B2%D0%B0%D1%80%D1%83%D1%83%D0%B4" class="nav-dropdown-link">Шинэ загварууд</a>
+                            </div>
+                        </div>
+                    </li>
+                    <li><a href="index.html#journal" class="nav-link">СЭТГҮҮЛ</a></li>
+                </ul>
             </div>
 
-            <ul class="nav-menu">
-                <li><a href="index.html" class="nav-link">Нүүр</a></li>
-                <li class="nav-item-dropdown">
-                    <a href="products.html" class="nav-link nav-dropdown-toggle">Бүтээгдэхүүн <i class="fas fa-chevron-down" aria-hidden="true"></i></a>
-                    <div class="nav-dropdown-menu nav-dropdown-mega">
-                        <div class="nav-dropdown-section">
-                            <span class="nav-dropdown-heading">Орон зай</span>
-                            <a href="products.html?category=Зочны%20өрөө" class="nav-dropdown-link">Зочны өрөө</a>
-                            <a href="products.html?category=Унтлагын%20өрөө" class="nav-dropdown-link">Унтлагын өрөө</a>
-                            <a href="products.html?category=Гал%20тогоо" class="nav-dropdown-link">Гал тогоо</a>
-                            <a href="products.html?category=Оффис" class="nav-dropdown-link">Оффис</a>
-                            <a href="products.html?category=Захиалгат%20тавилга" class="nav-dropdown-link">Захиалгат тавилга</a>
-                        </div>
-                        <div class="nav-dropdown-section">
-                            <span class="nav-dropdown-heading">Тавилга</span>
-                            <a href="products.html?category=Буйдан%20%26%20сандал" class="nav-dropdown-link">Буйдан &amp; сандал</a>
-                            <a href="products.html?category=Ширээ%20%26%20шүүгээ" class="nav-dropdown-link">Ширээ &amp; шүүгээ</a>
-                            <a href="products.html?category=Гэрэлтүүлэг" class="nav-dropdown-link">Гэрэлтүүлэг</a>
-                            <a href="products.html?category=Текстиль" class="nav-dropdown-link">Текстиль</a>
-                        </div>
-                        <div class="nav-dropdown-section">
-                            <span class="nav-dropdown-heading">Гоёл чимэглэл</span>
-                            <a href="products.html?category=Ваар%20%26%20аяга" class="nav-dropdown-link">Ваар &amp; аяга</a>
-                            <a href="products.html?category=Tray%20%26%20tabletop" class="nav-dropdown-link">Tray &amp; tabletop</a>
-                            <a href="products.html?category=Лааны%20суурь" class="nav-dropdown-link">Лааны суурь</a>
-                            <a href="products.html?category=Хөшөө%20%26%20decor" class="nav-dropdown-link">Хөшөө &amp; decor</a>
-                            <a href="products.html?category=Зургийн%20жааз%20%26%20хайрцаг" class="nav-dropdown-link">Зургийн жааз &amp; хайрцаг</a>
-                        </div>
-                        <div class="nav-dropdown-section">
-                            <span class="nav-dropdown-heading">Хана ба гадна</span>
-                            <a href="products.html?category=Толь" class="nav-dropdown-link">Толь</a>
-                            <a href="products.html?category=Ханын%20чимэглэл" class="nav-dropdown-link">Ханын чимэглэл</a>
-                            <a href="products.html?category=Цаг" class="nav-dropdown-link">Цаг</a>
-                            <a href="products.html?category=Гадна%20орчин" class="nav-dropdown-link">Гадна орчин</a>
-                            <a href="products.html?category=Шинэ%20загварууд" class="nav-dropdown-link">Шинэ загварууд</a>
-                        </div>
-                    </div>
-                </li>
-                <li><a href="index.html#services" class="nav-link">Үйлчилгээ</a></li>
-                <li><a href="index.html#contact" class="nav-link">Холбоо барих</a></li>
-            </ul>
+            <div class="nav-center">
+                <a class="nav-logo" href="index.html">
+                    <span class="logo-text-mark"><span class="logo-wordmark">Una</span><span class="logo-sub">Home &amp; Furniture &nbsp;&middot;&nbsp; Est. 2026</span></span>
+                    <span class="logo-fallback">UNA Home &amp; Furniture</span>
+                </a>
+            </div>
 
             <div class="nav-right">
-                <i class="fas fa-user"></i>
-                <a href="login.html" class="login-btn">Нэвтрэх</a>
+                <ul class="nav-menu">
+                    <li style="position: relative;">
+                        <a href="#" class="nav-link" onclick="event.preventDefault(); this.nextElementSibling.classList.toggle('active'); this.nextElementSibling.querySelector('input').focus();">ХАЙХ</a>
+                        <div class="search-form-wrapper">
+                            <form class="search-form-inner" action="products.html" method="get" role="search">
+                                <input type="search" name="q" placeholder="Хайх..." required>
+                                <button type="submit" aria-label="Хайх"><i class="fas fa-search"></i></button>
+                            </form>
+                        </div>
+                    </li>
+                    <li><a class="nav-link" href="index.html#services">ҮЙЛЧИЛГЭЭ</a></li>
+                    <li><a class="nav-link" href="index.html#contact">ХОЛБОО БАРИХ</a></li>
+                </ul>
+
+                <div class="nav-icons">
+                    <a class="nav-account-link nav-icon-link" href="login.html" aria-label="Нэвтрэх">
+                        <i class="fas fa-user"></i>
+                    </a>
+                    <a class="nav-cart-link nav-icon-link active" href="cart.html" aria-label="Сагс">
+                        <i class="fas fa-shopping-cart"></i>
+                        <strong data-cart-count>0</strong>
+                    </a>
+                </div>
+
+                <div class="hamburger" aria-label="Цэс нээх" role="button" tabindex="0">
+                    <span></span><span></span><span></span>
+                </div>
             </div>
         </div>
     </nav>
@@ -119,7 +141,7 @@
     <footer class="footer">
         <div class="container">
             <div class="footer-brand">
-                <img class="footer-logo-img" src="assets/logo/new-logo.png" alt="UNA Furniture Logo" onerror="this.hidden=true;this.nextElementSibling.classList.add('logo-fallback-visible');">
+                <img class="footer-logo-img" src="assets/logo/logo-dark.png" alt="UNA Furniture Logo" onerror="this.hidden=true;this.nextElementSibling.classList.add('logo-fallback-visible');">
                 <span class="logo-fallback">UNA Home & Furniture</span>
             </div>
             <p>© 2026 UNA Home & Furniture. Бүх эрх хуулиар хамгаалагдсан. | Таны гэрт тохирох ганц, төгс сонголт</p>

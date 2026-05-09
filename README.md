@@ -133,14 +133,11 @@ npm run deploy
 
 Migrations нь зөвхөн шаардлагатай анхдагч ангилал, төлбөрийн тохиргоо болон админы тохиргоог `INSERT OR IGNORE` ашиглан оруулна.
 
-Анхдагч админ хэрэглэгчийн нэр нь `wrangler.toml`-ын `[vars] ADMIN_USERNAME` хувьсагчаар тохируулагддаг. Анхны нууц үгийг `wrangler secret`-ээр (НЭЭМЭЛ кодоор НЕ) тохируулна:
+Анхдагч админ нэвтрэх мэдээлэл:
 
-```bash
-npx wrangler secret put ADMIN_PASSWORD
-npx wrangler secret put ADMIN_SESSION_SECRET
-npx wrangler secret put JWT_SECRET
+```text
+username: admin
+password: 1234
 ```
 
-Админ эхний удаа амжилттай нэвтэрсний дараа Worker нь нууц үгийг PBKDF2-SHA256 (100,000 iteration) hash хэлбэрээр D1-д хадгалж, `ADMIN_PASSWORD` secret-ийг өөрчилсөн ч хуучин hash хэвээр хэрэглэгдэнэ. Админы хэрэглэгчийн нэр болон нууц үг өөрчлөгдсөн ч refresh хийх, унтрааж асаах, deploy хийх үед устгагдахгүй хадгалагдаж үлдэнэ.
-
-> **Аюулгүй байдлын анхааруулга:** `ADMIN_PASSWORD`, `ADMIN_SESSION_SECRET`, `JWT_SECRET` гэсэн нууц утгуудыг **`wrangler.toml`-ын `[vars]`-д хэзээ ч бичиж болохгүй** — `[vars]` нь публик bundle-д ордог. Заавал `wrangler secret put`-ээр хадгална.
+Админ эхний удаа амжилттай нэвтэрсний дараа Worker нь нууц үгийн hash-г D1-д хадгалдаг. Админы хэрэглэгчийн нэр болон нууц үг өөрчлөгдсөн ч refresh хийх, унтрааж асаах, deploy хийх үед устгагдахгүй хадгалагдаж үлдэнэ.

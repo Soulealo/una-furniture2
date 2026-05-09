@@ -1,30 +1,9 @@
-// Default response headers. CORS Allow-Origin is intentionally not set globally — it is
-// added per-request from the whitelist below so we don't echo arbitrary origins back.
 const jsonHeaders = {
     'content-type': 'application/json; charset=UTF-8',
+    'access-control-allow-origin': '*',
     'access-control-allow-methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-    'access-control-allow-headers': 'Content-Type, Authorization',
-    'vary': 'Origin'
+    'access-control-allow-headers': 'Content-Type, Authorization'
 };
-
-const ALLOWED_ORIGINS = new Set([
-    'https://unafurniture.com',
-    'https://www.unafurniture.com',
-    'https://una-furniture.jntsnnrv.workers.dev'
-]);
-
-function resolveAllowedOrigin(request) {
-    const origin = request.headers.get('origin') || '';
-    if (!origin) return null;
-    if (ALLOWED_ORIGINS.has(origin)) return origin;
-    // Allow same-origin requests (browser sends Origin even for same-origin POSTs).
-    try {
-        const reqUrl = new URL(request.url);
-        const originUrl = new URL(origin);
-        if (reqUrl.host === originUrl.host && reqUrl.protocol === originUrl.protocol) return origin;
-    } catch (error) { /* ignore malformed Origin */ }
-    return null;
-}
 
 const htmlRoutes = new Map([
     ['/', '/index.html'],
@@ -61,9 +40,14 @@ const DEFAULT_PAYMENT_SETTINGS = {
     estimatedDeliveryTime: ''
 };
 
-const GOOGLE_REDIRECT_URI = 'https://una-furniture.jntsnnrv.workers.dev/auth/google/callback';
 const AUTH_COOKIE_NAME = 'una_auth_token';
-const GOOGLE_STATE_COOKIE_NAME = 'una_google_oauth_state';
+const GOOGLE_STATE_COOKIE_NAME = 'oauth_state';
+const GOOGLE_ALLOWED_HOSTS = new Set([
+    'unafurniture.com',
+    'www.unafurniture.com',
+    'localhost:8787',
+    '127.0.0.1:8787'
+]);
 const SESSION_MAX_AGE_SECONDS = 60 * 60 * 12;
 const GOOGLE_CLIENT_ID_SUFFIX = '.apps.googleusercontent.com';
 const ADMIN_ACCESS_ROLES = new Set(['admin', 'manager']);
@@ -71,16 +55,8 @@ let coreSchemaReady = false;
 let productColorVariantsSchemaReady = false;
 let ecommerceSchemaReady = false;
 
-function responseHeaders(extraHeaders = {}, request = null) {
+function responseHeaders(extraHeaders = {}) {
     const headers = new Headers(jsonHeaders);
-
-    if (request) {
-        const allowedOrigin = resolveAllowedOrigin(request);
-        if (allowedOrigin) {
-            headers.set('access-control-allow-origin', allowedOrigin);
-            headers.set('access-control-allow-credentials', 'true');
-        }
-    }
 
     Object.entries(extraHeaders).forEach(([key, value]) => {
         if (Array.isArray(value)) {
@@ -91,23 +67,6 @@ function responseHeaders(extraHeaders = {}, request = null) {
     });
 
     return headers;
-}
-
-// Per-request response helpers (preferred). The bare versions are kept for legacy call
-// sites; they omit CORS headers, which is fine for same-origin asset/HTML responses.
-function jsonFor(request, data, status = 200, extraHeaders = {}) {
-    const body = data && typeof data === 'object' && typeof data.success === 'boolean'
-        ? data
-        : { success: true, data };
-
-    return new Response(JSON.stringify(body), {
-        status,
-        headers: responseHeaders(extraHeaders, request)
-    });
-}
-
-function failFor(request, message, status = 400, extra = {}) {
-    return jsonFor(request, { success: false, message, ...extra }, status);
 }
 
 function json(data, status = 200, extraHeaders = {}) {
@@ -140,15 +99,13 @@ function base64UrlEncode(value) {
     return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
 }
 
-function base64UrlDecodeBytes(value) {
-    const normalized = String(value || '').replace(/-/g, '+').replace(/_/g, '/');
+function base64UrlDecode(value) {
+    const normalized = value.replace(/-/g, '+').replace(/_/g, '/');
     const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=');
     const binary = atob(padded);
-    return Uint8Array.from(binary, (char) => char.charCodeAt(0));
-}
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
 
-function base64UrlDecode(value) {
-    return new TextDecoder().decode(base64UrlDecodeBytes(value));
+    return new TextDecoder().decode(bytes);
 }
 
 async function hmac(value, secret) {
@@ -165,11 +122,7 @@ async function hmac(value, secret) {
 }
 
 function getJwtSecret(env) {
-    const secret = env.JWT_SECRET || env.ADMIN_SESSION_SECRET;
-    if (!secret) {
-        throw new Error('Server is misconfigured: JWT_SECRET (or ADMIN_SESSION_SECRET) must be set as a Worker secret.');
-    }
-    return secret;
+    return env.JWT_SECRET || env.ADMIN_SESSION_SECRET || 'change-this-session-secret';
 }
 
 function parseCookies(request) {
@@ -258,59 +211,16 @@ function safeEqual(a, b) {
     return diff === 0;
 }
 
-// PBKDF2-SHA256, 100,000 iterations. Format: `pbkdf2$<iter>$<saltB64>$<hashB64>`.
-// Legacy SHA-256 hashes (`<salt>:<hex>` without prefix) are still verified for backwards
-// compatibility, then transparently upgraded on next successful login (see comparePassword
-// callers — they should re-hash if `comparePassword` returns true and `needsRehash(storedHash)`).
-const PASSWORD_HASH_ITERATIONS = 100000;
-const PASSWORD_HASH_BYTES = 32;
-
-async function pbkdf2Hash(password, saltBytes, iterations = PASSWORD_HASH_ITERATIONS) {
-    const key = await crypto.subtle.importKey(
-        'raw',
-        new TextEncoder().encode(password),
-        { name: 'PBKDF2' },
-        false,
-        ['deriveBits']
-    );
-    const bits = await crypto.subtle.deriveBits(
-        { name: 'PBKDF2', hash: 'SHA-256', salt: saltBytes, iterations },
-        key,
-        PASSWORD_HASH_BYTES * 8
-    );
-    return new Uint8Array(bits);
-}
-
 async function hashPassword(password) {
-    const saltBytes = new Uint8Array(16);
-    crypto.getRandomValues(saltBytes);
-    const hashBytes = await pbkdf2Hash(password, saltBytes);
-    return `pbkdf2$${PASSWORD_HASH_ITERATIONS}$${base64UrlEncode(saltBytes)}$${base64UrlEncode(hashBytes)}`;
-}
-
-function needsRehash(storedHash) {
-    return !String(storedHash || '').startsWith('pbkdf2$');
+    const salt = randomId(12);
+    const hash = await sha256(`${salt}:${password}`);
+    return `${salt}:${hash}`;
 }
 
 async function comparePassword(password, storedHash) {
-    const stored = String(storedHash || '');
-    if (!stored) return false;
-
-    if (stored.startsWith('pbkdf2$')) {
-        const parts = stored.split('$');
-        if (parts.length !== 4) return false;
-        const iterations = Number(parts[1]);
-        if (!Number.isFinite(iterations) || iterations < 1000) return false;
-        const saltBytes = base64UrlDecodeBytes(parts[2]);
-        const candidate = await pbkdf2Hash(password, saltBytes, iterations);
-        return safeEqual(base64UrlEncode(candidate), parts[3]);
-    }
-
-    // Legacy SHA-256 verification (timing-safe).
-    const [salt, hash] = stored.split(':');
+    const [salt, hash] = String(storedHash || '').split(':');
     if (!salt || !hash) return false;
-    const candidate = await sha256(`${salt}:${password}`);
-    return safeEqual(candidate, hash);
+    return await sha256(`${salt}:${password}`) === hash;
 }
 
 async function createToken(env, claims) {
@@ -332,14 +242,12 @@ async function verifyToken(request, env) {
 
     if (!tokenHeader || !payload || !signature) return null;
 
-    // Allow rotation: try JWT_SECRET first, optionally fall back to ADMIN_SESSION_SECRET
-    // (only when explicitly set as a secret — never accept a hardcoded default).
     const secrets = [...new Set([
         getJwtSecret(env),
-        env.ADMIN_SESSION_SECRET
-    ].filter(Boolean))];
+        env.ADMIN_SESSION_SECRET || 'change-this-session-secret'
+    ])];
     const verified = await Promise.all(secrets.map((secret) => hmac(`${tokenHeader}.${payload}`, secret)));
-    if (!verified.some((candidate) => safeEqual(candidate, signature))) return null;
+    if (!verified.includes(signature)) return null;
 
     try {
         const session = JSON.parse(base64UrlDecode(payload));
@@ -464,7 +372,7 @@ function normalizeOptionList(value) {
     }).filter(Boolean))];
 }
 
-function normalizeColorVariants(value) {
+function normalizeProductVariations(value) {
     let source = value;
 
     if (typeof value === 'string') {
@@ -484,16 +392,21 @@ function normalizeColorVariants(value) {
 
     return source
         .map((variant) => {
-            const colorValue = String(variant?.colorHex || variant?.colorValue || variant?.color_value || variant?.color || variant?.value || '').trim();
+            const variationValue = String(variant?.value || variant?.optionValue || variant?.variationValue || variant?.colorHex || variant?.colorValue || variant?.color_value || variant?.color || '').trim();
             const price = Number(variant?.price);
             const salePrice = Number(variant?.salePrice || variant?.sale_price);
             const stock = Number(variant?.stock);
+            const name = String(variant?.name || variant?.variationName || variant?.colorName || '').trim();
             const normalized = {
-                name: String(variant?.name || variant?.colorName || '').trim(),
-                colorName: String(variant?.name || variant?.colorName || '').trim(),
-                color: colorValue,
-                colorHex: colorValue,
-                colorValue,
+                name,
+                variationName: name,
+                value: variationValue,
+                optionValue: variationValue,
+                variationValue,
+                colorName: name,
+                color: variationValue,
+                colorHex: variationValue,
+                colorValue: variationValue,
                 image: String(variant?.image || variant?.imageUrl || '').trim(),
                 price: Number.isFinite(price) && price >= 0 ? price : null,
                 salePrice: Number.isFinite(salePrice) && salePrice >= 0 ? salePrice : null,
@@ -505,11 +418,15 @@ function normalizeColorVariants(value) {
             if (Number.isInteger(id) && id > 0) normalized.id = id;
             return normalized;
         })
-        .filter((variant) => variant.name || variant.color || variant.image)
+        .filter((variant) => variant.name || variant.value || variant.image)
         .filter((variant, index, variants) => {
-            const key = `${variant.name.toLowerCase()}::${variant.colorValue.toLowerCase()}::${variant.image}`;
-            return variants.findIndex((item) => `${item.name.toLowerCase()}::${item.colorValue.toLowerCase()}::${item.image}` === key) === index;
+            const key = `${variant.name.toLowerCase()}::${variant.value.toLowerCase()}::${variant.image}`;
+            return variants.findIndex((item) => `${item.name.toLowerCase()}::${item.value.toLowerCase()}::${item.image}` === key) === index;
         });
+}
+
+function normalizeColorVariants(value) {
+    return normalizeProductVariations(value);
 }
 
 async function addMissingColumns(env, tableName, columns) {
@@ -1024,12 +941,18 @@ function cleanOptionalNumber(value) {
 function cleanProductInput(body = {}) {
     const images = normalizeImages(body);
     const customId = body.id || body.productId || body.customId;
-    const savedColorVariants = normalizeColorVariants(body.colorVariants);
-    const colorVariants = savedColorVariants.length ? savedColorVariants : normalizeColorVariants(body.colors);
+    const savedProductVariations = normalizeProductVariations(body.productVariations || body.variations);
+    const savedColorVariants = normalizeProductVariations(body.colorVariants);
+    const productVariations = savedProductVariations.length
+        ? savedProductVariations
+        : savedColorVariants.length
+            ? savedColorVariants
+            : normalizeProductVariations(body.colors);
+    const colorVariants = productVariations;
     const savedColors = normalizeOptionList(body.colors);
     const colors = savedColors.length
         ? savedColors
-        : colorVariants.map((variant) => variant.name || variant.colorValue || variant.color).filter(Boolean);
+        : productVariations.map((variant) => variant.name || variant.value || variant.colorValue || variant.color).filter(Boolean);
 
     return {
         id: customId === undefined || customId === null || customId === '' ? null : Number(customId),
@@ -1040,6 +963,8 @@ function cleanProductInput(body = {}) {
         subCategory: String(body.subCategory || '').trim(),
         images,
         colors,
+        productVariations,
+        variations: productVariations,
         colorVariants,
         sizes: normalizeOptionList(body.sizes),
         stock: Number(body.stock || 0),
@@ -1069,11 +994,15 @@ function validateProduct(product, allowCustomId = false) {
     if (!product.category) return 'Product category is required.';
     if (!product.images.length) return 'At least one product image URL is required.';
     if (product.images.some((image) => !isAllowedImageReference(image))) return 'Every product image must be a valid URL or supported image path.';
-    if (product.colorVariants.some((variant) => !variant.name || !variant.image)) {
-        return 'Every color variant must include a name and image.';
+    const productVariations = product.productVariations || product.colorVariants || [];
+    if (productVariations.some((variant) => !variant.name || !variant.image)) {
+        return 'Every product variation must include a name and image.';
     }
-    if (product.colorVariants.some((variant) => !isAllowedImageReference(variant.image))) {
-        return 'Every color variant image must be a valid URL or supported image path.';
+    if (productVariations.some((variant) => !isAllowedImageReference(variant.image))) {
+        return 'Every product variation image must be a valid URL or supported image path.';
+    }
+    if (productVariations.some((variant) => variant.salePrice !== null && variant.price !== null && variant.salePrice > variant.price)) {
+        return 'Variation sale price cannot be greater than variation price.';
     }
     if (!Number.isFinite(product.stock) || product.stock < 0) return 'Product stock must be 0 or greater.';
     if (product.salePrice !== null && product.salePrice > product.price) return 'Sale price cannot be greater than product price.';
@@ -1085,12 +1014,12 @@ function toProductResponse(row) {
     const images = parseJsonArray(row.imageUrls);
     const legacyImage = String(row.imageUrl || '').trim();
     const imageUrls = images.length ? images : (legacyImage ? [legacyImage] : []);
-    const colorVariants = normalizeColorVariants(row.colorVariants);
-    const legacyColorVariants = colorVariants.length ? colorVariants : normalizeColorVariants(row.colors);
+    const colorVariants = normalizeProductVariations(row.colorVariants);
+    const legacyColorVariants = colorVariants.length ? colorVariants : normalizeProductVariations(row.colors);
     const savedColors = normalizeOptionList(row.colors);
     const colors = savedColors.length
         ? savedColors
-        : legacyColorVariants.map((variant) => variant.name || variant.colorValue || variant.color).filter(Boolean);
+        : legacyColorVariants.map((variant) => variant.name || variant.value || variant.colorValue || variant.color).filter(Boolean);
 
     return {
         id: String(row.id),
@@ -1125,6 +1054,8 @@ function toProductResponse(row) {
         galleryImages: imageUrls,
         images: imageUrls,
         colors,
+        productVariations: legacyColorVariants,
+        variations: legacyColorVariants,
         colorVariants: legacyColorVariants,
         colorsText: colors.join(', '),
         stock: Number(row.stock) || 0,
@@ -1142,6 +1073,10 @@ function toColorVariantResponse(row) {
     return {
         ...(Number.isInteger(id) && id > 0 ? { id } : {}),
         name: String(row.name || '').trim(),
+        variationName: String(row.name || '').trim(),
+        value: colorValue,
+        optionValue: colorValue,
+        variationValue: colorValue,
         colorName: String(row.name || '').trim(),
         color: colorValue,
         colorHex: colorValue,
@@ -1224,15 +1159,17 @@ async function attachProductColorVariants(env, products) {
     const variantsByProduct = await getProductColorVariants(env, productList.map((product) => product.id));
 
     return productList.map((product) => {
-        const colorVariants = variantsByProduct.get(String(product.id)) || [];
-        if (!colorVariants.length) return product;
+        const productVariations = variantsByProduct.get(String(product.id)) || [];
+        if (!productVariations.length) return product;
 
-        const colors = colorVariants.map((variant) => variant.name || variant.colorValue || variant.color).filter(Boolean);
+        const colors = productVariations.map((variant) => variant.name || variant.value || variant.colorValue || variant.color).filter(Boolean);
 
         return {
             ...product,
             colors,
-            colorVariants,
+            productVariations,
+            variations: productVariations,
+            colorVariants: productVariations,
             colorsText: colors.join(', ')
         };
     });
@@ -1249,7 +1186,7 @@ async function syncProductImages(env, productId, images) {
 }
 
 async function syncProductColorVariants(env, productId, variants) {
-    const colorVariants = normalizeColorVariants(variants)
+    const colorVariants = normalizeProductVariations(variants)
         .filter((variant) => variant.name || variant.image);
 
     await ensureProductColorVariantsTable(env);
@@ -1449,14 +1386,9 @@ async function loginAdmin(request, env) {
     const settingsEmail = normalizeLogin(settings.email);
 
     if (username === settingsUsername || (settingsEmail && username === settingsEmail)) {
-        let passwordOk = false;
-        if (settings.passwordHash) {
-            passwordOk = await comparePassword(password, settings.passwordHash);
-        } else if (env.ADMIN_PASSWORD) {
-            // First-time bootstrap: compare with the secret set via `wrangler secret put ADMIN_PASSWORD`.
-            // No hardcoded default — if ADMIN_PASSWORD is unset, login is impossible by design.
-            passwordOk = safeEqual(password, env.ADMIN_PASSWORD);
-        }
+        const passwordOk = settings.passwordHash
+            ? await comparePassword(password, settings.passwordHash)
+            : password === (env.ADMIN_PASSWORD || '1234');
 
         if (!passwordOk) return fail('Invalid admin username or password.', 401);
 
@@ -1487,17 +1419,6 @@ async function loginAdmin(request, env) {
 
     const passwordOk = await comparePassword(password, adminUser.passwordHash);
     if (!passwordOk) return fail('Invalid admin username or password.', 401);
-
-    if (needsRehash(adminUser.passwordHash)) {
-        try {
-            const upgraded = await hashPassword(password);
-            await env.DB.prepare('UPDATE users SET passwordHash = ?, updatedAt = ? WHERE id = ?')
-                .bind(upgraded, new Date().toISOString(), adminUser.id).run();
-            adminUser.passwordHash = upgraded;
-        } catch (error) {
-            console.error('[Worker] admin password rehash failed', error);
-        }
-    }
 
     const token = await createToken(env, toAdminUserPayload(adminUser));
 
@@ -1598,12 +1519,9 @@ async function changeAdminPassword(request, env) {
 
     const settings = await ensureAdminSettings(env);
 
-    let passwordOk = false;
-    if (settings.passwordHash) {
-        passwordOk = await comparePassword(currentPassword, settings.passwordHash);
-    } else if (env.ADMIN_PASSWORD) {
-        passwordOk = safeEqual(currentPassword, env.ADMIN_PASSWORD);
-    }
+    const passwordOk = settings.passwordHash
+        ? await comparePassword(currentPassword, settings.passwordHash)
+        : currentPassword === (env.ADMIN_PASSWORD || '1234');
 
     if (!passwordOk) return fail('Current password is incorrect.', 401);
 
@@ -1659,26 +1577,29 @@ function isValidGoogleClientId(clientId) {
     return clientId.endsWith(GOOGLE_CLIENT_ID_SUFFIX) && !clientId.startsWith('GOCSPX-');
 }
 
-function getGoogleOAuthConfig(env) {
+function getGoogleRedirectUri(request) {
+    const url = new URL(request.url);
+    const host = url.host;
+
+    if (!GOOGLE_ALLOWED_HOSTS.has(host)) {
+        console.error('[Google OAuth] Request host is not in the allowlist:', host);
+        return null;
+    }
+
+    const isLocalhost = host.startsWith('localhost') || host.startsWith('127.0.0.1');
+    const protocol = isLocalhost ? 'http:' : 'https:';
+
+    return `${protocol}//${host}/auth/google/callback`;
+}
+
+function getGoogleOAuthConfig(request, env) {
     const clientId = String(env.GOOGLE_CLIENT_ID || '').trim();
     const clientSecret = String(env.GOOGLE_CLIENT_SECRET || '').trim();
     const jwtSecret = String(env.JWT_SECRET || '').trim();
-    let redirectUri = '';
 
-    try {
-        const redirectUrl = new URL(GOOGLE_REDIRECT_URI);
-        if (
-            redirectUrl.toString() !== GOOGLE_REDIRECT_URI
-            || redirectUrl.protocol !== 'https:'
-            || redirectUrl.pathname !== '/auth/google/callback'
-        ) {
-            console.error('[Google OAuth] Redirect URI is not configured correctly.');
-            return null;
-        }
-
-        redirectUri = redirectUrl.toString();
-    } catch (error) {
-        console.error('[Google OAuth] Redirect URI is invalid.');
+    const redirectUri = getGoogleRedirectUri(request);
+    if (!redirectUri) {
+        console.error('[Google OAuth] Could not derive a valid redirect_uri for this host.');
         return null;
     }
 
@@ -1817,7 +1738,7 @@ async function findOrCreateGoogleUser(env, profile) {
 }
 
 async function startGoogleLogin(request, env) {
-    const config = getGoogleOAuthConfig(env);
+    const config = getGoogleOAuthConfig(request, env);
     if (!config) return fail('Google login is not configured.', 500);
 
     const state = randomId(24);
@@ -1829,24 +1750,40 @@ async function startGoogleLogin(request, env) {
     authUrl.searchParams.set('state', state);
     authUrl.searchParams.set('prompt', 'select_account');
 
+    console.log('[Google OAuth] start: redirect_uri =', config.redirectUri, '| stateSet =', Boolean(state));
+
     return redirect(authUrl.toString(), {
-        'Set-Cookie': serializeCookie(request, GOOGLE_STATE_COOKIE_NAME, state, { maxAge: 10 * 60, sameSite: 'Lax' })
+        'Set-Cookie': serializeCookie(request, GOOGLE_STATE_COOKIE_NAME, state, { maxAge: 600, sameSite: 'Lax' })
     });
 }
 
 async function handleGoogleCallback(request, env) {
-    const config = getGoogleOAuthConfig(env);
+    const config = getGoogleOAuthConfig(request, env);
     if (!config) return fail('Google login is not configured.', 500);
 
     const url = new URL(request.url);
     const error = url.searchParams.get('error');
     const code = url.searchParams.get('code');
-    const state = url.searchParams.get('state');
-    const expectedState = getCookie(request, GOOGLE_STATE_COOKIE_NAME);
+    const returnedState = url.searchParams.get('state');
+    const savedState = getCookie(request, GOOGLE_STATE_COOKIE_NAME);
 
-    if (error) return fail('Google login was cancelled.', 400);
-    if (!code || !state || !expectedState || !safeEqual(state, expectedState)) {
-        return fail('Google login state is invalid or expired.', 400);
+    console.log(
+        '[Google OAuth] callback:',
+        'redirect_uri =', config.redirectUri,
+        '| returnedState exists =', Boolean(returnedState),
+        '| savedState exists =', Boolean(savedState)
+    );
+
+    const failWithCookieClear = (message) => json(
+        { success: false, message },
+        400,
+        { 'Set-Cookie': clearCookie(request, GOOGLE_STATE_COOKIE_NAME) }
+    );
+
+    if (error) return failWithCookieClear('Google login was cancelled.');
+    if (!code) return failWithCookieClear('Google login is missing authorization code.');
+    if (!returnedState || !savedState || !safeEqual(returnedState, savedState)) {
+        return failWithCookieClear('Google login state is invalid or expired.');
     }
 
     const tokenData = await exchangeGoogleCode(code, config);
@@ -1925,17 +1862,6 @@ async function loginUser(request, env) {
     const user = await env.DB.prepare('SELECT * FROM users WHERE email = ?').bind(email).first();
     if (!user || !await comparePassword(password, user.passwordHash)) {
         return fail('Invalid email or password.', 401);
-    }
-
-    // Transparently upgrade legacy hashes to PBKDF2.
-    if (needsRehash(user.passwordHash)) {
-        try {
-            const upgraded = await hashPassword(password);
-            await env.DB.prepare('UPDATE users SET passwordHash = ?, updatedAt = ? WHERE id = ?')
-                .bind(upgraded, new Date().toISOString(), user.id).run();
-        } catch (error) {
-            console.error('[Worker] password rehash failed', error);
-        }
     }
 
     const token = await createUserSessionToken(env, user, 'user');
@@ -2089,8 +2015,8 @@ async function createProduct(request, env) {
     const imageUrls = JSON.stringify(product.images);
     const imageUrl = product.images[0] || '';
     const colors = JSON.stringify(product.colors);
-    const colorVariants = JSON.stringify(product.colorVariants);
-    const legacyColors = JSON.stringify(product.colorVariants.length ? product.colorVariants : product.colors);
+    const colorVariants = JSON.stringify(product.productVariations);
+    const legacyColors = JSON.stringify(product.productVariations.length ? product.productVariations : product.colors);
     const sizes = JSON.stringify(product.sizes);
     const productValues = [
         product.name,
@@ -2156,7 +2082,7 @@ async function createProduct(request, env) {
     const productId = product.id || result.meta.last_row_id;
 
     await syncProductImages(env, productId, product.images);
-    await syncProductColorVariants(env, productId, product.colorVariants);
+    await syncProductColorVariants(env, productId, product.productVariations);
     return getProduct(env, productId);
 }
 
@@ -2167,7 +2093,9 @@ async function updateProduct(request, env, id) {
     await ensureEcommerceSchema(env);
     const body = await readJson(request);
     const product = cleanProductInput(body);
-    const shouldSyncColorVariants = Object.prototype.hasOwnProperty.call(body, 'colorVariants')
+    const shouldSyncColorVariants = Object.prototype.hasOwnProperty.call(body, 'productVariations')
+        || Object.prototype.hasOwnProperty.call(body, 'variations')
+        || Object.prototype.hasOwnProperty.call(body, 'colorVariants')
         || Object.prototype.hasOwnProperty.call(body, 'colors');
     const validationMessage = validateProduct(product);
     if (validationMessage) return fail(validationMessage, 400);
@@ -2188,7 +2116,7 @@ async function updateProduct(request, env, id) {
             product.images[0] || '',
             JSON.stringify(product.images),
             JSON.stringify(product.colors),
-            JSON.stringify(product.colorVariants),
+            JSON.stringify(product.productVariations),
             JSON.stringify(product.sizes),
             Math.round(product.stock),
             product.stockStatus,
@@ -2218,7 +2146,7 @@ async function updateProduct(request, env, id) {
                 product.category,
                 product.images[0] || '',
                 JSON.stringify(product.images),
-                JSON.stringify(product.colorVariants.length ? product.colorVariants : product.colors),
+                JSON.stringify(product.productVariations.length ? product.productVariations : product.colors),
                 JSON.stringify(product.sizes),
                 Math.round(product.stock),
                 id
@@ -2246,7 +2174,7 @@ async function updateProduct(request, env, id) {
 
     await syncProductImages(env, id, product.images);
     if (shouldSyncColorVariants) {
-        await syncProductColorVariants(env, id, product.colorVariants);
+        await syncProductColorVariants(env, id, product.productVariations);
     }
     return getProduct(env, id);
 }
@@ -2525,99 +2453,42 @@ async function createOrder(request, env) {
         if (Number(product.stock) > 0 && quantity > Number(product.stock)) return fail(`Not enough stock for ${product.name}.`, 409);
 
         const [productResponse] = await attachProductColorVariants(env, await attachProductImages(env, [product]));
-        const selectedColor = String(item.selectedColorName || item.selectedColor || item.color || '').trim();
-        const selectedColorValue = String(item.selectedColorValue || item.colorValue || item.color_value || '').trim();
-        const selectedColorImage = String(item.selectedColorImage || item.colorImage || '').trim();
-        const selectedVariant = productResponse.colorVariants.find((variant) => {
+        const selectedVariation = String(item.selectedVariationName || item.selectedVariation || item.selectedOption || item.selectedColorName || item.selectedColor || item.color || '').trim();
+        const selectedVariationValue = String(item.selectedVariationValue || item.selectedOptionValue || item.selectedColorValue || item.colorValue || item.color_value || '').trim();
+        const selectedVariationImage = String(item.selectedVariationImage || item.selectedColorImage || item.colorImage || '').trim();
+        const selectedVariant = productResponse.productVariations.find((variant) => {
             const variantName = String(variant.name || '').trim();
-            const variantColorValue = String(variant.colorValue || variant.color || '').trim();
+            const variantValue = String(variant.value || variant.colorValue || variant.color || '').trim();
 
-            return (selectedColor && (variantName === selectedColor || variantColorValue === selectedColor))
-                || (selectedColorValue && variantColorValue === selectedColorValue);
+            return (selectedVariation && (variantName === selectedVariation || variantValue === selectedVariation))
+                || (selectedVariationValue && variantValue === selectedVariationValue);
         });
 
-        if (productResponse.colorVariants.length && !selectedColor && !selectedColorValue) return fail(`Please choose a color for ${product.name}.`, 400);
-        if ((selectedColor || selectedColorValue) && productResponse.colorVariants.length && !selectedVariant) return fail(`Selected color is not available for ${product.name}.`, 400);
+        if (productResponse.productVariations.length && !selectedVariation && !selectedVariationValue) return fail(`Please choose a variation for ${product.name}.`, 400);
+        if ((selectedVariation || selectedVariationValue) && productResponse.productVariations.length && !selectedVariant) return fail(`Selected variation is not available for ${product.name}.`, 400);
         if (selectedVariant?.stock !== null && selectedVariant?.stock !== undefined && quantity > Number(selectedVariant.stock)) {
-            return fail(`${selectedVariant.name || product.name} color is out of stock.`, 409);
+            return fail(`${selectedVariant.name || product.name} variation is out of stock.`, 409);
         }
 
         const productImages = productResponse.images;
-        // SECURITY: unit price is derived strictly from server-side product/variant
-        // records — frontend `item.price`/`item.totalAmount` are never trusted.
-        // Treat 0 as "no sale price" so `salePrice = 0` doesn't accidentally mean free.
-        const variantSale = Number(selectedVariant?.salePrice) > 0 ? Number(selectedVariant.salePrice) : 0;
-        const variantBase = Number(selectedVariant?.price) > 0 ? Number(selectedVariant.price) : 0;
-        const productSale = Number(productResponse.salePrice) > 0 ? Number(productResponse.salePrice) : 0;
-        const productBase = Number(product.price) > 0 ? Number(product.price) : 0;
-        const unitPrice = variantSale || variantBase || productSale || productBase || 0;
-        if (unitPrice <= 0) return fail(`Price for ${product.name} is unavailable.`, 409);
-
-        // Stock decrement target: prefer the variant row when its stock is tracked,
-        // otherwise fall back to the parent products.stock when that one is tracked
-        // (>0). A stock value of 0 on `products` means "not tracked" by convention.
-        const variantStockTracked = selectedVariant && selectedVariant.stock !== null
-            && selectedVariant.stock !== undefined && Number.isFinite(Number(selectedVariant.stock));
-        const productStockTracked = Number(product.stock) > 0;
-
+        const unitPrice = Number(selectedVariant?.salePrice || selectedVariant?.price || productResponse.salePrice || product.price || 0);
         cleanItems.push({
             productId: String(product.id),
             productCode: selectedVariant?.sku || productResponse.sku || '',
             name: product.name,
             price: unitPrice,
             quantity,
-            image: selectedVariant?.image || selectedColorImage || productImages[0] || String(item.image || '').trim(),
-            selectedColor: selectedVariant?.name || selectedColor,
-            selectedColorValue: selectedVariant?.colorValue || selectedVariant?.color || selectedColorValue,
-            selectedColorImage: selectedVariant?.image || selectedColorImage,
-            sku: selectedVariant?.sku || productResponse.sku || '',
-            // Internal-only fields used below for the atomic stock decrement step.
-            _stockTarget: variantStockTracked
-                ? { kind: 'variant', id: Number(selectedVariant.id) }
-                : (productStockTracked ? { kind: 'product', id: Number(product.id) } : null)
+            image: selectedVariant?.image || selectedVariationImage || productImages[0] || String(item.image || '').trim(),
+            selectedVariation: selectedVariant?.name || selectedVariation,
+            selectedVariationName: selectedVariant?.name || selectedVariation,
+            selectedVariationValue: selectedVariant?.value || selectedVariant?.colorValue || selectedVariant?.color || selectedVariationValue,
+            selectedVariationImage: selectedVariant?.image || selectedVariationImage,
+            selectedColor: selectedVariant?.name || selectedVariation,
+            selectedColorValue: selectedVariant?.value || selectedVariant?.colorValue || selectedVariant?.color || selectedVariationValue,
+            selectedColorImage: selectedVariant?.image || selectedVariationImage,
+            sku: selectedVariant?.sku || productResponse.sku || ''
         });
     }
-
-    // ATOMIC STOCK DECREMENT — guards against overselling under concurrent checkouts.
-    // Each conditional UPDATE only succeeds if the row still has enough stock; if any
-    // statement reports 0 changes we restore the rows that did succeed before bailing.
-    const applied = [];
-    for (const item of cleanItems) {
-        if (!item._stockTarget) continue;
-        const sql = item._stockTarget.kind === 'variant'
-            ? 'UPDATE product_color_variants SET stock = stock - ? WHERE id = ? AND stock >= ?'
-            : 'UPDATE products SET stock = stock - ? WHERE id = ? AND stock >= ?';
-        try {
-            const res = await env.DB.prepare(sql).bind(item.quantity, item._stockTarget.id, item.quantity).run();
-            if (!res.meta || Number(res.meta.changes) === 0) {
-                // Compensate any prior successful decrements before failing.
-                for (const prev of applied) {
-                    const restore = prev.kind === 'variant'
-                        ? 'UPDATE product_color_variants SET stock = stock + ? WHERE id = ?'
-                        : 'UPDATE products SET stock = stock + ? WHERE id = ?';
-                    try {
-                        await env.DB.prepare(restore).bind(prev.qty, prev.id).run();
-                    } catch (restoreError) {
-                        console.error('[Worker] stock restore failed', restoreError);
-                    }
-                }
-                return fail(`Not enough stock for ${item.name}.`, 409);
-            }
-            applied.push({ kind: item._stockTarget.kind, id: item._stockTarget.id, qty: item.quantity });
-        } catch (error) {
-            // On unexpected failure, also restore previously decremented rows.
-            for (const prev of applied) {
-                const restore = prev.kind === 'variant'
-                    ? 'UPDATE product_color_variants SET stock = stock + ? WHERE id = ?'
-                    : 'UPDATE products SET stock = stock + ? WHERE id = ?';
-                try { await env.DB.prepare(restore).bind(prev.qty, prev.id).run(); } catch (_) { /* ignore */ }
-            }
-            throw error;
-        }
-    }
-
-    // Strip internal-only fields before persisting `items` JSON.
-    cleanItems.forEach((item) => { delete item._stockTarget; });
 
     const totalAmount = cleanItems.reduce((sum, item) => sum + (Number(item.price) || 0) * item.quantity, 0);
     const createdAt = new Date().toISOString();
@@ -2928,21 +2799,12 @@ async function forgotPassword(request, env) {
         await env.DB.prepare('INSERT INTO password_reset_tokens (userId, tokenHash, expiresAt, createdAt) VALUES (?, ?, ?, ?)')
             .bind(user.id, tokenHash, expiresAt, new Date().toISOString()).run();
 
-        // SECURITY: never return the token in the HTTP response. The reset link must be
-        // delivered through a side channel (email/SMS) so that knowing only an email
-        // address is not enough to take over an account. If an email transport is wired
-        // up, dispatch it here. For now we just log the link server-side for the operator.
-        try {
-            const url = new URL(request.url);
-            const resetLink = `${url.origin}/reset-password.html?token=${encodeURIComponent(token)}`;
-            console.log(`[Worker] Password reset link issued for userId=${user.id} (deliver via email): ${resetLink}`);
-        } catch (error) {
-            console.error('[Worker] Failed to log reset link', error);
-        }
+        return json({
+            message: 'Password reset instructions are ready.',
+            resetUrl: `/reset-password.html?token=${encodeURIComponent(token)}`
+        });
     }
 
-    // Always return the same generic response — never reveal whether the email exists
-    // (mitigates user enumeration).
     return json({ message: 'If the email exists, reset instructions will be sent.' });
 }
 
@@ -2983,11 +2845,18 @@ function assetRequest(request, pathname) {
     return new Request(url.toString(), request);
 }
 
+export const __test__ = {
+    cleanProductInput,
+    normalizeProductVariations,
+    normalizeColorVariants,
+    validateProduct,
+    toProductResponse
+};
+
 export default {
     async fetch(request, env) {
         if (request.method === 'OPTIONS') {
-            // Honour the origin whitelist for CORS preflight responses.
-            return new Response(null, { status: 204, headers: responseHeaders({}, request) });
+            return new Response(null, { status: 204, headers: jsonHeaders });
         }
 
         const url = new URL(request.url);

@@ -130,10 +130,16 @@ function getProductMainImage(product) {
 function normalizeProduct(product, index = 0) {
     const numericPrice = Number(product?.price);
     const numericStock = Number(product?.stock);
-    const savedColorVariants = normalizeColorVariants(product?.colorVariants);
-    const legacyColorVariants = savedColorVariants.length ? savedColorVariants : normalizeColorVariants(product?.colors);
+    const savedProductVariations = normalizeProductVariations(product?.productVariations || product?.variations);
+    const savedColorVariants = normalizeProductVariations(product?.colorVariants);
+    const legacyColorVariants = savedProductVariations.length
+        ? savedProductVariations
+        : savedColorVariants.length
+            ? savedColorVariants
+            : normalizeProductVariations(product?.colors);
     const colors = normalizeOptionList(product?.colors ?? product?.colorsText);
-    const colorVariants = legacyColorVariants;
+    const productVariations = legacyColorVariants;
+    const colorVariants = productVariations;
 
     return {
         id: product?.id ? String(product.id) : String(index + 1),
@@ -180,6 +186,8 @@ function normalizeProduct(product, index = 0) {
             ? product.images.map(image => String(image || '').trim()).filter(Boolean)
             : String(product?.imageUrl || product?.image || '').trim() ? [String(product?.imageUrl || product?.image || '').trim()] : [],
         colors,
+        productVariations,
+        variations: productVariations,
         colorVariants,
         colorsText: formatOptionList(colors),
         stock: Number.isFinite(numericStock) ? numericStock : 0,
@@ -267,30 +275,6 @@ function escapeHtml(value) {
     return div.innerHTML;
 }
 
-// Returns a safe URL for use in href/src attributes. Only http(s), site-relative paths,
-// and data:image are permitted — javascript:, vbscript:, file:, etc. are rejected.
-function safeUrl(value, fallback = '') {
-    const raw = String(value ?? '').trim();
-    if (!raw) return fallback;
-
-    // Allow site-relative URLs (`/...`, `./...`, `../...`) and pure paths.
-    if (/^(?:\/|\.\.?\/)/.test(raw)) return raw;
-
-    // Allow inline image data URLs.
-    if (/^data:image\/(?:png|jpe?g|gif|webp|avif|svg\+xml);/i.test(raw)) return raw;
-
-    // For absolute URLs, require http(s).
-    try {
-        const parsed = new URL(raw, window.location.origin);
-        if (parsed.protocol === 'http:' || parsed.protocol === 'https:') {
-            return parsed.toString();
-        }
-    } catch (error) {
-        // Falls through to fallback.
-    }
-    return fallback;
-}
-
 function parseJsonArray(value) {
     if (Array.isArray(value)) return value;
 
@@ -336,6 +320,10 @@ function formatOptionList(value) {
 }
 
 function normalizeColorVariants(value) {
+    return normalizeProductVariations(value);
+}
+
+function normalizeProductVariations(value) {
     let source = value;
 
     if (typeof value === 'string') {
@@ -355,16 +343,21 @@ function normalizeColorVariants(value) {
 
     return source
         .map(variant => {
-            const colorValue = String(variant?.colorHex || variant?.colorValue || variant?.color_value || variant?.color || variant?.value || '').trim();
+            const variationValue = String(variant?.value || variant?.optionValue || variant?.variationValue || variant?.colorHex || variant?.colorValue || variant?.color_value || variant?.color || '').trim();
             const price = Number(variant?.price);
             const salePrice = Number(variant?.salePrice || variant?.sale_price);
             const stock = Number(variant?.stock);
+            const name = String(variant?.name || variant?.variationName || variant?.colorName || '').trim();
             const normalized = {
-                name: String(variant?.name || variant?.colorName || '').trim(),
-                colorName: String(variant?.name || variant?.colorName || '').trim(),
-                color: colorValue,
-                colorHex: colorValue,
-                colorValue,
+                name,
+                variationName: name,
+                value: variationValue,
+                optionValue: variationValue,
+                variationValue,
+                colorName: name,
+                color: variationValue,
+                colorHex: variationValue,
+                colorValue: variationValue,
                 image: String(variant?.image || variant?.imageUrl || '').trim(),
                 price: Number.isFinite(price) && price >= 0 ? price : null,
                 salePrice: Number.isFinite(salePrice) && salePrice >= 0 ? salePrice : null,
@@ -376,7 +369,7 @@ function normalizeColorVariants(value) {
             if (Number.isInteger(id) && id > 0) normalized.id = id;
             return normalized;
         })
-        .filter(variant => variant.name || variant.color || variant.image);
+        .filter(variant => variant.name || variant.value || variant.image);
 }
 
 function shortenText(text, maxLength = 110) {
@@ -403,10 +396,14 @@ function formatLongText(text) {
 }
 
 function getProductOptions(product) {
-    const colorVariants = normalizeColorVariants(product?.colorVariants);
+    const productVariations = normalizeProductVariations(product?.productVariations || product?.variations);
+    const colorVariants = productVariations.length ? productVariations : normalizeProductVariations(product?.colorVariants);
+    const variants = colorVariants.length ? colorVariants : normalizeProductVariations(product?.colors);
 
     return {
-        colorVariants: colorVariants.length ? colorVariants : normalizeColorVariants(product?.colors)
+        productVariations: variants,
+        variations: variants,
+        colorVariants: variants
     };
 }
 
@@ -416,7 +413,7 @@ function createProductCard(product, useShortDescription = false) {
     const { colorVariants } = getProductOptions(product);
     const detailUrl = `product-detail.html?id=${encodeURIComponent(product.id)}`;
     const displayPrice = product.salePrice ? product.salePrice : product.price;
-    const materialText = product.material ? escapeHtml(product.material) : 'Сонгомол материал';
+    const sectionText = product.subCategory || product.category || '';
 
     productCard.className = 'product-card';
     productCard.dataset.productId = String(product.id);
@@ -424,27 +421,26 @@ function createProductCard(product, useShortDescription = false) {
         <div class="product-image">
             <img alt="${escapeHtml(product.name)}" src="${escapeHtml(getProductMainImage(product))}" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'"/>
             <div class="product-overlay">
-                <a class="view-details-btn" href="${escapeHtml(detailUrl)}" data-product-id="${escapeHtml(product.id)}">Дэлгэрэнгүй харах</a>
+                <a class="view-details-overlay-btn" href="${escapeHtml(detailUrl)}" data-product-id="${escapeHtml(product.id)}">Дэлгэрэнгүй харах</a>
             </div>
         </div>
         <div class="product-info">
-            <div class="product-meta-row">
-                <span class="product-category">${escapeHtml(product.category)}</span>
-                <span class="product-material">${materialText}</span>
+            <div class="product-tags">
+                <span class="product-tag">${escapeHtml(product.category)}</span>
+                ${sectionText && sectionText !== product.category ? `<span class="product-tag">${escapeHtml(sectionText)}</span>` : ''}
             </div>
             <h3 class="product-name">${escapeHtml(product.name)}</h3>
             <p class="product-description">${escapeHtml(description)}</p>
-            ${colorVariants.length ? `<div class="product-card-swatches" aria-label="Өнгөний сонголт">${colorVariants.slice(0, 5).map(variant => `
-                <span title="${escapeHtml(variant.name || variant.colorValue || 'Өнгө')}" style="--swatch:${escapeHtml(variant.colorValue || variant.color || '#d8c7ae')}"></span>
+            ${colorVariants.length ? `<div class="product-card-swatches" aria-label="Бүтээгдэхүүний сонголт">${colorVariants.slice(0, 5).map(variant => `
+                <span title="${escapeHtml(variant.name || variant.value || variant.colorValue || 'Сонголт')}" style="--swatch:${escapeHtml(variant.colorValue || variant.color || '#d8c7ae')}"></span>
             `).join('')}</div>` : ''}
             <div class="product-footer">
                 <span class="product-price">${product.salePrice ? `<small>${formatPrice(product.price)}</small>` : ''}${formatPrice(displayPrice)}</span>
             </div>
-            <div class="product-actions">
-                <a class="view-details-btn product-details-link" href="${escapeHtml(detailUrl)}" data-product-id="${escapeHtml(product.id)}">Дэлгэрэнгүй харах</a>
-                <button class="add-to-cart-btn" type="button" aria-label="Сагсанд нэмэх">
-                    <i class="fas fa-shopping-cart"></i>
-                    <span>Сагсанд хийх</span>
+            <div class="product-actions-bottom">
+                <a class="btn-outline" href="${escapeHtml(detailUrl)}" data-product-id="${escapeHtml(product.id)}">Дэлгэрэнгүй харах</a>
+                <button class="btn-solid add-to-cart-btn-new" type="button" aria-label="Сагсанд нэмэх">
+                    <i class="fas fa-shopping-cart"></i> Сагсанд хийх
                 </button>
             </div>
         </div>
@@ -490,92 +486,114 @@ function getFilteredAndSortedProducts(products) {
 
 function renderCategoryFilters() {
     const filterContainer = document.querySelector('.category-filter-buttons');
-    let subContainer = document.querySelector('.subcategory-filter-buttons');
-
     if (!filterContainer) return;
-
-    // Create sub container if not present
-    if (!subContainer) {
-        subContainer = document.createElement('div');
-        subContainer.className = 'subcategory-filter-buttons';
-        filterContainer.parentNode.insertBefore(subContainer, filterContainer.nextSibling);
-    }
 
     filterContainer.innerHTML = '';
 
-    const mainCategories = [
-        { id: 'all', name: 'Бүх бүтээгдэхүүн' },
-        ...Object.keys(CATEGORY_TREE).map(name => ({ id: name, name }))
-    ];
-
-    mainCategories.forEach(category => {
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = `category-filter-btn${category.id === selectedMainCategory ? ' active' : ''}`;
-        button.textContent = category.name;
-        button.addEventListener('click', () => {
-            selectedMainCategory = category.id;
-            selectedSubCategory = 'all';
-            const nextUrl = new URL(window.location.href);
-            if (category.id === 'all') {
-                nextUrl.searchParams.delete('category');
-                nextUrl.searchParams.delete('sub');
-            } else {
-                nextUrl.searchParams.set('category', category.id);
-                nextUrl.searchParams.delete('sub');
-            }
-            window.history.replaceState({}, '', nextUrl);
-            updateActiveNavLinks();
-            renderSubCategoryFilters(subContainer);
-            renderProducts();
-        });
-        filterContainer.appendChild(button);
-    });
-
-    renderSubCategoryFilters(subContainer);
-}
-
-function renderSubCategoryFilters(subContainer) {
-    if (!subContainer) return;
-
-    subContainer.innerHTML = '';
-
-    if (selectedMainCategory === 'all' || !CATEGORY_TREE[selectedMainCategory]) {
-        subContainer.classList.remove('visible');
-        return;
-    }
-
-    subContainer.classList.add('visible');
-    const subs = CATEGORY_TREE[selectedMainCategory];
+    // Render "All products" item
+    const allAccordionItem = document.createElement('div');
+    allAccordionItem.className = 'category-accordion-item';
 
     const allButton = document.createElement('button');
     allButton.type = 'button';
-    allButton.className = `subcategory-filter-btn${selectedSubCategory === 'all' ? ' active' : ''}`;
-    allButton.textContent = 'Бүгд';
+    allButton.className = `category-filter-btn${selectedMainCategory === 'all' ? ' active' : ''}`;
+    allButton.textContent = 'Бүх бүтээгдэхүүн';
     allButton.addEventListener('click', () => {
+        selectedMainCategory = 'all';
         selectedSubCategory = 'all';
         const nextUrl = new URL(window.location.href);
+        nextUrl.searchParams.delete('category');
         nextUrl.searchParams.delete('sub');
         window.history.replaceState({}, '', nextUrl);
-        renderSubCategoryFilters(subContainer);
+        updateActiveNavLinks();
         renderProducts();
     });
-    subContainer.appendChild(allButton);
+    
+    allAccordionItem.appendChild(allButton);
+    filterContainer.appendChild(allAccordionItem);
 
-    subs.forEach(sub => {
+    // Render Category Tree
+    Object.keys(CATEGORY_TREE).forEach(name => {
+        const accordionItem = document.createElement('div');
+        accordionItem.className = 'category-accordion-item';
+
+        const isExpanded = selectedMainCategory === name;
+        
         const button = document.createElement('button');
         button.type = 'button';
-        button.className = `subcategory-filter-btn${sub === selectedSubCategory ? ' active' : ''}`;
-        button.textContent = sub;
-        button.addEventListener('click', () => {
-            selectedSubCategory = sub;
+        button.className = `category-filter-btn${isExpanded ? ' active' : ''}`;
+        button.innerHTML = `<span>${name}</span><i class="fas fa-chevron-down accordion-arrow${isExpanded ? ' open' : ''}"></i>`;
+        
+        const subContainer = document.createElement('div');
+        subContainer.className = `subcategory-accordion-list${isExpanded ? ' visible' : ''}`;
+
+        // Main category button click
+        button.addEventListener('click', (e) => {
+            const isArrowClick = e.target.closest('.accordion-arrow');
+
+            if (isArrowClick) {
+                e.preventDefault();
+                e.stopPropagation();
+                const isOpen = subContainer.classList.toggle('visible');
+                const arrowEl = button.querySelector('.accordion-arrow');
+                if (arrowEl) arrowEl.classList.toggle('open', isOpen);
+                return;
+            }
+
+            // Parent text click → filter by this category (and ensure it's open via re-render)
+            selectedMainCategory = name;
+            selectedSubCategory = 'all';
             const nextUrl = new URL(window.location.href);
-            nextUrl.searchParams.set('sub', sub);
+            nextUrl.searchParams.set('category', name);
+            nextUrl.searchParams.delete('sub');
             window.history.replaceState({}, '', nextUrl);
-            renderSubCategoryFilters(subContainer);
+            updateActiveNavLinks();
             renderProducts();
         });
-        subContainer.appendChild(button);
+
+        accordionItem.appendChild(button);
+        
+        // Render subcategories directly here
+        const subs = CATEGORY_TREE[name];
+        
+        const subAllBtn = document.createElement('button');
+        subAllBtn.type = 'button';
+        subAllBtn.className = `subcategory-filter-btn${(selectedMainCategory === name && selectedSubCategory === 'all') ? ' active' : ''}`;
+        subAllBtn.textContent = 'Бүгд';
+        subAllBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            selectedMainCategory = name;
+            selectedSubCategory = 'all';
+            const nextUrl = new URL(window.location.href);
+            nextUrl.searchParams.set('category', name);
+            nextUrl.searchParams.delete('sub');
+            window.history.replaceState({}, '', nextUrl);
+            updateActiveNavLinks();
+            renderProducts();
+        });
+        subContainer.appendChild(subAllBtn);
+
+        subs.forEach(sub => {
+            const subBtn = document.createElement('button');
+            subBtn.type = 'button';
+            subBtn.className = `subcategory-filter-btn${(selectedMainCategory === name && sub === selectedSubCategory) ? ' active' : ''}`;
+            subBtn.textContent = sub;
+            subBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                selectedMainCategory = name;
+                selectedSubCategory = sub;
+                const nextUrl = new URL(window.location.href);
+                nextUrl.searchParams.set('category', name);
+                nextUrl.searchParams.set('sub', sub);
+                window.history.replaceState({}, '', nextUrl);
+                updateActiveNavLinks();
+                renderProducts();
+            });
+            subContainer.appendChild(subBtn);
+        });
+
+        accordionItem.appendChild(subContainer);
+        filterContainer.appendChild(accordionItem);
     });
 }
 
@@ -686,9 +704,9 @@ function createProductDetailModal() {
                     <div class="product-detail-purchase">
                         <div id="detailProductOptions" class="product-detail-options product-color-variants" hidden>
                             <div class="product-option-group">
-                                <span>Өнгөний сонголт</span>
+                                <span>Бүтээгдэхүүний сонголт</span>
                                 <strong id="detailSelectedColorName" class="selected-color-name"></strong>
-                                <div id="detailColorVariants" class="detail-color-variants" role="listbox" aria-label="Өнгөний сонголт"></div>
+                                <div id="detailColorVariants" class="detail-color-variants" role="listbox" aria-label="Бүтээгдэхүүний сонголт"></div>
                             </div>
                         </div>
                         <div class="product-detail-purchase-row">
@@ -777,8 +795,8 @@ function renderProductDetailOptions(product) {
         button.setAttribute('role', 'option');
         button.setAttribute('aria-selected', index === 0 ? 'true' : 'false');
         button.innerHTML = `
-            <img src="${escapeHtml(getSafeProductImage(variant.image))}" alt="${escapeHtml(variant.name || variant.colorValue || variant.color || 'Өнгө')}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
-            <span>${escapeHtml(variant.name || variant.colorValue || variant.color || 'Өнгө')}</span>
+            <img src="${escapeHtml(getSafeProductImage(variant.image))}" alt="${escapeHtml(variant.name || variant.value || variant.colorValue || variant.color || 'Сонголт')}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
+            <span>${escapeHtml(variant.name || variant.value || variant.colorValue || variant.color || 'Сонголт')}</span>
         `;
         variantsContainer.appendChild(button);
     });
@@ -795,9 +813,13 @@ function getDetailSelections() {
     if (!variant) return {};
 
     return {
+        selectedVariationName: variant.name || variant.value || variant.colorValue || variant.color || '',
+        selectedVariation: variant.name || variant.value || variant.colorValue || variant.color || '',
+        selectedVariationValue: variant.value || variant.colorValue || variant.color || '',
+        selectedVariationImage: variant.image || '',
         selectedColorName: variant.name || variant.colorValue || variant.color || '',
         selectedColor: variant.name || variant.colorValue || variant.color || '',
-        selectedColorValue: variant.colorValue || variant.color || '',
+        selectedColorValue: variant.value || variant.colorValue || variant.color || '',
         selectedColorImage: variant.image || '',
         selectedSku: variant.sku || '',
         selectedPrice: variant.salePrice || variant.price || '',
@@ -821,7 +843,7 @@ function setSelectedColorVariant(index, updateImage = true) {
         button.setAttribute('aria-selected', isActive ? 'true' : 'false');
     });
 
-    if (selectedName) selectedName.textContent = variant.name || variant.colorValue || variant.color || '';
+    if (selectedName) selectedName.textContent = variant.name || variant.value || variant.colorValue || variant.color || '';
 
     if (updateImage && variant.image) {
         const images = parseJsonArray(modal.dataset.images);
@@ -909,7 +931,7 @@ function setupProductDetailModal() {
 
     document.addEventListener('click', async (e) => {
         const detailsButton = e.target.closest('.view-details-btn');
-        const addToCartButton = e.target.closest('.add-to-cart-btn');
+        const addToCartButton = e.target.closest('.add-to-cart-btn') || e.target.closest('.add-to-cart-btn-new');
         const productCard = e.target.closest('.product-card');
         const closeButton = e.target.closest('.product-detail-close');
         const thumbButton = e.target.closest('.product-detail-thumb');
@@ -1081,21 +1103,10 @@ function updateProductDetailPageVariant(product, index) {
     if (variant?.image) setProductDetailPageImage(variant.image);
     if (priceElement) priceElement.innerHTML = renderProductDetailPrice(product, variant);
     if (stockElement) {
-        const stockNumber = Number(getVariantStock(product, variant)) || 0;
-        const stockText = status === 'out_of_stock'
-            ? 'Дууссан'
-            : (stockNumber > 0 ? `${stockNumber} ширхэг бэлэн байна` : getStockStatusLabel(status));
-        stockElement.textContent = stockText;
-        // Preserve `pd-stock-text` (new layout class) alongside the legacy status class.
-        stockElement.className = `pd-stock-text detail-stock-status ${status}`;
+        stockElement.textContent = `${getStockStatusLabel(status)} · ${getVariantStock(product, variant)} үлдэгдэл`;
+        stockElement.className = `detail-stock-status ${status}`;
     }
-    if (skuElement) {
-        const skuValue = variant?.sku || product.sku || product.id;
-        // The new layout renders the SKU as "SKU: <value>" inline.
-        skuElement.textContent = skuElement.classList.contains('pd-buy__sku')
-            ? `SKU: ${skuValue}`
-            : skuValue;
-    }
+    if (skuElement) skuElement.textContent = variant?.sku || product.sku || product.id;
     if (addButton) addButton.disabled = status === 'out_of_stock';
 
     const root = document.getElementById('productDetailPageRoot');
@@ -1115,221 +1126,75 @@ function renderProductDetailPage(product) {
     const images = [...new Set([...(product.images || []), ...colorVariants.map(variant => variant.image).filter(Boolean)])];
     const firstImage = selectedVariant?.image || images[0] || getProductMainImage(product);
     const status = getStockStatus(product, selectedVariant);
-    const stockNumber = Number(getVariantStock(product, selectedVariant)) || 0;
-
-    // Spec chips at the top of the meta section. Each chip is `{ label, value }`.
-    // We only emit chips that have a real value so the row stays clean for sparse data.
-    const sku = selectedVariant?.sku || product.sku || product.id;
-    const topColor = selectedVariant?.name || product.topColor || product.color || '';
-    const legColor = product.legColor || product.secondaryColor || '';
-    const dimensions = [product.width, product.height, product.depth].filter(Boolean).join(' × ');
-    const specChipsRaw = [
-        { label: 'Барааны код', value: sku, accent: true },
-        { label: 'Брэнд', value: product.brand },
-        { label: 'Тавцангийн өнгө', value: topColor },
-        { label: 'Хөлний өнгө', value: legColor },
-        { label: 'Материал', value: product.material },
-        { label: 'Хэмжээ', value: dimensions }
-    ].filter(chip => chip.value);
-
-    // Detailed key/value list shown in the "Үзүүлэлтүүд" block.
-    const detailRowsRaw = [
-        ['Тавцангийн өнгө', topColor],
-        ['Хөлний өнгө', legColor],
-        ['Материал', product.material],
-        ['Брэнд', product.brand],
-        ['Хэмжээ', dimensions],
-        ['Жин', product.weight],
-        ['Загвар', product.style || product.theme],
-        ['Хүргэлт', product.deliveryAvailable ? 'Боломжтой' : ''],
-        ['Угсралт', product.assemblyRequired ? 'Шаардлагатай' : '']
-    ].filter(([, value]) => value);
-
-    const stockBadgeText = status === 'out_of_stock'
-        ? 'Дууссан'
-        : (stockNumber > 0 ? `${stockNumber} ширхэг бэлэн байна` : getStockStatusLabel(status));
-
-    const brandLabel = product.brand || 'UNA';
-    const brandInitials = brandLabel
-        .split(/\s+/)
-        .filter(Boolean)
-        .slice(0, 2)
-        .map(word => word.charAt(0).toUpperCase())
-        .join('') || 'U';
 
     root.classList.remove('is-loading');
     root.dataset.productId = product.id;
     root.dataset.selectedVariantIndex = selectedIndex >= 0 ? String(selectedIndex) : '';
     root.innerHTML = `
-        <div class="pd-page">
-            <header class="pd-header">
-                <button class="pd-back-btn" type="button" aria-label="Буцах" data-pd-action="back">
-                    <i class="fas fa-arrow-left" aria-hidden="true"></i>
-                </button>
-                <div class="pd-brand-chip" aria-hidden="true">
-                    <span class="pd-brand-chip__mark">${escapeHtml(brandInitials)}</span>
-                    <span class="pd-brand-chip__name">${escapeHtml(brandLabel)}</span>
+        <div class="product-detail-page-grid">
+            <div class="product-detail-page-gallery">
+                <div class="page-detail-main-image-wrap">
+                    <img id="pageDetailMainImage" src="${escapeHtml(getSafeProductImage(firstImage))}" alt="${escapeHtml(product.name)}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
                 </div>
-                <div class="pd-title-block">
-                    <h1 class="pd-title">${escapeHtml(product.name)}</h1>
-                    <p class="pd-subtitle">
-                        <span class="pd-category">${escapeHtml(product.category || '-')}</span>
-                        <span class="pd-sku">#${escapeHtml(sku)}</span>
-                    </p>
-                </div>
-            </header>
-
-            <div class="pd-grid">
-                <section class="pd-gallery" aria-label="Бүтээгдэхүүний зураг">
-                    <div class="pd-main-image-wrap">
-                        <button class="pd-icon-btn pd-icon-btn--top-right" type="button" aria-label="Томруулж харах" data-pd-action="zoom">
-                            <i class="fas fa-up-right-and-down-left-from-center" aria-hidden="true"></i>
+                <div class="page-detail-thumbs">
+                    ${images.map((image, index) => `
+                        <button class="page-detail-thumb${getSafeProductImage(image) === getSafeProductImage(firstImage) ? ' active' : ''}" type="button" data-image="${escapeHtml(image)}" aria-label="Зураг ${index + 1}">
+                            <img src="${escapeHtml(getSafeProductImage(image))}" alt="${escapeHtml(product.name)} ${index + 1}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
                         </button>
-                        <img id="pageDetailMainImage" class="pd-main-image" src="${escapeHtml(getSafeProductImage(firstImage))}" alt="${escapeHtml(product.name)}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
-                        <button class="pd-icon-btn pd-icon-btn--bottom-right" type="button" aria-label="Зураг нээх" data-pd-action="zoom">
-                            <i class="fas fa-magnifying-glass-plus" aria-hidden="true"></i>
-                        </button>
-                    </div>
-                    <div class="pd-thumbs page-detail-thumbs">
-                        ${images.map((image, index) => `
-                            <button class="pd-thumb page-detail-thumb${getSafeProductImage(image) === getSafeProductImage(firstImage) ? ' active' : ''}" type="button" data-image="${escapeHtml(image)}" aria-label="Зураг ${index + 1}">
-                                <img src="${escapeHtml(getSafeProductImage(image))}" alt="${escapeHtml(product.name)} ${index + 1}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
-                            </button>
-                        `).join('')}
-                    </div>
-                </section>
-
-                <aside class="pd-buy" aria-label="Худалдан авалт">
-                    <span class="pd-buy__label">Үнэ</span>
-                    <div id="pageDetailPrice" class="pd-buy__price">${renderProductDetailPrice(product, selectedVariant)}</div>
-                    <hr class="pd-buy__divider">
-
-                    <div class="pd-buy__row">
-                        <div class="pd-qty-field" role="group" aria-label="Тоо ширхэг">
-                            <span class="pd-qty-field__label">Тоо ширхэг</span>
-                            <div class="pd-qty-control">
-                                <button class="pd-qty-btn page-quantity-minus" type="button" aria-label="Бууруулах">−</button>
-                                <span id="pageDetailQuantity" class="pd-qty-value" aria-live="polite">1</span>
-                                <button class="pd-qty-btn page-quantity-plus" type="button" aria-label="Нэмэх">+</button>
-                            </div>
-                        </div>
-                        <p id="pageDetailStock" class="pd-stock-text detail-stock-status ${status}">${escapeHtml(stockBadgeText)}</p>
-                    </div>
-
-                    ${colorVariants.length ? `
-                        <div class="pd-variant-block">
-                            <div class="pd-variant-head">
-                                <strong>Өнгөний сонголт</strong>
-                                <span>${escapeHtml(selectedVariant?.name || '')}</span>
-                            </div>
-                            <div class="page-color-variants pd-variant-list" role="listbox" aria-label="Өнгөний сонголт">
-                                ${colorVariants.map((variant, index) => `
-                                    <button class="page-color-variant pd-variant-chip${index === selectedIndex ? ' active' : ''}" type="button" data-variant-index="${index}" role="option" aria-selected="${index === selectedIndex ? 'true' : 'false'}">
-                                        <img src="${escapeHtml(getSafeProductImage(variant.image))}" alt="${escapeHtml(variant.name || 'Өнгө')}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
-                                        <span>${escapeHtml(variant.name || variant.colorValue || 'Өнгө')}</span>
-                                    </button>
-                                `).join('')}
-                            </div>
-                        </div>
-                    ` : ''}
-
-                    <button id="pageDetailAddToCart" class="pd-buy__cta buy-action-btn" type="button" ${status === 'out_of_stock' ? 'disabled' : ''}>
-                        <i class="fas fa-cart-plus" aria-hidden="true"></i>
-                        <span>Сагсанд нэмэх</span>
-                    </button>
-                    <span id="pageDetailSku" class="pd-buy__sku">SKU: ${escapeHtml(sku)}</span>
-                </aside>
-            </div>
-
-            ${specChipsRaw.length ? `
-                <div class="pd-spec-chips" role="list">
-                    ${specChipsRaw.map(chip => `
-                        <div class="pd-spec-chip${chip.accent ? ' is-accent' : ''}" role="listitem">
-                            <span class="pd-spec-chip__label">${escapeHtml(chip.label)}</span>
-                            <strong class="pd-spec-chip__value">${escapeHtml(chip.value)}</strong>
-                        </div>
                     `).join('')}
                 </div>
-            ` : ''}
-
-            <div class="pd-banner pd-delivery-banner">
-                <span class="pd-banner__icon"><i class="fas fa-location-dot" aria-hidden="true"></i></span>
-                <div class="pd-banner__text">
-                    <strong>Энгийн</strong>
-                    <span>${escapeHtml(product.deliveryNote || '24-48 цагт хүргэнэ')}</span>
-                </div>
             </div>
+            <div class="product-detail-page-info">
+                <span class="product-detail-category">${escapeHtml(product.category)}</span>
+                <h1>${escapeHtml(product.name)}</h1>
+                <div id="pageDetailPrice" class="page-detail-price">${renderProductDetailPrice(product, selectedVariant)}</div>
+                <p id="pageDetailStock" class="detail-stock-status ${status}">${getStockStatusLabel(status)} · ${getVariantStock(product, selectedVariant)} үлдэгдэл</p>
 
-            <div class="pd-banner pd-review-banner" role="button" tabindex="0" data-pd-action="reviews">
-                <span class="pd-banner__icon pd-banner__icon--review"><i class="fas fa-comments" aria-hidden="true"></i></span>
-                <div class="pd-banner__text">
-                    <strong>Сэтгэгдэл байхгүй</strong>
-                    <div class="pd-review-stars" aria-label="Үнэлгээ алга">
-                        ${'<i class="far fa-star" aria-hidden="true"></i>'.repeat(5)}
+                ${colorVariants.length ? `
+                    <div class="page-detail-option">
+                        <div class="page-detail-option-head">
+                            <strong>Бүтээгдэхүүний сонголт</strong>
+                            <span>${escapeHtml(selectedVariant?.name || '')}</span>
+                        </div>
+                        <div class="page-color-variants" role="listbox" aria-label="Бүтээгдэхүүний сонголт">
+                            ${colorVariants.map((variant, index) => `
+                                <button class="page-color-variant${index === selectedIndex ? ' active' : ''}" type="button" data-variant-index="${index}" role="option" aria-selected="${index === selectedIndex ? 'true' : 'false'}">
+                                    <img src="${escapeHtml(getSafeProductImage(variant.image))}" alt="${escapeHtml(variant.name || variant.value || 'Сонголт')}" onerror="this.onerror=null;this.src='${DEFAULT_PRODUCT_IMAGE}'">
+                                    <span>${escapeHtml(variant.name || variant.value || variant.colorValue || 'Сонголт')}</span>
+                                </button>
+                            `).join('')}
+                        </div>
                     </div>
+                ` : ''}
+
+                <div class="page-detail-specs">
+                    <div><span>SKU / Product ID</span><strong id="pageDetailSku">${escapeHtml(selectedVariant?.sku || product.sku || product.id)}</strong></div>
+                    <div><span>Хэмжээ</span><strong>${escapeHtml([product.width, product.height, product.depth].filter(Boolean).join(' × ') || '-')}</strong></div>
+                    <div><span>Материал</span><strong>${escapeHtml(product.material || '-')}</strong></div>
+                    <div><span>Жин</span><strong>${escapeHtml(product.weight || '-')}</strong></div>
+                    <div><span>Брэнд</span><strong>${escapeHtml(product.brand || '-')}</strong></div>
+                    <div><span>Хүргэлт</span><strong>${product.deliveryAvailable ? 'Боломжтой' : 'Боломжгүй'}</strong></div>
+                    <div><span>Угсралт</span><strong>${product.assemblyRequired ? 'Шаардлагатай' : 'Шаардлагагүй'}</strong></div>
                 </div>
-                <i class="fas fa-chevron-right pd-banner__chevron" aria-hidden="true"></i>
+
+                <div class="page-detail-actions">
+                    <div class="quantity-selector">
+                        <button class="quantity-btn page-quantity-minus" type="button">-</button>
+                        <span id="pageDetailQuantity">1</span>
+                        <button class="quantity-btn page-quantity-plus" type="button">+</button>
+                    </div>
+                    <button id="pageDetailAddToCart" class="buy-action-btn" type="button" ${status === 'out_of_stock' ? 'disabled' : ''}>Сагсанд нэмэх</button>
+                </div>
             </div>
-
-            ${detailRowsRaw.length ? `
-                <section class="pd-info-section">
-                    <h2 class="pd-section-title">Дэлгэрэнгүй мэдээлэл</h2>
-                    <h3 class="pd-section-subtitle">Үзүүлэлтүүд</h3>
-                    <dl class="pd-info-table">
-                        ${detailRowsRaw.map(([label, value]) => `
-                            <div class="pd-info-row">
-                                <dt>${escapeHtml(label)}</dt>
-                                <dd>${escapeHtml(value)}</dd>
-                            </div>
-                        `).join('')}
-                    </dl>
-                </section>
-            ` : ''}
-
-            ${product.description ? `
-                <section class="pd-extra-section">
-                    <h2 class="pd-section-title">Нэмэлт мэдээлэл</h2>
-                    <div class="pd-extra-text">${formatLongText(product.description)}</div>
-                </section>
-            ` : ''}
-
-            ${product.deliveryNote || product.warrantyNote ? `
-                <div class="pd-notes">
-                    ${product.deliveryNote ? `<p><strong>Хүргэлт:</strong> ${escapeHtml(product.deliveryNote)}</p>` : ''}
-                    ${product.warrantyNote ? `<p><strong>Баталгаа:</strong> ${escapeHtml(product.warrantyNote)}</p>` : ''}
-                </div>
-            ` : ''}
+        </div>
+        <div class="product-detail-page-description">
+            <h2>Дэлгэрэнгүй тайлбар</h2>
+            ${formatLongText(product.description)}
+            ${product.deliveryNote || product.warrantyNote ? `<div class="page-detail-notes">${product.deliveryNote ? `<p><strong>Хүргэлт:</strong> ${escapeHtml(product.deliveryNote)}</p>` : ''}${product.warrantyNote ? `<p><strong>Баталгаа:</strong> ${escapeHtml(product.warrantyNote)}</p>` : ''}</div>` : ''}
         </div>
     `;
 
     updateProductDetailPageVariant(product, selectedIndex);
-
-    // Wire up the new affordances. The variant/qty/thumb listeners are bound elsewhere
-    // (setupProductDetailPage) via event delegation on #productDetailPageRoot, so we
-    // only need to handle the new back/zoom/reviews actions here.
-    root.querySelector('[data-pd-action="back"]')?.addEventListener('click', () => {
-        if (window.history.length > 1) window.history.back();
-        else window.location.href = 'products.html';
-    });
-
-    const openZoom = () => {
-        const img = document.getElementById('pageDetailMainImage');
-        if (img?.src) window.open(img.src, '_blank', 'noopener');
-    };
-    root.querySelectorAll('[data-pd-action="zoom"]').forEach(btn => btn.addEventListener('click', openZoom));
-    document.getElementById('pageDetailMainImage')?.addEventListener('click', openZoom);
-
-    const reviewBanner = root.querySelector('[data-pd-action="reviews"]');
-    if (reviewBanner) {
-        const trigger = () => showToast('Сэтгэгдэл удахгүй нэмэгдэнэ.', 'info');
-        reviewBanner.addEventListener('click', trigger);
-        reviewBanner.addEventListener('keydown', (event) => {
-            if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                trigger();
-            }
-        });
-    }
 }
 
 async function renderRelatedProducts(product) {
@@ -1400,8 +1265,11 @@ async function setupProductDetailPage() {
             const price = getVariantDisplayPrice(product, variant);
             const quantity = Number(document.getElementById('pageDetailQuantity')?.textContent || 1);
             const added = addProductToCart(product, quantity, {
+                selectedVariationName: variant?.name || '',
+                selectedVariationValue: variant?.value || variant?.colorValue || variant?.color || '',
+                selectedVariationImage: variant?.image || '',
                 selectedColorName: variant?.name || '',
-                selectedColorValue: variant?.colorValue || variant?.color || '',
+                selectedColorValue: variant?.value || variant?.colorValue || variant?.color || '',
                 selectedColorImage: variant?.image || '',
                 selectedSku: variant?.sku || product.sku || '',
                 selectedPrice: price.current,
@@ -1613,16 +1481,20 @@ function updateCartCount() {
 }
 
 function getCartItemKey(item) {
-    return [item.id, item.selectedColorName || item.selectedColor || item.color || '', item.selectedColorValue || ''].join('::');
+    return [
+        item.id,
+        item.selectedVariationName || item.selectedVariation || item.selectedColorName || item.selectedColor || item.color || '',
+        item.selectedVariationValue || item.selectedColorValue || ''
+    ].join('::');
 }
 
 function getCartOptionLines(item) {
-    const selectedColor = String(item.selectedColorName || item.selectedColor || item.color || '').trim();
-    const selectedColorValue = String(item.selectedColorValue || item.colorValue || '').trim();
+    const selectedVariation = String(item.selectedVariationName || item.selectedVariation || item.selectedColorName || item.selectedColor || item.color || '').trim();
+    const selectedVariationValue = String(item.selectedVariationValue || item.selectedColorValue || item.colorValue || '').trim();
     const lines = [];
 
-    if (selectedColor) lines.push(`Өнгө: ${selectedColor}`);
-    if (selectedColorValue && selectedColorValue !== selectedColor) lines.push(selectedColorValue);
+    if (selectedVariation) lines.push(`Сонголт: ${selectedVariation}`);
+    if (selectedVariationValue && selectedVariationValue !== selectedVariation) lines.push(selectedVariationValue);
 
     return lines;
 }
@@ -1631,28 +1503,28 @@ function addProductToCart(product, quantity = 1, selections = {}) {
     const loggedOut = !isLoggedIn();
 
     const { colorVariants } = getProductOptions(product);
-    const selectedColor = String(selections.selectedColorName || selections.selectedColor || selections.color || '').trim();
-    const selectedColorValue = String(selections.selectedColorValue || selections.colorValue || '').trim();
-    const selectedColorImage = String(selections.selectedColorImage || selections.colorImage || '').trim();
+    const selectedVariation = String(selections.selectedVariationName || selections.selectedVariation || selections.selectedOption || selections.selectedColorName || selections.selectedColor || selections.color || '').trim();
+    const selectedVariationValue = String(selections.selectedVariationValue || selections.selectedOptionValue || selections.selectedColorValue || selections.colorValue || '').trim();
+    const selectedVariationImage = String(selections.selectedVariationImage || selections.selectedColorImage || selections.colorImage || '').trim();
     const selectedSku = String(selections.selectedSku || selections.sku || product.sku || '').trim();
     const selectedPrice = Number(selections.selectedPrice || selections.price || product.salePrice || product.price || 0);
     const selectedStock = selections.selectedStock === null || selections.selectedStock === undefined || selections.selectedStock === ''
         ? null
         : Number(selections.selectedStock);
 
-    if (colorVariants.length && !selectedColor) {
-        alert('Өнгөө сонгоно уу.');
+    if (colorVariants.length && !selectedVariation) {
+        alert('Сонголтоо сонгоно уу.');
         return false;
     }
 
-    if (selectedColor && colorVariants.length && !colorVariants.some(variant => (variant.name || variant.colorValue || variant.color) === selectedColor || (variant.colorValue || variant.color) === selectedColorValue)) {
-        alert('Сонгосон өнгө энэ бүтээгдэхүүнд байхгүй байна.');
+    if (selectedVariation && colorVariants.length && !colorVariants.some(variant => (variant.name || variant.value || variant.colorValue || variant.color) === selectedVariation || (variant.value || variant.colorValue || variant.color) === selectedVariationValue)) {
+        alert('Сонгосон variation энэ бүтээгдэхүүнд байхгүй байна.');
         return false;
     }
 
     const cart = getCartItems();
     const productId = String(product.id);
-    const cartKey = [productId, selectedColor, selectedColorValue].join('::');
+    const cartKey = [productId, selectedVariation, selectedVariationValue].join('::');
     const existingItem = cart.find(item => getCartItemKey(item) === cartKey);
     const nextQuantity = Math.max(1, Number(quantity) || 1);
 
@@ -1663,11 +1535,15 @@ function addProductToCart(product, quantity = 1, selections = {}) {
 
     if (existingItem) {
         existingItem.quantity = (Number(existingItem.quantity) || 1) + nextQuantity;
-        existingItem.selectedColorName = selectedColor;
-        existingItem.selectedColor = selectedColor;
-        existingItem.selectedColorValue = selectedColorValue;
-        existingItem.selectedColorImage = selectedColorImage;
-        existingItem.image = selectedColorImage || existingItem.image;
+        existingItem.selectedVariationName = selectedVariation;
+        existingItem.selectedVariation = selectedVariation;
+        existingItem.selectedVariationValue = selectedVariationValue;
+        existingItem.selectedVariationImage = selectedVariationImage;
+        existingItem.selectedColorName = selectedVariation;
+        existingItem.selectedColor = selectedVariation;
+        existingItem.selectedColorValue = selectedVariationValue;
+        existingItem.selectedColorImage = selectedVariationImage;
+        existingItem.image = selectedVariationImage || existingItem.image;
         existingItem.price = selectedPrice;
         existingItem.sku = selectedSku;
         existingItem.cartKey = cartKey;
@@ -1680,11 +1556,15 @@ function addProductToCart(product, quantity = 1, selections = {}) {
             name: product.name,
             category: product.category,
             price: selectedPrice,
-            image: selectedColorImage || getProductMainImage(product),
-            selectedColorName: selectedColor,
-            selectedColor,
-            selectedColorValue,
-            selectedColorImage,
+            image: selectedVariationImage || getProductMainImage(product),
+            selectedVariationName: selectedVariation,
+            selectedVariation,
+            selectedVariationValue,
+            selectedVariationImage,
+            selectedColorName: selectedVariation,
+            selectedColor: selectedVariation,
+            selectedColorValue: selectedVariationValue,
+            selectedColorImage: selectedVariationImage,
             quantity: nextQuantity
         });
     }
@@ -1752,7 +1632,26 @@ function updateAuthNavigation() {
     const isAdmin = payload?.role === 'admin';
     const displayName = isAdmin ? 'Admin' : (payload?.name || payload?.fullname || payload?.username || payload?.email || 'Account');
 
+    // Target .nav-icons (the icon-only section) so text nav links are preserved
+    document.querySelectorAll('.nav-icons').forEach(navIcons => {
+        if (isLoggedIn()) {
+            navIcons.innerHTML = `
+                <a class="nav-account-link nav-icon-link" href="account.html" aria-label="Аккаунт"><i class="fas fa-user"></i></a>
+                <a class="nav-cart-link nav-icon-link" href="cart.html" aria-label="Сагс"><i class="fas fa-shopping-cart"></i><strong data-cart-count>${getCartCount()}</strong></a>
+                <button class="nav-logout-btn nav-icon-link logout-btn" type="button" aria-label="Гарах"><i class="fas fa-sign-out-alt"></i></button>
+            `;
+        } else {
+            navIcons.innerHTML = `
+                <a class="nav-account-link nav-icon-link" href="login.html" aria-label="Нэвтрэх"><i class="fas fa-user"></i></a>
+                <a class="nav-cart-link nav-icon-link" href="cart.html" aria-label="Сагс"><i class="fas fa-shopping-cart"></i><strong data-cart-count>${getCartCount()}</strong></a>
+            `;
+        }
+    });
+
+    // Fallback: if page has old-style .nav-right without .nav-icons, update the whole .nav-right
+    // but skip any .nav-right that already has a .nav-icons child
     document.querySelectorAll('.nav-right').forEach(navRight => {
+        if (navRight.querySelector('.nav-icons')) return; // handled above
         if (isLoggedIn()) {
             navRight.innerHTML = `
                 <a class="nav-account-link nav-icon-link" href="account.html" aria-label="Аккаунт"><i class="fas fa-user"></i><span>${escapeHtml(displayName)}</span></a>
@@ -1824,12 +1723,6 @@ async function logoutUser() {
 
     removeToken();
     authUserCache = null;
-    // Wipe per-user client state so the next account on this device starts clean.
-    try {
-        localStorage.removeItem(CART_KEY);
-    } catch (error) {
-        // localStorage may be unavailable (private mode) — ignore.
-    }
     updateAuthNavigation();
     window.location.href = 'index.html';
 }
@@ -1910,10 +1803,8 @@ function setupPasswordResetForms() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email })
             });
-            // Backend deliberately does not return a reset link — show only the generic
-            // message. The link must reach the user via email, never via the response body.
             if (message) {
-                message.textContent = data.message || 'Хэрэв энэ имэйл бүртгэлтэй бол сэргээх заавар очно.';
+                message.innerHTML = `${escapeHtml(data.message || 'Reset link үүслээ.')} ${data.resetUrl ? `<a href="${escapeHtml(data.resetUrl)}">Нууц үг солих</a>` : ''}`;
             }
         } catch (error) {
             if (message) message.textContent = error.message;
@@ -1927,10 +1818,6 @@ function setupPasswordResetForms() {
         const password = document.getElementById('resetPassword')?.value || '';
         const confirmPassword = document.getElementById('resetConfirmPassword')?.value || '';
 
-        if (password.length < 6) {
-            if (message) message.textContent = 'Нууц үг хамгийн багадаа 6 тэмдэгт байх ёстой.';
-            return;
-        }
         if (password !== confirmPassword) {
             if (message) message.textContent = 'Нууц үг таарахгүй байна.';
             return;
@@ -1955,11 +1842,8 @@ function renderAccount(user) {
     const avatarElement = document.querySelector('.account-avatar');
 
     if (avatarElement) {
-        // safeUrl rejects javascript:/vbscript:/etc. — anything that isn't http(s),
-        // site-relative, or a data:image URL falls back to the icon.
-        const avatarSrc = user.avatar ? safeUrl(user.avatar, '') : '';
-        avatarElement.innerHTML = avatarSrc
-            ? `<img src="${escapeHtml(avatarSrc)}" alt="${escapeHtml(displayName)}" referrerpolicy="no-referrer">`
+        avatarElement.innerHTML = user.avatar
+            ? `<img src="${escapeHtml(user.avatar)}" alt="${escapeHtml(displayName)}" referrerpolicy="no-referrer">`
             : '<i class="fas fa-user"></i>';
     }
 
@@ -2134,9 +2018,6 @@ function renderCartPage() {
     updateCartCount();
 }
 
-// In-flight flag to defend against double-clicks creating duplicate orders.
-let checkoutInFlight = false;
-
 async function checkoutCart() {
     return checkoutCartWithMethod(getSelectedPaymentMethod());
 }
@@ -2191,6 +2072,10 @@ function getCartOrderPayload(paymentMethod, deliveryInfo = getCheckoutDeliveryIn
         price: item.price,
         quantity: item.quantity,
         image: item.image,
+        selectedVariationName: item.selectedVariationName || item.selectedVariation || item.selectedColorName || item.selectedColor || '',
+        selectedVariation: item.selectedVariationName || item.selectedVariation || item.selectedColorName || item.selectedColor || '',
+        selectedVariationValue: item.selectedVariationValue || item.selectedColorValue || '',
+        selectedVariationImage: item.selectedVariationImage || item.selectedColorImage || '',
         selectedColorName: item.selectedColorName || item.selectedColor || '',
         selectedColor: item.selectedColorName || item.selectedColor || '',
         selectedColorValue: item.selectedColorValue || '',
@@ -2282,7 +2167,6 @@ function renderOrderSuccess(order, settings = {}, paymentMethod = 'bank_transfer
 }
 
 async function checkoutCartWithMethod(paymentMethod) {
-    if (checkoutInFlight) return;            // hard guard against rapid double-click
     if (!isLoggedIn()) {
         showLoginPromptModal('checkout.html');
         return;
@@ -2294,10 +2178,8 @@ async function checkoutCartWithMethod(paymentMethod) {
         return;
     }
 
-    // Mongolian phone: optional +976 prefix, then 8 digits (e.g. 88112233 / +976 9911 2233).
-    const phoneDigits = deliveryInfo.phone.replace(/[\s-]/g, '');
-    if (!/^(?:\+?976)?\d{8}$/.test(phoneDigits)) {
-        showToast('Зөв утасны дугаар оруулна уу (8 оронтой эсвэл +976...).', 'error');
+    if (!/^[+\d][\d\s-]{5,}$/.test(deliveryInfo.phone)) {
+        showToast('Зөв утасны дугаар оруулна уу.', 'error');
         return;
     }
 
@@ -2308,22 +2190,6 @@ async function checkoutCartWithMethod(paymentMethod) {
 
     const payload = getCartOrderPayload(paymentMethod, deliveryInfo);
     if (!payload) return;
-
-    // Idempotency key — backend can use this to drop duplicate submissions if it ever
-    // adds a uniqueness check. Even without backend support, the client-side flag below
-    // already prevents in-tab double-submits.
-    payload.clientRequestId = (typeof crypto !== 'undefined' && crypto.randomUUID)
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-
-    const confirmBtn = document.getElementById('confirmCheckoutBtn');
-    const originalLabel = confirmBtn ? confirmBtn.textContent : '';
-    checkoutInFlight = true;
-    if (confirmBtn) {
-        confirmBtn.disabled = true;
-        confirmBtn.dataset.busy = '1';
-        confirmBtn.textContent = 'Захиалж байна...';
-    }
 
     try {
         const settings = await fetchPaymentSettings();
@@ -2342,13 +2208,6 @@ async function checkoutCartWithMethod(paymentMethod) {
         }
     } catch (error) {
         showToast(error.message, 'error');
-    } finally {
-        checkoutInFlight = false;
-        if (confirmBtn) {
-            confirmBtn.disabled = false;
-            delete confirmBtn.dataset.busy;
-            if (originalLabel) confirmBtn.textContent = originalLabel;
-        }
     }
 }
 

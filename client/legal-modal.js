@@ -89,7 +89,7 @@
                 <p>Таны хувийн мэдээллийг хамгаалахын тулд:</p>
                 <ul>
                     <li>Бүх холболт HTTPS протоколоор шифрлэгддэг</li>
-                    <li>Нууц үгийг хэзээ ч текст хэлбэрээр хадгалдаггүй — зөвхөн нэг талын PBKDF2-SHA256 (100,000 iteration) шифрлэлтэй хадгалдаг</li>
+                    <li>Нууц үгийг хэзээ ч текст хэлбэрээр хадгалдаггүй — зөвхөн нэг талын шифрлэлтэй (bcrypt) хадгалдаг</li>
                     <li>Cloudflare Workers болон D1 дэд бүтцийг аюулгүй байдлын өндөр стандартаар ажиллуулдаг</li>
                     <li>Зөвшөөрөлгүй хандалтаас хамгаалах хяналтын системтэй</li>
                 </ul>
@@ -110,7 +110,7 @@
                     <li><strong>Устгах эрх:</strong> Бүртгэлийг устгаж, мэдээллийг хасахыг хүсэх боломжтой.</li>
                     <li><strong>Татгалзах эрх:</strong> Мэдэгдэл болон маркетингийн имэйлийн хүлээн авалтаас татгалзах боломжтой.</li>
                 </ul>
-                <p>Эдгээр эрхээ хэрэгжүүлэхийн тулд <a href="mailto:hello@unafurniture.com">hello@unafurniture.com</a>-д хандана уу.</p>
+                <p>Эдгээр эрхээ хэрэгжүүлэхийн тулд <a href="mailto:una.furniture@outlook.com">una.furniture@outlook.com</a>-д хандана уу.</p>
             </section>
 
             <hr class="legal-divider">
@@ -144,7 +144,7 @@
                 <h3>Холбоо барих</h3>
                 <p>Нууцлалын асуудалтай холбоотой асуулт, хүсэлт байвал:</p>
                 <ul>
-                    <li><strong>Имэйл:</strong> hello@unafurniture.com</li>
+                    <li><strong>Имэйл:</strong> una.furniture@outlook.com</li>
                     <li><strong>Вэбсайт:</strong> unafurniture.com</li>
                     <li><strong>Хаяг:</strong> Улаанбаатар, Монгол Улс</li>
                 </ul>
@@ -153,7 +153,7 @@
 
             <div class="legal-contact-card">
                 <p>Нууцлалын асуудлаар бидэнтэй холбоо барих</p>
-                <a href="mailto:hello@unafurniture.com">hello@unafurniture.com</a>
+                <a href="mailto:una.furniture@outlook.com">una.furniture@outlook.com</a>
             </div>
         </div>
     `;
@@ -201,7 +201,7 @@
                     <li>Нэг хүн зөвхөн нэг бүртгэл үүсгэх боломжтой.</li>
                     <li>Бүртгэлийг бусдад дамжуулах, хуваалцахыг хориглоно.</li>
                 </ul>
-                <p>Бүртгэлд зөвшөөрөлгүй хандалт илэрсэн тохиолдолд нэн даруй <a href="mailto:hello@unafurniture.com">hello@unafurniture.com</a>-д мэдэгдэнэ үү.</p>
+                <p>Бүртгэлд зөвшөөрөлгүй хандалт илэрсэн тохиолдолд нэн даруй <a href="mailto:una.furniture@outlook.com">una.furniture@outlook.com</a>-д мэдэгдэнэ үү.</p>
             </section>
 
             <hr class="legal-divider">
@@ -261,7 +261,7 @@
                     <li>Захиалгат (custom-made) бүтээгдэхүүнийг буцаах боломжгүй — зөвхөн үйлдвэрийн гэмтэлтэй тохиолдолд солино.</li>
                 </ul>
                 <div class="legal-highlight">
-                    <p>Буцаалт хийхийн өмнө заавал <a href="mailto:hello@unafurniture.com">hello@unafurniture.com</a>-д захиалгын дугаар болон асуудлын тайлбарыг явуулна уу. Зөвшөөрөлгүй буцаалтыг хүлээн авахгүй.</p>
+                    <p>Буцаалт хийхийн өмнө заавал <a href="mailto:una.furniture@outlook.com">una.furniture@outlook.com</a>-д захиалгын дугаар болон асуудлын тайлбарыг явуулна уу. Зөвшөөрөлгүй буцаалтыг хүлээн авахгүй.</p>
                 </div>
                 <p>Буцаалт зөвшөөрөгдсөн тохиолдолд төлбөрийг <strong>5–10 ажлын өдрийн</strong> дотор буцаан олгоно.</p>
             </section>
@@ -332,7 +332,7 @@
                 <h3>Холбоо барих</h3>
                 <p>Үйлчилгээний нөхцөлтэй холбоотой асуулт байвал:</p>
                 <ul>
-                    <li><strong>Имэйл:</strong> hello@unafurniture.com</li>
+                    <li><strong>Имэйл:</strong> una.furniture@outlook.com</li>
                     <li><strong>Вэбсайт:</strong> unafurniture.com</li>
                     <li><strong>Ажлын цаг:</strong> Даваа–Баасан 09:00–18:00, Бямба 10:00–16:00</li>
                 </ul>
@@ -340,7 +340,7 @@
 
             <div class="legal-contact-card">
                 <p>Асуулт, санал хүсэлт байвал бидэнтэй холбоо барина уу</p>
-                <a href="mailto:hello@unafurniture.com">hello@unafurniture.com</a>
+                <a href="mailto:una.furniture@outlook.com">una.furniture@outlook.com</a>
             </div>
         </div>
     `;

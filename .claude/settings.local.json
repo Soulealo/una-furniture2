@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__Claude_Preview__preview_start",
+      "Bash(pkill -f \"http.server 8765\")",
+      "Bash(python -m http.server 8766 --directory \"C:\\\\Users\\\\norov\\\\Desktop\\\\una-furniture\\\\client\")",
+      "Bash(curl -s -I http://localhost:8766/login.html)",
+      "Bash(python3)",
+      "Bash(python -)"
+    ]
+  }
+}

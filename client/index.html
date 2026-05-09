@@ -7,84 +7,95 @@
     <link rel="icon" href="data:,">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@1,300;1,400;1,500&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="una-design.css">
 </head>
 <body class="home-page">
     
     <nav class="navbar">
         <div class="nav-container">
-            
-            <a href="index.html" class="nav-logo">
-                <img class="site-logo-img" src="assets/logo/new-logo.png" alt="UNA Furniture Logo" onerror="this.hidden=true;this.nextElementSibling.classList.add('logo-fallback-visible');">
-                <span class="logo-fallback">UNA Home & Furniture</span>
-            </a>
+            <div class="nav-left">
+                <ul class="nav-menu">
+                    <li><a href="index.html" class="nav-link active">НҮҮР</a></li>
+                    <li class="nav-item-dropdown">
+                        <a href="products.html" class="nav-link nav-dropdown-toggle">БҮТЭЭГДЭХҮҮН <i class="fas fa-chevron-down" aria-hidden="true"></i></a>
+                        <div class="nav-dropdown-menu nav-dropdown-mega">
+                            <div class="nav-dropdown-section">
+                                <span class="nav-dropdown-heading">Орон зай</span>
+                                <a href="products.html?category=Зочны%20өрөө" class="nav-dropdown-link">Зочны өрөө</a>
+                                <a href="products.html?category=Унтлагын%20өрөө" class="nav-dropdown-link">Унтлагын өрөө</a>
+                                <a href="products.html?category=Гал%20тогоо" class="nav-dropdown-link">Гал тогоо</a>
+                                <a href="products.html?category=Оффис" class="nav-dropdown-link">Оффис</a>
+                                <a href="products.html?category=Захиалгат%20тавилга" class="nav-dropdown-link">Захиалгат тавилга</a>
+                            </div>
+                            <div class="nav-dropdown-section">
+                                <span class="nav-dropdown-heading">Тавилга</span>
+                                <a href="products.html?category=Буйдан%20%26%20сандал" class="nav-dropdown-link">Буйдан &amp; сандал</a>
+                                <a href="products.html?category=Ширээ%20%26%20шүүгээ" class="nav-dropdown-link">Ширээ &amp; шүүгээ</a>
+                                <a href="products.html?category=Гэрэлтүүлэг" class="nav-dropdown-link">Гэрэлтүүлэг</a>
+                                <a href="products.html?category=Текстиль" class="nav-dropdown-link">Текстиль</a>
+                            </div>
+                            <div class="nav-dropdown-section">
+                                <span class="nav-dropdown-heading">Гоёл чимэглэл</span>
+                                <a href="products.html?category=Ваар%20%26%20аяга" class="nav-dropdown-link">Ваар &amp; аяга</a>
+                                <a href="products.html?category=Tray%20%26%20tabletop" class="nav-dropdown-link">Tray &amp; tabletop</a>
+                                <a href="products.html?category=Лааны%20суурь" class="nav-dropdown-link">Лааны суурь</a>
+                                <a href="products.html?category=Хөшөө%20%26%20decor" class="nav-dropdown-link">Хөшөө &amp; decor</a>
+                                <a href="products.html?category=Зургийн%20жааз%20%26%20хайрцаг" class="nav-dropdown-link">Зургийн жааз &amp; хайрцаг</a>
+                            </div>
+                            <div class="nav-dropdown-section">
+                                <span class="nav-dropdown-heading">Хана ба гадна</span>
+                                <a href="products.html?category=Толь" class="nav-dropdown-link">Толь</a>
+                                <a href="products.html?category=Ханын%20чимэглэл" class="nav-dropdown-link">Ханын чимэглэл</a>
+                                <a href="products.html?category=Цаг" class="nav-dropdown-link">Цаг</a>
+                                <a href="products.html?category=Гадна%20орчин" class="nav-dropdown-link">Гадна орчин</a>
+                                <a href="products.html?category=Шинэ%20загварууд" class="nav-dropdown-link">Шинэ загварууд</a>
+                            </div>
+                        </div>
+                    </li>
+                    <li><a href="index.html#journal" class="nav-link">СЭТГҮҮЛ</a></li>
+                </ul>
+            </div>
 
-            <ul class="nav-menu">
-                <li><a href="index.html" class="nav-link active">Нүүр</a></li>
-                <li class="nav-item-dropdown">
-                    <a href="products.html" class="nav-link nav-dropdown-toggle">Бүтээгдэхүүн <i class="fas fa-chevron-down" aria-hidden="true"></i></a>
-                    <div class="nav-dropdown-menu nav-dropdown-mega">
-                        <div class="nav-dropdown-section">
-                            <span class="nav-dropdown-heading">Орон зай</span>
-                            <a href="products.html?category=Зочны%20өрөө" class="nav-dropdown-link">Зочны өрөө</a>
-                            <a href="products.html?category=Унтлагын%20өрөө" class="nav-dropdown-link">Унтлагын өрөө</a>
-                            <a href="products.html?category=Гал%20тогоо" class="nav-dropdown-link">Гал тогоо</a>
-                            <a href="products.html?category=Оффис" class="nav-dropdown-link">Оффис</a>
-                            <a href="products.html?category=Захиалгат%20тавилга" class="nav-dropdown-link">Захиалгат тавилга</a>
-                        </div>
-                        <div class="nav-dropdown-section">
-                            <span class="nav-dropdown-heading">Тавилга</span>
-                            <a href="products.html?category=Буйдан%20%26%20сандал" class="nav-dropdown-link">Буйдан &amp; сандал</a>
-                            <a href="products.html?category=Ширээ%20%26%20шүүгээ" class="nav-dropdown-link">Ширээ &amp; шүүгээ</a>
-                            <a href="products.html?category=Гэрэлтүүлэг" class="nav-dropdown-link">Гэрэлтүүлэг</a>
-                            <a href="products.html?category=Текстиль" class="nav-dropdown-link">Текстиль</a>
-                        </div>
-                        <div class="nav-dropdown-section">
-                            <span class="nav-dropdown-heading">Гоёл чимэглэл</span>
-                            <a href="products.html?category=Ваар%20%26%20аяга" class="nav-dropdown-link">Ваар &amp; аяга</a>
-                            <a href="products.html?category=Tray%20%26%20tabletop" class="nav-dropdown-link">Tray &amp; tabletop</a>
-                            <a href="products.html?category=Лааны%20суурь" class="nav-dropdown-link">Лааны суурь</a>
-                            <a href="products.html?category=Хөшөө%20%26%20decor" class="nav-dropdown-link">Хөшөө &amp; decor</a>
-                            <a href="products.html?category=Зургийн%20жааз%20%26%20хайрцаг" class="nav-dropdown-link">Зургийн жааз &amp; хайрцаг</a>
-                        </div>
-                        <div class="nav-dropdown-section">
-                            <span class="nav-dropdown-heading">Хана ба гадна</span>
-                            <a href="products.html?category=Толь" class="nav-dropdown-link">Толь</a>
-                            <a href="products.html?category=Ханын%20чимэглэл" class="nav-dropdown-link">Ханын чимэглэл</a>
-                            <a href="products.html?category=Цаг" class="nav-dropdown-link">Цаг</a>
-                            <a href="products.html?category=Гадна%20орчин" class="nav-dropdown-link">Гадна орчин</a>
-                            <a href="products.html?category=Шинэ%20загварууд" class="nav-dropdown-link">Шинэ загварууд</a>
-                        </div>
-                    </div>
-                </li>
-                <li><a href="#services" class="nav-link">Үйлчилгээ</a></li>
-                <li><a href="index.html#contact" class="nav-link">Холбоо барих</a></li>
-            </ul>
-
-            <form class="nav-search" action="products.html" method="get" role="search">
-                <label class="sr-only" for="homeSearch">Бүтээгдэхүүн хайх</label>
-                <i class="fas fa-search" aria-hidden="true"></i>
-                <input id="homeSearch" type="search" name="q" placeholder="Хайх">
-            </form>
-
-            
-            <div class="nav-right">
-                <a class="nav-account-link nav-icon-link" href="login.html" aria-label="Нэвтрэх">
-                    <i class="fas fa-user"></i>
-                </a>
-                <a class="nav-cart-link nav-icon-link" href="cart.html" aria-label="Сагс">
-                    <i class="fas fa-shopping-cart"></i>
-                    <strong data-cart-count>0</strong>
+            <div class="nav-center">
+                <a href="index.html" class="nav-logo">
+                    <span class="logo-text-mark"><span class="logo-wordmark">Una</span><span class="logo-sub">Home &amp; Furniture &nbsp;&middot;&nbsp; Est. 2026</span></span>
+                    <span class="logo-fallback">UNA Home & Furniture</span>
                 </a>
             </div>
 
-            <div class="hamburger" aria-label="Цэс нээх" role="button" tabindex="0">
-                <span></span>
-                <span></span>
-                <span></span>
+            <div class="nav-right">
+                <ul class="nav-menu">
+                    <li style="position: relative;">
+                        <a href="#" class="nav-link" onclick="event.preventDefault(); this.nextElementSibling.classList.toggle('active'); this.nextElementSibling.querySelector('input').focus();">ХАЙХ</a>
+                        <div class="search-form-wrapper">
+                            <form action="products.html" method="get" role="search" class="search-form-inner">
+                                <input type="search" name="q" placeholder="Хайх..." required>
+                                <button type="submit" aria-label="Хайх"><i class="fas fa-search"></i></button>
+                            </form>
+                        </div>
+                    </li>
+                    <li><a href="#services" class="nav-link">ҮЙЛЧИЛГЭЭ</a></li>
+                    <li><a href="index.html#contact" class="nav-link">ХОЛБОО БАРИХ</a></li>
+                </ul>
+                
+                <div class="nav-icons">
+                    <a class="nav-account-link nav-icon-link" href="login.html" aria-label="Нэвтрэх">
+                        <i class="fas fa-user"></i>
+                    </a>
+                    <a class="nav-cart-link nav-icon-link" href="cart.html" aria-label="Сагс">
+                        <i class="fas fa-shopping-cart"></i>
+                        <strong data-cart-count>0</strong>
+                    </a>
+                </div>
+
+                <div class="hamburger" aria-label="Цэс нээх" role="button" tabindex="0">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
             </div>
         </div>
     </nav>
@@ -201,6 +212,219 @@
         </div>
     </section>
 
+    <section id="journal" class="journal">
+        <div class="container">
+            <div class="section-heading">
+                <p class="section-kicker">UNA Editorial</p>
+                <h2 class="section-title">Сэтгүүл</h2>
+                <p class="section-subtitle">Тавилга, дизайн, интерьерийн урлагийн тухай гүнзгий нийтлэлүүд.</p>
+            </div>
+
+            <div class="journal-grid">
+                <!-- Featured Article -->
+                <div class="journal-featured">
+                    <div class="journal-img-wrapper">
+                        <img src="assets/article/article minimalizm.webp"
+                             alt="Орчин үеийн минимализм"
+                             loading="lazy">
+                    </div>
+                    <div class="journal-content">
+                        <span class="journal-category">Интерьер дизайн</span>
+                        <h3>Тайван орон зай: Орчин үеийн минимализмын гоо үзэсгэлэн</h3>
+                        <p>Тавилга нь зөвхөн хэрэглэлийн зүйл биш — энэ бол таны гэрийн сэтгэл хөдлөлийн тусгал. Цэвэр шугам, байгалийн материал, болгоомжтой орон зайн зохион байгуулалтаар хэрхэн тайван, тансаг дотно орчин бий болгох тухай.</p>
+                        <a href="#" class="journal-read-more" data-journal-open="minimalism">Дэлгэрэнгүй унших <i class="fas fa-arrow-right"></i></a>
+                    </div>
+                </div>
+
+                <!-- Side Articles -->
+                <div class="journal-side">
+                    <div class="journal-card">
+                        <div class="journal-img-wrapper">
+                            <img src="assets/article/article lightning.jpg" alt="Гэрэлтүүлэг" loading="lazy">
+                        </div>
+                        <div class="journal-content">
+                            <span class="journal-category">Гэрэлтүүлэг</span>
+                            <h3>Зөв гэрэлтүүлэг таны орон зайг хэрхэн өөрчлөх вэ</h3>
+                            <a href="#" class="journal-read-more" data-journal-open="lighting">Унших <i class="fas fa-arrow-right"></i></a>
+                        </div>
+                    </div>
+
+                    <div class="journal-card">
+                        <div class="journal-img-wrapper">
+                            <img src="assets/article/article.jpg" alt="Захиалгат тавилга" loading="lazy">
+                        </div>
+                        <div class="journal-content">
+                            <span class="journal-category">Захиалгат шийдэл</span>
+                            <h3>Захиалгат тавилга: Таны хэмжээ, таны хэв маяг</h3>
+                            <a href="#" class="journal-read-more" data-journal-open="custom">Унших <i class="fas fa-arrow-right"></i></a>
+                        </div>
+                    </div>
+
+                    <div class="journal-card">
+                        <div class="journal-img-wrapper">
+                            <img src="assets/article/article autm.jpg" alt="Намрын загвар" loading="lazy">
+                        </div>
+                        <div class="journal-content">
+                            <span class="journal-category">Цаг улирал</span>
+                            <h3>Намрын дулаан өнгө тонуудыг гэртээ хэрхэн авчрах вэ</h3>
+                            <a href="#" class="journal-read-more" data-journal-open="autumn">Унших <i class="fas fa-arrow-right"></i></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Article Modal -->
+            <div class="journal-modal" id="journalModal" aria-hidden="true">
+                <div class="journal-modal-overlay" data-journal-close></div>
+                <article class="journal-modal-panel" role="dialog" aria-modal="true" aria-labelledby="journalModalTitle">
+                    <button class="journal-modal-close" type="button" data-journal-close aria-label="Хаах">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <div class="journal-modal-image">
+                        <img id="journalModalImage" src="" alt="">
+                    </div>
+                    <div class="journal-modal-body">
+                        <span class="journal-category" id="journalModalCategory"></span>
+                        <h2 id="journalModalTitle"></h2>
+                        <div class="journal-modal-meta" id="journalModalMeta"></div>
+                        <div class="journal-modal-content" id="journalModalContent"></div>
+                    </div>
+                </article>
+            </div>
+            <script>
+                (function() {
+                    const ARTICLES = {
+                        minimalism: {
+                            category: 'Интерьер дизайн',
+                            title: 'Тайван орон зай: Орчин үеийн минимализмын гоо үзэсгэлэн',
+                            image: 'assets/article/article minimalizm.webp',
+                            meta: 'UNA Editorial · 8 минут унших',
+                            content: `
+                                <p>Минимализм гэдэг нь зөвхөн хоосон цагаан хана, цөөн тоног төхөөрөмж биш. Энэ бол гэрийн орон зайдаа жинхэнэ үнэ цэнэтэй зүйлээ үлдээж, илүүцийг тайван халах урлаг юм.</p>
+                                <h3>1. Бүх зүйлд зориулалт байх</h3>
+                                <p>Минималист гэр бүхэн өрөөнд орших зүйл бүрд тодорхой зориулалт байдаг. Орчин үеийн царс ширээ нь зөвхөн хэрэглээний зүйл биш — өрөөний шугаман зохион байгуулалтын төв, гэр бүл, найз нөхөдтэйгээ цуглах гол байр болдог.</p>
+                                <h3>2. Гэрэл, орон зай, агаар</h3>
+                                <p>Тавилгыг сонгохдоо тэр нь өрөөнд "амьсгалах" зай үлдээж байна уу гэдгийг бод. Хана дагуу шахсан биш, зориудаар бага зайтай байрлуулсан тавилга гэр илүү тайван, өргөн санагдуулдаг.</p>
+                                <h3>3. Байгалийн материал — урт удаан настай гоо</h3>
+                                <p>Хатуу мод, ноосон даавуу, цэвэр зэс — эдгээр материалууд цаг хугацаа өнгөрөх тутам илүү гоё болдог. Хямд хуванцар тавилгыг 2 жилийн дотор сольдог бол, чанартай царс ширээг 30 жил хэрэглэж, дараа нь хүүхдэд өвлүүлж болно.</p>
+                                <h3>4. Өнгөний гурвалжин: ган, цагаан, алт</h3>
+                                <p>Хүйтэн ган саарал, дулаан цагаан, гялалзсан алтан өнгийг хольж хэрэглэх нь — орчин үеийн минимализмын гарын үсэг. Хэт олон өнгөнөөс зайлсхий, 3-4 өнгөн дотор багтаах нь оптимал.</p>
+                                <p><strong>Эцсийн санаа.</strong> Минимализм бол хомсдол биш — сайтар бодсон илүү зүйл юм. UNA-ийн цуглуулга нь яг ийм гүн ухаанаар бүтээгдсэн.</p>
+                            `
+                        },
+                        lighting: {
+                            category: 'Гэрэлтүүлэг',
+                            title: 'Зөв гэрэлтүүлэг таны орон зайг хэрхэн өөрчлөх вэ',
+                            image: 'assets/article/article lightning.jpg',
+                            meta: 'UNA Editorial · 6 минут унших',
+                            content: `
+                                <p>Гэрэлтүүлэг бол интерьерийн "далд тавилга". Орон зайн сэтгэл хөдлөл, өргөн жижиг, дулаан хүйтэн зэргийг бүрэн өөрчилж чаддаг.</p>
+                                <h3>Гурван давхар гэрлийн арга</h3>
+                                <p>Мэргэжлийн дизайнерууд өрөөг үргэлж <strong>3 давхар</strong> гэрэлтүүлгээр зохион байгуулдаг:</p>
+                                <ul>
+                                    <li><strong>Ерөнхий гэрэл</strong> — таазны гол лааны, өрөөг бүхэлд нь гэрэлтүүлэх.</li>
+                                    <li><strong>Үйлдлийн гэрэл</strong> — ширээний дэнлүү, унших булангийн стандарт лааны.</li>
+                                    <li><strong>Сэтгэл хөдлөлийн гэрэл</strong> — хана дээрх жижиг lights, лааны бамбар, орчин үүсгэх зориулалттай.</li>
+                                </ul>
+                                <h3>Дулаан температур (Кельвин) сонголт</h3>
+                                <p>Унтлагын өрөө, зочны өрөөнд <strong>2700K-3000K</strong> (дулаан цагаан) сонго. Гал тогоо, ажлын өрөөнд <strong>3500K-4000K</strong> (саармаг цагаан). Хэт хүйтэн 5000K+ нь эмнэлэг, оффис мэт сэтгэгдэл өгдөг.</p>
+                                <h3>Гүүлэн (brass) — мөнхийн материал</h3>
+                                <p>UNA-ийн гүүлэн дэнлүү, гэрэлтүүлгийн цуглуулга нь Италийн гар хийцийн уламжлалаас санаа авч, нэг ширхэг бүр гараар өнгөлсөн. Цаг хугацаа өнгөрөх тутам patina үүсч, илүү тансаг харагддаг.</p>
+                            `
+                        },
+                        custom: {
+                            category: 'Захиалгат шийдэл',
+                            title: 'Захиалгат тавилга: Таны хэмжээ, таны хэв маяг',
+                            image: 'assets/article/article.jpg',
+                            meta: 'UNA Editorial · 7 минут унших',
+                            content: `
+                                <p>Гэр бүр өвөрмөц. Стандарт хэмжээний тавилга бүх хүний хэрэгцээнд тохирдоггүй — энд л захиалгат тавилгын урлаг гарч ирдэг.</p>
+                                <h3>Яагаад захиалгат тавилга?</h3>
+                                <p>Хэрэв танай гэрт стандарт хэмжээний шүүгээ багтахгүй байгаа, эсвэл тааз хэт өндөр / нам, эсвэл өрөөний хэлбэр ер бусын бол — захиалгат шийдэл бол ганц зөв сонголт.</p>
+                                <h3>UNA-ийн захиалгын процесс</h3>
+                                <ol>
+                                    <li><strong>Анхны зөвлөгөө (үнэгүй)</strong> — манай дизайнер танайд очиж хэмжилт хийж, хэрэгцээг сонсоно.</li>
+                                    <li><strong>3D загвар</strong> — 3-5 хоногийн дотор бид виртуал загвар бэлтгэж танд харуулна.</li>
+                                    <li><strong>Материалын дээж</strong> — мод, даавуу, өнгөний дээжийг танд хүргэж, бодит мэдрэмжээ туршина.</li>
+                                    <li><strong>Үйлдвэрлэл</strong> — Дархан хотын манай мастеруудын гар хийц 4-8 долоо хоног.</li>
+                                    <li><strong>Угсралт хүргэлт</strong> — манай угсралтын баг танай гэрт ирж, бүх зүйлийг суурилуулна.</li>
+                                </ol>
+                                <h3>Хязгааргүй боломжууд</h3>
+                                <p>Гэрийн ном санг шатны доор багтаах, төв арлыг зориулалтын дагуу бэлтгэх, өрөөний өнцгийн нарийн орон зайд тохирсон шүүгээ — захиалгат тавилгын ертөнц хязгааргүй.</p>
+                            `
+                        },
+                        autumn: {
+                            category: 'Цаг улирал',
+                            title: 'Намрын дулаан өнгө тонуудыг гэртээ хэрхэн авчрах вэ',
+                            image: 'assets/article/article autm.jpg',
+                            meta: 'UNA Editorial · 5 минут унших',
+                            content: `
+                                <p>Намар бол гэрт орох, дулаан зөөлөн орон зай үүсгэх жилийн хамгийн сайхан цаг. Ердөө хэдхэн чухал өөрчлөлтөөр гэрээ улирлын сэтгэл хөдлөлд оруулж болно.</p>
+                                <h3>1. Дулаан өнгөний палитр</h3>
+                                <p><strong>Шавар улаан, иддэгчиний шар, мөөгний хүрэн, царс ногоон</strong> — намрын ангилалын хамгийн чухал 4 өнгө. Эдгээрийг хана будаагүйгээр, зөвхөн дэрний бүрхүүл, хивс, хөнжлөөр гэрт авчирч болно.</p>
+                                <h3>2. Текстиль давхарга</h3>
+                                <p>Зочны буйдан дээрээ ноосон хөнжил, гар нэхмэл хивс, амралтын дэр нэмэх нь өрөөг шууд "өвөл-намрын" горимд оруулна. UNA-ийн "Luva" ноосон хөнжил, "Ger" гар нэхмэл хивс яг ийм зориулалтаар бүтсэн.</p>
+                                <h3>3. Лаа болон гэрэлтүүлэг</h3>
+                                <p>Намар орой эрт болоход дулаан гэрэлтүүлэг чухал болдог. Лаа, шалны дэнлүү, ширээний жижиг lights — эдгээр нь өрөөнд "amber" аяс өгнө.</p>
+                                <h3>4. Байгалийн чимэглэл</h3>
+                                <p>Хатсан зэгс, царс модны мөчир, нарны цэцгийн үрэн чимэглэл — энэ бол хямд бөгөөд гоо үзэсгэлэнтэй намрын touch.</p>
+                                <p><strong>UNA-ийн санал.</strong> Энэ намар манай цуглуулгаас 3 зүйл сонго: ноосон хөнжил, шавар лааны суурь, нэг гар нэхмэл хивс. Гэр чинь өөр болж харагдана.</p>
+                            `
+                        }
+                    };
+
+                    const modal = document.getElementById('journalModal');
+                    const modalImage = document.getElementById('journalModalImage');
+                    const modalCategory = document.getElementById('journalModalCategory');
+                    const modalTitle = document.getElementById('journalModalTitle');
+                    const modalMeta = document.getElementById('journalModalMeta');
+                    const modalContent = document.getElementById('journalModalContent');
+                    const panel = modal && modal.querySelector('.journal-modal-panel');
+
+                    function openArticle(key) {
+                        const article = ARTICLES[key];
+                        if (!article || !modal) return;
+                        modalImage.src = article.image;
+                        modalImage.alt = article.title;
+                        modalCategory.textContent = article.category;
+                        modalTitle.textContent = article.title;
+                        modalMeta.textContent = article.meta;
+                        modalContent.innerHTML = article.content;
+                        modal.classList.add('open');
+                        modal.setAttribute('aria-hidden', 'false');
+                        document.body.style.overflow = 'hidden';
+                        if (panel) panel.scrollTop = 0;
+                    }
+
+                    function closeArticle() {
+                        if (!modal) return;
+                        modal.classList.remove('open');
+                        modal.setAttribute('aria-hidden', 'true');
+                        document.body.style.overflow = '';
+                    }
+
+                    document.addEventListener('click', (e) => {
+                        const trigger = e.target.closest('[data-journal-open]');
+                        if (trigger) {
+                            e.preventDefault();
+                            openArticle(trigger.dataset.journalOpen);
+                            return;
+                        }
+                        if (e.target.closest('[data-journal-close]')) {
+                            closeArticle();
+                        }
+                    });
+
+                    document.addEventListener('keydown', (e) => {
+                        if (e.key === 'Escape' && modal && modal.classList.contains('open')) {
+                            closeArticle();
+                        }
+                    });
+                })();
+            </script>
+        </div>
+    </section>
+
     <section id="contact" class="contact">
         <div class="container">
             <div class="section-heading">
@@ -225,7 +449,7 @@
                         <i class="fas fa-phone"></i>
                         <div>
                             <h4>Утас</h4>
-                            <p data-contact-phone data-fallback="Утасны мэдээлэл удахгүй шинэчлэгдэнэ">Утасны мэдээлэл удахгүй шинэчлэгдэнэ</p>
+                            <p data-contact-phone data-fallback="+976 5055 2919">+976 5055 2919</p>
                         </div>
                     </div>
 
@@ -233,7 +457,7 @@
                         <i class="fas fa-envelope"></i>
                         <div>
                             <h4>И-мэйл</h4>
-                            <p data-contact-email data-fallback="hello@unafurniture.com">hello@unafurniture.com</p>
+                            <p data-contact-email data-fallback="una.furniture@outlook.com"><a href="mailto:una.furniture@outlook.com">una.furniture@outlook.com</a></p>
                         </div>
                     </div>
 
@@ -279,7 +503,7 @@
         <div class="container">
             <div class="footer-layout">
                 <div class="footer-brand">
-                    <img class="footer-logo-img" src="assets/logo/new-logo.png" alt="UNA Furniture Logo" onerror="this.hidden=true;this.nextElementSibling.classList.add('logo-fallback-visible');">
+                    <img class="footer-logo-img" src="assets/logo/logo-dark.png" alt="UNA Furniture Logo" onerror="this.hidden=true;this.nextElementSibling.classList.add('logo-fallback-visible');">
                     <span class="logo-fallback">UNA Home & Furniture</span>
                     <p>Таны гэрт дулаан уур амьсгал, өдөр бүрийн тав тух, цэвэр загварыг авчрах тавилгын сонголт.</p>
                 </div>
@@ -301,8 +525,9 @@
                 </div>
 
                 <div class="footer-contact">
-                    <h3>Холбоо</h3>
-                    <p>hello@unafurniture.com</p>
+                    <h3>Холбоо барих</h3>
+                    <p><a href="tel:+97650552919">+976 5055 2919</a></p>
+<p>una.furniture@outlook.com</p>
                     <p>Улаанбаатар, Монгол Улс</p>
                     <div class="social-links" aria-label="Сошиал холбоос">
                         <a href="#" aria-label="Facebook"><i class="fab fa-facebook"></i></a>
